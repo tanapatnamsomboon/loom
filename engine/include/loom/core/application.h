@@ -1,6 +1,6 @@
 #pragma once
 
-#include "loom/core.h"
+#include "core.h"
 
 namespace Loom {
 

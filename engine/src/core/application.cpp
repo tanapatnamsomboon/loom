@@ -1,4 +1,4 @@
-#include "loom/application.h"
+#include "../../include/loom/core/application.h"
 #include <iostream>
 
 namespace Loom {

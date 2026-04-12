@@ -1,4 +1,4 @@
-#include <loom/application.h>
+#include <loom/core/application.h>
 
 int main() {
     Loom::Application app;
