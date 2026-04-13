@@ -15,3 +15,5 @@
 #else
 #   error "Loom Engine only supports Windows and Linux!"
 #endif
+
+#define BIT(x) (1 << x)
