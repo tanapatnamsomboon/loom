@@ -31,6 +31,8 @@ namespace Loom {
 
     class ENGINE_API Event {
     public:
+        virtual ~Event() = default;
+
         bool mHandled = false;
 
         virtual EventType GetEventType() const = 0;
