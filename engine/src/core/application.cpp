@@ -1,4 +1,5 @@
-#include "../../include/loom/core/application.h"
+#include "loom/core/application.h"
+#include "loom/core/log.h"
 #include <iostream>
 
 namespace Loom {
@@ -6,6 +7,7 @@ namespace Loom {
     Application::~Application() {}
 
     void Application::Run() {
-        std::cout << "Engine is successfully running and linked!" << std::endl;
+        LOOM_CORE_INFO("Engine is running!");
+        LOOM_CORE_WARN("This is a core warning test.");
     }
 } // namespace Loom
