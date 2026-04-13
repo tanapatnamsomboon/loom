@@ -11,9 +11,17 @@ add_library(Loom SHARED
   include/loom/events/mouse_event.h
   src/core/application.cpp
   src/core/log.cpp
+  src/platform/linux/linux_window.h
+  src/platform/linux/linux_window.cpp
 )
 
-target_include_directories(Loom PUBLIC include)
+target_include_directories(Loom
+  PUBLIC
+    include
+  PRIVATE
+    src
+)
+
 target_compile_definitions(Loom PRIVATE ENGINE_BUILD_DLL)
 
-target_link_libraries(Loom PUBLIC spdlog)
+target_link_libraries(Loom PUBLIC spdlog glfw)

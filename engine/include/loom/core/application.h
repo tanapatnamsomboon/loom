@@ -1,6 +1,7 @@
 #pragma once
 
-#include "core.h"
+#include "loom/core/window.h"
+#include <memory>
 
 namespace Loom {
 
@@ -9,6 +10,10 @@ namespace Loom {
         Application();
         virtual ~Application();
         void Run();
+
+    private:
+        std::unique_ptr<Window> mWindow;
+        bool mRunning = true;
     };
 
 } // namespace Loom
