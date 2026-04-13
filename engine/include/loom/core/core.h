@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #ifdef _WIN32
 #   ifdef ENGINE_BUILD_DLL
 #       define ENGINE_API __declspec(dllexport)
@@ -17,3 +19,5 @@
 #endif
 
 #define BIT(x) (1 << x)
+
+#define LOOM_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)
