@@ -4,6 +4,7 @@ add_library(Loom SHARED
   include/loom/core/application.h
   include/loom/core/core.h
   include/loom/core/log.h
+  include/loom/core/window.h
   include/loom/events/application_event.h
   include/loom/events/event.h
   include/loom/events/key_event.h

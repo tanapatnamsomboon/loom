@@ -12,7 +12,7 @@ namespace Loom {
         EVENT_CLASS_CATEGORY(EventCategoryKeyboard | EventCategoryInput)
 
     protected:
-        explicit KeyEvent(int keycode) : mKeyCode(keycode) {}
+        KeyEvent(int keycode) : mKeyCode(keycode) {}
 
         int mKeyCode;
     };
@@ -38,7 +38,7 @@ namespace Loom {
 
     class ENGINE_API KeyReleasedEvent : public KeyEvent {
     public:
-        explicit KeyReleasedEvent(int keycode) : KeyEvent(keycode) {}
+        KeyReleasedEvent(int keycode) : KeyEvent(keycode) {}
 
         std::string ToString() const override {
             std::stringstream ss;
