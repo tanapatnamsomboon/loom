@@ -3,6 +3,7 @@ project(Loom)
 add_library(Loom SHARED
   include/loom/core/application.h
   include/loom/core/core.h
+  include/loom/core/input.h
   include/loom/core/log.h
   include/loom/core/window.h
   include/loom/events/application_event.h
@@ -11,6 +12,8 @@ add_library(Loom SHARED
   include/loom/events/mouse_event.h
   src/core/application.cpp
   src/core/log.cpp
+  src/platform/linux/linux_input.h
+  src/platform/linux/linux_input.cpp
   src/platform/linux/linux_window.h
   src/platform/linux/linux_window.cpp
 )

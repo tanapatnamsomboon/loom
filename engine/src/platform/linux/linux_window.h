@@ -19,6 +19,8 @@ namespace Loom {
         void SetVSync(bool enabled) override;
         bool IsVSync() const override;
 
+        void* GetNativeWindow() const override { return mWindow; }
+
     private:
         void Init(const WindowProps& props);
         void Shutdown();

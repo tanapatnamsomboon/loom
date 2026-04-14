@@ -10,9 +10,12 @@ namespace Loom {
     public:
         Application();
         virtual ~Application();
-        void Run();
 
+        void Run();
         void OnEvent(Event& event);
+
+        Window& GetWindow() { return *mWindow; }
+        static Application& Get() { return *sInstance; }
 
     private:
         bool OnWindowClose(WindowCloseEvent& event);
@@ -20,6 +23,8 @@ namespace Loom {
     private:
         std::unique_ptr<Window> mWindow;
         bool mRunning = true;
+
+        static Application* sInstance;
     };
 
 } // namespace Loom
