@@ -5,7 +5,7 @@
 
 namespace Loom {
 
-    class ENGINE_API MouseMovedEvent : public Event {
+    class LOOM_API MouseMovedEvent : public Event {
     public:
         MouseMovedEvent(float x, float y) : mMouseX(x), mMouseY(y) {}
 
@@ -25,7 +25,7 @@ namespace Loom {
         float mMouseX, mMouseY;
     };
 
-    class ENGINE_API MouseScrolledEvent : public Event {
+    class LOOM_API MouseScrolledEvent : public Event {
     public:
         MouseScrolledEvent(float xOffset, float yOffset)
             : mXOffset(xOffset), mYOffset(yOffset) {}

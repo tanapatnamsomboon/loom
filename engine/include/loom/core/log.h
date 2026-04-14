@@ -6,7 +6,7 @@
 
 namespace Loom {
 
-    class ENGINE_API Log {
+    class LOOM_API Log {
     public:
         static void Init();
 

@@ -18,7 +18,7 @@ namespace Loom {
             : Title(title), Width(width), Height(height) {}
     };
 
-    class ENGINE_API Window {
+    class LOOM_API Window {
     public:
         using EventCallbackFn = std::function<void(Event&)>;
 

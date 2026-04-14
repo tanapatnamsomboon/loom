@@ -5,7 +5,7 @@
 
 namespace Loom {
 
-    class ENGINE_API Input {
+    class LOOM_API Input {
     public:
         virtual ~Input() = default;
 

@@ -29,7 +29,7 @@ namespace Loom {
 
 #   define EVENT_CLASS_CATEGORY(category) virtual int GetCategoryFlags() const override { return category; }
 
-    class ENGINE_API Event {
+    class LOOM_API Event {
     public:
         virtual ~Event() = default;
 

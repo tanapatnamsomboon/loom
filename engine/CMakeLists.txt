@@ -1,22 +1,23 @@
 project(Loom)
 
-add_library(Loom SHARED
-  include/loom/core/application.h
-  include/loom/core/core.h
-  include/loom/core/input.h
-  include/loom/core/log.h
-  include/loom/core/window.h
-  include/loom/events/application_event.h
-  include/loom/events/event.h
-  include/loom/events/key_event.h
-  include/loom/events/mouse_event.h
+set(ENGINE_SOURCES
   src/core/application.cpp
   src/core/log.cpp
-  src/platform/linux/linux_input.h
-  src/platform/linux/linux_input.cpp
-  src/platform/linux/linux_window.h
-  src/platform/linux/linux_window.cpp
+  src/core/window.cpp
 )
+
+if (WIN32)
+  list(APPEND ENGINE_SOURCES
+    src/platform/windows/windows_window.cpp
+  )
+elseif(UNIX AND NOT APPLE)
+  list(APPEND ENGINE_SOURCES
+    src/platform/linux/linux_window.cpp
+    src/platform/linux/linux_input.cpp
+  )
+endif()
+
+add_library(Loom SHARED ${ENGINE_SOURCES})
 
 target_include_directories(Loom
   PUBLIC
@@ -25,6 +26,11 @@ target_include_directories(Loom
     src
 )
 
-target_compile_definitions(Loom PRIVATE ENGINE_BUILD_DLL)
+target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
 
-target_link_libraries(Loom PUBLIC spdlog glfw)
+if (WIN32)
+  target_link_libraries(Loom PUBLIC spdlog)
+  target_compile_definitions(Loom PUBLIC _UNICODE UNICODE)
+else()
+  target_link_libraries(Loom PUBLIC spdlog glfw)
+endif()

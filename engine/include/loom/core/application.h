@@ -6,7 +6,7 @@
 
 namespace Loom {
 
-    class ENGINE_API Application {
+    class LOOM_API Application {
     public:
         Application();
         virtual ~Application();

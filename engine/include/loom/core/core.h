@@ -1,23 +1,24 @@
 #pragma once
 
-#include <functional>
-
 #ifdef _WIN32
-#   ifdef ENGINE_BUILD_DLL
-#       define ENGINE_API __declspec(dllexport)
+#   define LOOM_PLATFORM_WINDOWS
+#   ifdef LOOM_BUILD_DLL
+#       define LOOM_API __declspec(dllexport)
 #   else
-#       define ENGINE_API __declspec(dllimport)
+#       define LOOM_API __declspec(dllimport)
 #   endif
 #elif defined(__linux__)
-#   ifdef ENGINE_BUILD_DLL
-#       define ENGINE_API __attribute__((visibility("default")))
+#   define LOOM_PLATFORM_LINUX
+#   ifdef LOOM_BUILD_DLL
+#       define LOOM_API __attribute__((visibility("default")))
 #   else
-#       define ENGINE_API
+#       define LOOM_API
 #   endif
 #else
 #   error "Loom Engine only supports Windows and Linux!"
 #endif
 
-#define BIT(x) (1 << x)
+#include <functional>
 
+#define BIT(x) (1 << x)
 #define LOOM_BIND_EVENT_FN(fn) [this](auto&& event) { return fn(std::forward<decltype(event)>(event)); }

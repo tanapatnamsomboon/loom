@@ -7,21 +7,21 @@ namespace Loom {
     Input* Input::sInstance = new LinuxInput();
 
     bool LinuxInput::IsKeyPressedImpl(int keycode) {
-        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-        auto state = glfwGetKey(window, keycode);
+        auto pWindow = (GLFWwindow*)Application::Get().GetWindow().GetNativeWindow();
+        auto state = glfwGetKey(pWindow, keycode);
         return state == GLFW_PRESS || state == GLFW_REPEAT;
     }
 
     bool LinuxInput::IsMouseButtonPressedImpl(int button) {
-        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-        auto state = glfwGetMouseButton(window, button);
+        auto pWindow = (GLFWwindow*)Application::Get().GetWindow().GetNativeWindow();
+        auto state = glfwGetMouseButton(pWindow, button);
         return state == GLFW_PRESS;
     }
 
     std::pair<float, float> LinuxInput::GetMousePositionImpl() {
-        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+        auto pWindow = (GLFWwindow*)Application::Get().GetWindow().GetNativeWindow();
         double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
+        glfwGetCursorPos(pWindow, &xpos, &ypos);
         return { (float)xpos, (float)ypos };
     }
 

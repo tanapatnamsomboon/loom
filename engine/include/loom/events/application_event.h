@@ -5,7 +5,7 @@
 
 namespace Loom {
 
-    class ENGINE_API WindowResizeEvent : public Event {
+    class LOOM_API WindowResizeEvent : public Event {
     public:
         WindowResizeEvent(unsigned int width, unsigned int height)
             : mWidth(width), mHeight(height) {}
@@ -26,7 +26,7 @@ namespace Loom {
         unsigned int mWidth, mHeight;
     };
 
-    class ENGINE_API WindowCloseEvent : public Event {
+    class LOOM_API WindowCloseEvent : public Event {
     public:
         WindowCloseEvent() = default;
 
