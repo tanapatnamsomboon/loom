@@ -19,5 +19,7 @@ set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "")
 set(GLFW_INSTALL OFF CACHE INTERNAL "")
 add_subdirectory(vendor/glfw)
 
+add_subdirectory(vendor/glad)
+
 add_subdirectory(engine)
 add_subdirectory(sandbox)

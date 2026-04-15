@@ -32,8 +32,8 @@ target_include_directories(Loom
 target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
 
 if (WIN32)
-  target_link_libraries(Loom PUBLIC spdlog)
+  target_link_libraries(Loom PUBLIC spdlog glad)
   target_compile_definitions(Loom PUBLIC _UNICODE UNICODE)
 else()
-  target_link_libraries(Loom PUBLIC spdlog glfw)
+  target_link_libraries(Loom PUBLIC spdlog glfw glad)
 endif()
