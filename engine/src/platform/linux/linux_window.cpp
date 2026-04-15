@@ -1,4 +1,5 @@
 #include "platform/linux/linux_window.h"
+#include "platform/opengl/opengl_context.h"
 #include "loom/core/log.h"
 #include "loom/events/application_event.h"
 #include "loom/events/mouse_event.h"
@@ -18,7 +19,7 @@ namespace Loom {
 
     void LinuxWindow::OnUpdate() {
         glfwPollEvents();
-        glfwSwapBuffers(mWindow);
+        mContext->SwapBuffers();
     }
 
     void LinuxWindow::SetVSync(bool enabled) {
@@ -47,7 +48,8 @@ namespace Loom {
         }
 
         mWindow = glfwCreateWindow((int)props.Width, (int)props.Height, mData.Title.c_str(), nullptr, nullptr);
-        glfwMakeContextCurrent(mWindow);
+        mContext = new OpenGLContext(mWindow);
+        mContext->Init();
         glfwSetWindowUserPointer(mWindow, &mData);
         SetVSync(true);
 
