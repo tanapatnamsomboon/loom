@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/window.h"
+#include "loom/renderer/graphics_context.h"
 #include <Windows.h>
 
 namespace Loom {
@@ -34,6 +35,7 @@ namespace Loom {
     private:
         HWND mHWND;
         HINSTANCE mHInstance;
+        GraphicsContext* mContext;
         WindowData mData;
     };
 

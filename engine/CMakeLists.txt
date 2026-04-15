@@ -10,6 +10,7 @@ set(ENGINE_SOURCES
 
 if (WIN32)
   list(APPEND ENGINE_SOURCES
+    src/platform/opengl/opengl_context.cpp
     src/platform/windows/windows_input.cpp
     src/platform/windows/windows_window.cpp
   )
@@ -32,7 +33,7 @@ target_include_directories(Loom
 target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
 
 if (WIN32)
-  target_link_libraries(Loom PUBLIC spdlog glad)
+  target_link_libraries(Loom PUBLIC spdlog glad opengl32)
   target_compile_definitions(Loom PUBLIC _UNICODE UNICODE)
 else()
   target_link_libraries(Loom PUBLIC spdlog glfw glad)

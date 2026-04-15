@@ -1,4 +1,5 @@
 #include "platform/windows/windows_window.h"
+#include "platform/opengl/opengl_context.h"
 #include "loom/core/log.h"
 #include "loom/events/application_event.h"
 #include "loom/events/key_event.h"
@@ -154,6 +155,10 @@ namespace Loom {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
+
+        if (mContext) {
+            mContext->SwapBuffers();
+        }
     }
 
     void WindowsWindow::SetVSync(bool enabled) {
@@ -192,6 +197,9 @@ namespace Loom {
         );
 
         SetWindowLongPtrW(mHWND, GWLP_USERDATA, (LONG_PTR)&mData);
+
+        mContext = new OpenGLContext(mHWND);
+        mContext->Init();
     }
 
     void WindowsWindow::Shutdown() {
