@@ -46,4 +46,43 @@ namespace Loom {
         float mXOffset, mYOffset;
     };
 
+    class LOOM_API MouseButtonEvent : public Event {
+    public:
+        int GetMouseButton() const { return mButton; }
+
+        EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
+
+    protected:
+        MouseButtonEvent(int button) : mButton(button) {}
+
+    protected:
+        int mButton;
+    };
+
+    class LOOM_API MouseButtonPressedEvent : public MouseButtonEvent {
+    public:
+        MouseButtonPressedEvent(int button) : MouseButtonEvent(button) {}
+
+        std::string ToString() const override {
+            std::stringstream ss;
+            ss << "MouseButtonPressedEvent: " << mButton;
+            return ss.str();
+        }
+
+        EVENT_CLASS_TYPE(MouseButtonPressed)
+    };
+
+    class LOOM_API MouseButtonReleasedEvent : public MouseButtonEvent {
+    public:
+        MouseButtonReleasedEvent(int button) : MouseButtonEvent(button) {}
+
+        std::string ToString() const override {
+            std::stringstream ss;
+            ss << "MouseButtonReleasedEvent: " << mButton;
+            return ss.str();
+        }
+
+        EVENT_CLASS_TYPE(MouseButtonReleased)
+    };
+
 } // namespace Loom

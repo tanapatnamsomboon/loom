@@ -34,4 +34,41 @@ namespace Loom {
         EVENT_CLASS_CATEGORY(EventCategoryApplication)
     };
 
+    class WindowMovedEvent : public Event {
+    public:
+        WindowMovedEvent(int x, int y)
+            : mWindowX(x), mWindowY(y) {}
+
+        int GetX() const { return mWindowX; }
+        int GetY() const { return mWindowY; }
+
+        std::string ToString() const override {
+            std::stringstream ss;
+            ss << "WindowMovedEvent: " << mWindowX << ", " << mWindowY;
+            return ss.str();
+        }
+
+        EVENT_CLASS_TYPE(WindowMoved)
+        EVENT_CLASS_CATEGORY(EventCategoryApplication)
+
+    private:
+        int mWindowX, mWindowY;
+    };
+
+    class WindowFocusEvent : public Event {
+    public:
+        WindowFocusEvent() = default;
+
+        EVENT_CLASS_TYPE(WindowFocus)
+        EVENT_CLASS_CATEGORY(EventCategoryApplication)
+    };
+
+    class WindowLostFocusEvent : public Event {
+    public:
+        WindowLostFocusEvent() = default;
+
+        EVENT_CLASS_TYPE(WindowLostFocus)
+        EVENT_CLASS_CATEGORY(EventCategoryApplication)
+    };
+
 } // namespace Loom
