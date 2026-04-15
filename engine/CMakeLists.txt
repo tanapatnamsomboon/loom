@@ -6,11 +6,14 @@ set(ENGINE_SOURCES
   src/core/layer_stack.cpp
   src/core/log.cpp
   src/core/window.cpp
+  src/renderer/render_command.cpp
+  src/renderer/renderer_api.cpp
 )
 
 if (WIN32)
   list(APPEND ENGINE_SOURCES
     src/platform/opengl/opengl_context.cpp
+    src/platform/opengl/opengl_renderer_api.cpp
     src/platform/windows/windows_input.cpp
     src/platform/windows/windows_window.cpp
   )
