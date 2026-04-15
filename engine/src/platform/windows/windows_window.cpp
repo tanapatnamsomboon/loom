@@ -1,6 +1,9 @@
 #include "platform/windows/windows_window.h"
 #include "loom/core/log.h"
 #include "loom/events/application_event.h"
+#include "loom/events/key_event.h"
+#include "loom/events/mouse_event.h"
+#include <Windowsx.h>
 
 namespace Loom {
 
@@ -13,19 +16,115 @@ namespace Loom {
     }
 
     LRESULT CALLBACK LoomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-        WindowsWindow::WindowData* pData = (WindowsWindow::WindowData*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+        WindowsWindow::WindowData* data = (WindowsWindow::WindowData*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
 
         switch (msg) {
+            case WM_DESTROY: {
+                PostQuitMessage(0);
+                break;
+            }
             case WM_CLOSE: {
-                if (pData) {
+                if (data) {
                     WindowCloseEvent event;
-                    pData->EventCallback(event);
+                    data->EventCallback(event);
                 }
                 return 0;
             }
-            case WM_DESTROY: {
-                PostQuitMessage(0);
+            case WM_SIZE: {
+                if (data) {
+                    UINT width = LOWORD(lParam);
+                    UINT height = HIWORD(lParam);
+                    WindowResizeEvent event(width, height);
+                    data->EventCallback(event);
+                }
                 return 0;
+            }
+            case WM_SETFOCUS: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_KILLFOCUS: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_MOVE: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_KEYDOWN:
+            case WM_SYSKEYDOWN: {
+                if (data) {
+                    int keycode = (int)wParam;
+                    int repeat_count = lParam & 0xFFFF;
+                    KeyPressedEvent event(keycode, repeat_count);
+                    data->EventCallback(event);
+                }
+                break;
+            }
+            case WM_KEYUP:
+            case WM_SYSKEYUP: {
+                if (data) {
+                    int keycode = (int)wParam;
+                    KeyReleasedEvent event(keycode);
+                    data->EventCallback(event);
+                }
+                break;
+            }
+            case WM_CHAR: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_LBUTTONDOWN: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_MBUTTONDOWN: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_RBUTTONDOWN: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_LBUTTONUP: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_MBUTTONUP: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_RBUTTONUP: {
+                if (data) {
+                }
+                break;
+            }
+            case WM_MOUSEMOVE: {
+                if (data) {
+                    int xpos = GET_X_LPARAM(lParam);
+                    int ypos = GET_Y_LPARAM(lParam);
+                    MouseMovedEvent event(xpos, ypos);
+                    data->EventCallback(event);
+                }
+                break;
+            }
+            case WM_MOUSEWHEEL: {
+                if (data) {
+                    int xoffset = GET_X_LPARAM(lParam);
+                    int yoffset = GET_Y_LPARAM(lParam);
+                    MouseScrolledEvent event(xoffset, yoffset);
+                    data->EventCallback(event);
+                }
+                break;
             }
             default: break;
         }
