@@ -19,7 +19,7 @@ namespace Loom {
         while (mRunning) {
             mWindow->OnUpdate();
 
-            if (Input::IsKeyPressed(65)) {
+            if (Input::IsKeyPressed('A')) {
                 LOOM_CORE_TRACE("A Key is Polled! Mouse Pos: ({0}, {1})", Input::GetMouseX(), Input::GetMouseY());
             }
         }

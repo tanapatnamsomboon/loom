@@ -5,7 +5,7 @@
 
 namespace Loom {
 
-    class LOOM_API KeyEvent : public Event {
+    class KeyEvent : public Event {
     public:
         int GetKeyCode() const { return mKeyCode; }
 
@@ -17,7 +17,7 @@ namespace Loom {
         int mKeyCode;
     };
 
-    class LOOM_API KeyPressedEvent : public KeyEvent {
+    class KeyPressedEvent : public KeyEvent {
     public:
         KeyPressedEvent(int keycode, int repeatCount)
             : KeyEvent(keycode), mRepeatCount(repeatCount) {}
@@ -36,7 +36,7 @@ namespace Loom {
         int mRepeatCount;
     };
 
-    class LOOM_API KeyReleasedEvent : public KeyEvent {
+    class KeyReleasedEvent : public KeyEvent {
     public:
         KeyReleasedEvent(int keycode) : KeyEvent(keycode) {}
 

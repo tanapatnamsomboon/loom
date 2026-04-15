@@ -8,12 +8,13 @@ set(ENGINE_SOURCES
 
 if (WIN32)
   list(APPEND ENGINE_SOURCES
+    src/platform/windows/windows_input.cpp
     src/platform/windows/windows_window.cpp
   )
 elseif(UNIX AND NOT APPLE)
   list(APPEND ENGINE_SOURCES
-    src/platform/linux/linux_window.cpp
     src/platform/linux/linux_input.cpp
+    src/platform/linux/linux_window.cpp
   )
 endif()
 
