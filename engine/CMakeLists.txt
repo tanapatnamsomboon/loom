@@ -2,6 +2,8 @@ project(Loom)
 
 set(ENGINE_SOURCES
   src/core/application.cpp
+  src/core/layer.cpp
+  src/core/layer_stack.cpp
   src/core/log.cpp
   src/core/window.cpp
 )

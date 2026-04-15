@@ -1,5 +1,6 @@
 #pragma once
 
+#include "loom/core/layer_stack.h"
 #include "loom/core/window.h"
 #include "loom/events/application_event.h"
 #include <memory>
@@ -14,6 +15,9 @@ namespace Loom {
         void Run();
         void OnEvent(Event& event);
 
+        void PushLayer(Layer* layer);
+        void PushOverlay(Layer* layer);
+
         Window& GetWindow() { return *mWindow; }
         static Application& Get() { return *sInstance; }
 
@@ -23,6 +27,8 @@ namespace Loom {
     private:
         std::unique_ptr<Window> mWindow;
         bool mRunning = true;
+
+        LayerStack mLayerStack;
 
         static Application* sInstance;
     };

@@ -17,11 +17,10 @@ namespace Loom {
 
     void Application::Run() {
         while (mRunning) {
-            mWindow->OnUpdate();
+            for (Layer* layer : mLayerStack)
+                layer->OnUpdate();
 
-            if (Input::IsKeyPressed('A')) {
-                LOOM_CORE_TRACE("A Key is Polled! Mouse Pos: ({0}, {1})", Input::GetMouseX(), Input::GetMouseY());
-            }
+            mWindow->OnUpdate();
         }
     }
 
@@ -29,7 +28,19 @@ namespace Loom {
         EventDispatcher dispatcher(event);
         dispatcher.Dispatch<WindowCloseEvent>(LOOM_BIND_EVENT_FN(Application::OnWindowClose));
 
-        // LOOM_CORE_TRACE("{0}", event.ToString());
+        for (auto it = mLayerStack.end(); it != mLayerStack.begin(); ) {
+            (*--it)->OnEvent(event);
+            if (event.mHandled)
+                break;
+        }
+    }
+
+    void Application::PushLayer(Layer* layer) {
+        mLayerStack.PushLayer(layer);
+    }
+
+    void Application::PushOverlay(Layer* layer) {
+        mLayerStack.PushOverlay(layer);
     }
 
     bool Application::OnWindowClose(WindowCloseEvent& event) {
