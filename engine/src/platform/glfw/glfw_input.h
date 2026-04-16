@@ -4,7 +4,7 @@
 
 namespace Loom {
 
-    class LinuxInput : public Input {
+    class GLFWInput : public Input {
     protected:
         bool IsKeyPressedImpl(int keycode) override;
         bool IsMouseButtonPressedImpl(int button) override;

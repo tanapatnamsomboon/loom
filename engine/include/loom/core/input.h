@@ -15,6 +15,8 @@ namespace Loom {
         static float GetMouseX() { return sInstance->GetMouseXImpl(); }
         static float GetMouseY() { return sInstance->GetMouseYImpl(); }
 
+        static void Create();
+
     protected:
         virtual bool IsKeyPressedImpl(int keycode) = 0;
         virtual bool IsMouseButtonPressedImpl(int button) = 0;

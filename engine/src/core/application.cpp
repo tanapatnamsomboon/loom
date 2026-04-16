@@ -11,6 +11,8 @@ namespace Loom {
 
         mWindow = std::unique_ptr<Window>(Window::Create());
         mWindow->SetEventCallback(LOOM_BIND_EVENT_FN(Application::OnEvent));
+
+        Input::Create();
     }
 
     Application::~Application() {}

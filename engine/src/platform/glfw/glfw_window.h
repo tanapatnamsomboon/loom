@@ -1,14 +1,15 @@
 #pragma once
 
 #include "loom/core/window.h"
+#include "loom/renderer/graphics_context.h"
 #include <GLFW/glfw3.h>
 
 namespace Loom {
 
-    class LinuxWindow : public Window {
+    class GLFWWindow : public Window {
     public:
-        LinuxWindow(const WindowProps& props);
-        ~LinuxWindow() override;
+        GLFWWindow(const WindowProps& props);
+        ~GLFWWindow() override;
 
         void OnUpdate() override;
 
@@ -27,6 +28,7 @@ namespace Loom {
 
     private:
         GLFWwindow* mWindow;
+        GraphicsContext* mContext;
 
         struct WindowData {
             std::string Title;

@@ -4,8 +4,6 @@
 
 namespace Loom {
 
-    Input* Input::sInstance = new WindowsInput();
-
     bool WindowsInput::IsKeyPressedImpl(int keycode) {
         return (GetAsyncKeyState(keycode) & 0x8000) != 0;
     }

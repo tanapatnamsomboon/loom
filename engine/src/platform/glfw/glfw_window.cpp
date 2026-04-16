@@ -1,4 +1,4 @@
-#include "platform/linux/linux_window.h"
+#include "platform/glfw/glfw_window.h"
 #include "platform/opengl/opengl_context.h"
 #include "loom/core/log.h"
 #include "loom/events/application_event.h"
@@ -9,30 +9,30 @@ namespace Loom {
 
     static bool sGLFWInitialized = false;
 
-    LinuxWindow::LinuxWindow(const WindowProps& props) {
+    GLFWWindow::GLFWWindow(const WindowProps& props) {
         Init(props);
     }
 
-    LinuxWindow::~LinuxWindow() {
+    GLFWWindow::~GLFWWindow() {
         Shutdown();
     }
 
-    void LinuxWindow::OnUpdate() {
+    void GLFWWindow::OnUpdate() {
         glfwPollEvents();
         mContext->SwapBuffers();
     }
 
-    void LinuxWindow::SetVSync(bool enabled) {
+    void GLFWWindow::SetVSync(bool enabled) {
         if (enabled) glfwSwapInterval(1);
         else glfwSwapInterval(0);
         mData.VSync = enabled;
     }
 
-    bool LinuxWindow::IsVSync() const {
+    bool GLFWWindow::IsVSync() const {
         return mData.VSync;
     }
 
-    void LinuxWindow::Init(const WindowProps &props) {
+    void GLFWWindow::Init(const WindowProps &props) {
         mData.Title = props.Title;
         mData.Width = props.Width;
         mData.Height = props.Height;
@@ -88,6 +88,7 @@ namespace Loom {
                     data.EventCallback(event);
                     break;
                 }
+                default: break;
             }
         });
 
@@ -101,6 +102,7 @@ namespace Loom {
                 case GLFW_RELEASE: {
                     break;
                 }
+                default: break;
             }
         });
 
@@ -119,7 +121,7 @@ namespace Loom {
         });
     }
 
-    void LinuxWindow::Shutdown() {
+    void GLFWWindow::Shutdown() {
         glfwDestroyWindow(mWindow);
     }
 } // namespace Loom

@@ -198,7 +198,6 @@ namespace Loom {
 
         SetWindowLongPtrW(mHWND, GWLP_USERDATA, (LONG_PTR)&mData);
 
-        mContext = new OpenGLContext(mHWND);
         mContext->Init();
     }
 
