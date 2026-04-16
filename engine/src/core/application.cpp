@@ -13,6 +13,9 @@ namespace Loom {
         mWindow->SetEventCallback(LOOM_BIND_EVENT_FN(Application::OnEvent));
 
         Input::Create();
+
+        mImGuiLayer = new ImGuiLayer();
+        PushOverlay(mImGuiLayer);
     }
 
     Application::~Application() {}
@@ -21,6 +24,11 @@ namespace Loom {
         while (mRunning) {
             for (Layer* layer : mLayerStack)
                 layer->OnUpdate();
+
+            mImGuiLayer->Begin();
+            for (Layer* layer : mLayerStack)
+                layer->OnImGuiRender();
+            mImGuiLayer->End();
 
             mWindow->OnUpdate();
         }

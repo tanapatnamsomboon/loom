@@ -3,6 +3,7 @@
 #include "loom/core/layer_stack.h"
 #include "loom/core/window.h"
 #include "loom/events/application_event.h"
+#include "loom/imgui/imgui_layer.h"
 #include <memory>
 
 namespace Loom {
@@ -29,6 +30,7 @@ namespace Loom {
         bool mRunning = true;
 
         LayerStack mLayerStack;
+        ImGuiLayer* mImGuiLayer;
 
         static Application* sInstance;
     };
