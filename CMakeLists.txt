@@ -21,5 +21,7 @@ add_subdirectory(vendor/glfw)
 
 add_subdirectory(vendor/glad)
 
+add_subdirectory(vendor/glm)
+
 add_subdirectory(engine)
 add_subdirectory(sandbox)

@@ -12,6 +12,7 @@ set(ENGINE_SOURCES
 
   src/renderer/buffer.cpp
   src/renderer/render_command.cpp
+  src/renderer/orthographic_camera.cpp
   src/renderer/renderer_api.cpp
   src/renderer/shader.cpp
   src/renderer/vertex_array.cpp
@@ -58,7 +59,14 @@ target_include_directories(Loom
     src
 )
 target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
-target_link_libraries(Loom PUBLIC spdlog glfw glad imgui)
+target_link_libraries(Loom
+  PUBLIC
+  spdlog
+  glfw
+  glad
+  imgui
+  glm::glm-header-only
+)
 
 if (WIN32)
   target_compile_definitions(Loom PUBLIC _UNICODE UNICODE)
