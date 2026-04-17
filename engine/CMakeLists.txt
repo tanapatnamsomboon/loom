@@ -15,6 +15,7 @@ set(ENGINE_SOURCES
   src/renderer/orthographic_camera.cpp
   src/renderer/renderer_api.cpp
   src/renderer/shader.cpp
+  src/renderer/texture.cpp
   src/renderer/vertex_array.cpp
 
   src/platform/glfw/glfw_input.cpp
@@ -24,6 +25,7 @@ set(ENGINE_SOURCES
   src/platform/opengl/opengl_context.cpp
   src/platform/opengl/opengl_renderer_api.cpp
   src/platform/opengl/opengl_shader.cpp
+  src/platform/opengl/opengl_texture.cpp
   src/platform/opengl/opengl_vertex_array.cpp
 )
 
@@ -66,6 +68,7 @@ target_link_libraries(Loom
   glad
   imgui
   glm::glm-header-only
+  stb
 )
 
 if (WIN32)
