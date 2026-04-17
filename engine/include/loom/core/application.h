@@ -22,6 +22,8 @@ namespace Loom {
         Window& GetWindow() { return *mWindow; }
         static Application& Get() { return *sInstance; }
 
+        ImGuiLayer* GetImGuiLayer() { return mImGuiLayer; }
+
     private:
         bool OnWindowClose(WindowCloseEvent& event);
 

@@ -1,6 +1,5 @@
 #include "loom/imgui/imgui_layer.h"
 #include "loom/core/application.h"
-#include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -40,11 +39,6 @@ namespace Loom {
         ImGui::DestroyContext();
     }
 
-    void ImGuiLayer::OnImGuiRender() {
-        static bool show = true;
-        ImGui::ShowDemoWindow(&show);
-    }
-
     void ImGuiLayer::OnEvent(Event& event) {
         ImGuiIO& io = ImGui::GetIO();
         event.mHandled |= event.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
@@ -71,6 +65,12 @@ namespace Loom {
             ImGui::RenderPlatformWindowsDefault();
             glfwMakeContextCurrent(backup_current_context);
         }
+    }
+
+    void ImGuiLayer::GetContextAndAllocators(ImGuiContext** context, ImGuiMemAllocFunc* alloc_func, ImGuiMemFreeFunc* free_func, void** user_data) {
+        *context = ImGui::GetCurrentContext();
+
+        ImGui::GetAllocatorFunctions(alloc_func, free_func, user_data);
     }
 
 } // namespace Loom
