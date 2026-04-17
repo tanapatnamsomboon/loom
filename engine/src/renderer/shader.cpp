@@ -11,4 +11,11 @@ namespace Loom {
         }
     }
 
+    Shader* Shader::Create(const std::string& filepath) {
+        switch (RendererAPI::GetAPI()) {
+            case RendererAPI::API::OpenGL: return new OpenGLShader(filepath);
+            default: return nullptr;
+        }
+    }
+
 } // namespace Loom

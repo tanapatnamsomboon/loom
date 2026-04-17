@@ -11,4 +11,11 @@ namespace Loom {
         }
     }
 
+    Texture2D* Texture2D::Create(uint32_t width, uint32_t height) {
+        switch (RendererAPI::GetAPI()) {
+            case RendererAPI::API::OpenGL:  return new OpenGLTexture2D(width, height);
+            default: return nullptr;
+        }
+    }
+
 } // namespace Loom

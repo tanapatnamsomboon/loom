@@ -13,6 +13,7 @@ set(ENGINE_SOURCES
   src/renderer/buffer.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp
+  src/renderer/renderer_2d.cpp
   src/renderer/renderer_api.cpp
   src/renderer/shader.cpp
   src/renderer/texture.cpp

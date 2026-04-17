@@ -1,6 +1,7 @@
 #include "loom/core/application.h"
 #include "loom/core/input.h"
 #include "loom/core/log.h"
+#include "loom/renderer/renderer_2d.h"
 
 namespace Loom {
 
@@ -16,9 +17,13 @@ namespace Loom {
         PushOverlay(mImGuiLayer);
 
         mLastFrameTime = std::chrono::high_resolution_clock::now();
+
+        Renderer2D::Init();
     }
 
-    Application::~Application() {}
+    Application::~Application() {
+        Renderer2D::Shutdown();
+    }
 
     void Application::Run() {
         while (mRunning) {

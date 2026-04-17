@@ -18,28 +18,52 @@ namespace Loom {
         mWidth = width;
         mHeight = height;
 
-        GLenum internal_format = 0, data_format = 0;
+        mInternalFormat = 0;
+        mDataFormat = 0;
         if (channels == 4) {
-            internal_format = GL_RGBA8;
-            data_format = GL_RGBA;
+            mInternalFormat = GL_RGBA8;
+            mDataFormat = GL_RGBA;
         } else if (channels == 3) {
-            internal_format = GL_RGB8;
-            data_format = GL_RGB;
+            mInternalFormat = GL_RGB8;
+            mDataFormat = GL_RGB;
         }
 
         glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
-        glTextureStorage2D(mRendererID, 1, internal_format, mWidth, mHeight);
+        glTextureStorage2D(mRendererID, 1, mInternalFormat, mWidth, mHeight);
 
         glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-        glTextureSubImage2D(mRendererID, 0, 0, 0, mWidth, mHeight, data_format, GL_UNSIGNED_BYTE, data);
+        glTextureSubImage2D(mRendererID, 0, 0, 0, mWidth, mHeight, mDataFormat, GL_UNSIGNED_BYTE, data);
 
         stbi_image_free(data);
     }
 
+    OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
+        : mWidth(width), mHeight(height) {
+
+        mInternalFormat = GL_RGBA8;
+        mDataFormat = GL_RGBA;
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
+        glTextureStorage2D(mRendererID, 1, mInternalFormat, mWidth, mHeight);
+
+        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+
     OpenGLTexture2D::~OpenGLTexture2D() {
         glDeleteTextures(1, &mRendererID);
+    }
+
+    void OpenGLTexture2D::SetData(void* data, uint32_t size) {
+        uint32_t bpp = mDataFormat == GL_RGBA ? 4 : 3;
+        if (size != mWidth * mHeight * bpp) {
+            LOOM_CORE_ERROR("Data must be entire texture!");
+            return;
+        }
+
+        glTextureSubImage2D(mRendererID, 0, 0, 0, mWidth, mHeight, mDataFormat, GL_UNSIGNED_BYTE, data);
     }
 
     void OpenGLTexture2D::Bind(uint32_t slot) const {

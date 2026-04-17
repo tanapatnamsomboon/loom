@@ -2,11 +2,86 @@
 #include "loom/core/log.h"
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <fstream>
 #include <vector>
 
 namespace Loom {
 
     OpenGLShader::OpenGLShader(const std::string& vertex_src, const std::string& fragment_src) {
+        Compile(vertex_src, fragment_src);
+    }
+
+    OpenGLShader::OpenGLShader(const std::string& filepath) {
+        std::string vertex_path = filepath + ".vert";
+        std::string fragment_path = filepath + ".frag";
+
+        std::string vertex_src = ReadFile(vertex_path);
+        std::string fragment_src = ReadFile(fragment_path);
+
+        if (vertex_src.empty() || fragment_src.empty()) {
+            LOOM_CORE_FATAL("Failed to load shaders from '{0}'", filepath);
+            return;
+        }
+
+        Compile(vertex_src, fragment_src);
+    }
+
+    OpenGLShader::~OpenGLShader() {
+        glDeleteProgram(mRendererID);
+    }
+
+    void OpenGLShader::Bind() const {
+        glUseProgram(mRendererID);
+    }
+
+    void OpenGLShader::Unbind() const {
+        glUseProgram(0);
+    }
+
+    void OpenGLShader::UploadUniformMat4(const std::string& name, const glm::mat4& matrix) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+    }
+
+    void OpenGLShader::UploadUniformFloat4(const std::string& name, const glm::vec4& values) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform4f(location, values.x, values.y, values.z, values.w);
+    }
+
+    void OpenGLShader::UploadUniformFloat3(const std::string& name, const glm::vec3& values) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform3f(location, values.x, values.y, values.z);
+    }
+
+    void OpenGLShader::UploadUniformInt(const std::string& name, int value) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform1i(location, value);
+    }
+
+    std::string OpenGLShader::ReadFile(const std::string& filepath) {
+        std::string result;
+
+        std::ifstream in(filepath, std::ios::in | std::ios::binary);
+
+        if (in) {
+            in.seekg(0, std::ios::end);
+            size_t size = in.tellg();
+
+            if (size != -1) {
+                result.resize(size);
+                in.seekg(0, std::ios::beg);
+                in.read(&result[0], size);
+            } else {
+                LOOM_CORE_ERROR("Could not found from file '{0}'", filepath);
+            }
+        } else {
+            LOOM_CORE_ERROR("Could not open file '{0}'", filepath);
+        }
+
+        return result;
+    }
+
+    void OpenGLShader::Compile(const std::string& vertex_src, const std::string& fragment_src) {
         GLuint program = glCreateProgram();
 
         GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
@@ -77,28 +152,6 @@ namespace Loom {
         glDeleteShader(fragment_shader);
 
         mRendererID = program;
-    }
-
-    OpenGLShader::~OpenGLShader() {
-        glDeleteProgram(mRendererID);
-    }
-
-    void OpenGLShader::Bind() const {
-        glUseProgram(mRendererID);
-    }
-
-    void OpenGLShader::Unbind() const {
-        glUseProgram(0);
-    }
-
-    void OpenGLShader::UploadUniformMat4(const std::string& name, const glm::mat4& matrix) {
-        GLint location = glGetUniformLocation(mRendererID, name.c_str());
-        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
-    }
-
-    void OpenGLShader::UploadUniformInt(const std::string& name, int value) {
-        GLint location = glGetUniformLocation(mRendererID, name.c_str());
-        glUniform1i(location, value);
     }
 
 } // namespace Loom
