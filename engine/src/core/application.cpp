@@ -8,22 +8,27 @@ namespace Loom {
 
     Application::Application() {
         sInstance = this;
-
         mWindow = std::unique_ptr<Window>(Window::Create());
         mWindow->SetEventCallback(LOOM_BIND_EVENT_FN(Application::OnEvent));
-
         Input::Create();
 
         mImGuiLayer = new ImGuiLayer();
         PushOverlay(mImGuiLayer);
+
+        mLastFrameTime = std::chrono::high_resolution_clock::now();
     }
 
     Application::~Application() {}
 
     void Application::Run() {
         while (mRunning) {
+            auto current_time = std::chrono::high_resolution_clock::now();
+            float time = std::chrono::duration<float>(current_time - mLastFrameTime).count();
+            Timestep timestep = time;
+            mLastFrameTime = current_time;
+
             for (Layer* layer : mLayerStack)
-                layer->OnUpdate();
+                layer->OnUpdate(timestep);
 
             mImGuiLayer->Begin();
             for (Layer* layer : mLayerStack)

@@ -4,6 +4,7 @@
 #include "loom/core/window.h"
 #include "loom/events/application_event.h"
 #include "loom/imgui/imgui_layer.h"
+#include <chrono>
 #include <memory>
 
 namespace Loom {
@@ -30,6 +31,7 @@ namespace Loom {
     private:
         std::unique_ptr<Window> mWindow;
         bool mRunning = true;
+        std::chrono::time_point<std::chrono::high_resolution_clock> mLastFrameTime;
 
         LayerStack mLayerStack;
         ImGuiLayer* mImGuiLayer;

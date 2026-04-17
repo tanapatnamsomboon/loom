@@ -68,16 +68,16 @@ public:
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
     }
 
-    void OnUpdate() override {
+    void OnUpdate(Loom::Timestep ts) override {
         if (Loom::Input::IsKeyPressed('A'))
-            mCameraPosition.x -= mCameraMoveSpeed;
+            mCameraPosition.x -= mCameraMoveSpeed * ts;
         else if (Loom::Input::IsKeyPressed('D'))
-            mCameraPosition.x += mCameraMoveSpeed;
+            mCameraPosition.x += mCameraMoveSpeed * ts;
 
         if (Loom::Input::IsKeyPressed('W'))
-            mCameraPosition.y += mCameraMoveSpeed;
+            mCameraPosition.y += mCameraMoveSpeed * ts;
         else if (Loom::Input::IsKeyPressed('S'))
-            mCameraPosition.y -= mCameraMoveSpeed;
+            mCameraPosition.y -= mCameraMoveSpeed * ts;
 
         mCamera.SetPosition(mCameraPosition);
 
@@ -104,7 +104,7 @@ private:
 
     Loom::OrthographicCamera mCamera;
     glm::vec3 mCameraPosition;
-    float mCameraMoveSpeed = 0.01f;
+    float mCameraMoveSpeed = 1.0f;
 };
 
 int main() {
