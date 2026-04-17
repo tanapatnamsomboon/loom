@@ -12,8 +12,12 @@ namespace Loom {
         void Bind() const override;
         void Unbind() const override;
 
+        const BufferLayout& GetLayout() const override { return mLayout; }
+        void SetLayout(const BufferLayout& layout) override { mLayout = layout; }
+
     private:
         uint32_t mRendererID;
+        BufferLayout mLayout;
     };
 
     class OpenGLIndexBuffer : public IndexBuffer {

@@ -15,6 +15,10 @@ namespace Loom {
             sRendererAPI->Clear();
         }
 
+        static void DrawIndexed(VertexArray* vertex_array) {
+            sRendererAPI->DrawIndexed(vertex_array);
+        }
+
     private:
         static RendererAPI* sRendererAPI;
     };

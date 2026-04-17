@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/core.h"
+#include "loom/renderer/vertex_array.h"
 
 namespace Loom {
 
@@ -14,6 +15,8 @@ namespace Loom {
 
         virtual void SetClearColor(float r, float g, float b, float a) = 0;
         virtual void Clear() = 0;
+
+        virtual void DrawIndexed(VertexArray* vertex_array) = 0;
 
         static API GetAPI() { return sAPI; }
 

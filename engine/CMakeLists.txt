@@ -13,6 +13,7 @@ set(ENGINE_SOURCES
   src/renderer/buffer.cpp
   src/renderer/render_command.cpp
   src/renderer/renderer_api.cpp
+  src/renderer/vertex_array.cpp
 
   src/platform/glfw/glfw_input.cpp
   src/platform/glfw/glfw_window.cpp
@@ -20,6 +21,7 @@ set(ENGINE_SOURCES
   src/platform/opengl/opengl_buffer.cpp
   src/platform/opengl/opengl_context.cpp
   src/platform/opengl/opengl_renderer_api.cpp
+  src/platform/opengl/opengl_vertex_array.cpp
 )
 
 if (WIN32)
