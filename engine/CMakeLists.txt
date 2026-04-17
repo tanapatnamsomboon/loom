@@ -10,11 +10,14 @@ set(ENGINE_SOURCES
 
   src/imgui/imgui_layer.cpp
 
+  src/renderer/buffer.cpp
   src/renderer/render_command.cpp
   src/renderer/renderer_api.cpp
 
   src/platform/glfw/glfw_input.cpp
   src/platform/glfw/glfw_window.cpp
+
+  src/platform/opengl/opengl_buffer.cpp
   src/platform/opengl/opengl_context.cpp
   src/platform/opengl/opengl_renderer_api.cpp
 )
