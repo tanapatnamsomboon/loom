@@ -14,6 +14,7 @@ namespace Loom {
         void Unbind() const override;
 
         void UploadUniformMat4(const std::string& name, const glm::mat4& matrix) override;
+        void UploadUniformInt(const std::string& name, int value) override;
 
     private:
         uint32_t mRendererID;

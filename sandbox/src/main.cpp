@@ -6,6 +6,7 @@
 #include <loom/renderer/orthographic_camera.h>
 #include <loom/renderer/render_command.h>
 #include <loom/renderer/shader.h>
+#include <loom/renderer/texture.h>
 #include <loom/renderer/vertex_array.h>
 #include <imgui.h>
 
@@ -15,31 +16,36 @@ public:
         : Layer("Example"), mCamera(-1.6f, 1.6f, -0.9f, 0.9f), mCameraPosition(0.0f) {
         mVertexArray.reset(Loom::VertexArray::Create());
 
-        float vertices[3 * 3] = {
-            -0.5f, -0.5f,  0.0f,
-             0.5f, -0.5f,  0.0f,
-             0.0f,  0.5f,  0.0f
+        float vertices[4 * 5] = {
+            -0.5f, -0.5f,  0.0f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.0f,  0.0f, 1.0f
         };
 
         mVertexBuffer.reset(Loom::VertexBuffer::Create(vertices, sizeof(vertices)));
 
         Loom::BufferLayout layout = {
-            { Loom::ShaderDataType::Float3, "aPosition" }
+            { Loom::ShaderDataType::Float3, "aPosition" },
+            { Loom::ShaderDataType::Float2, "aTexCoord" }
         };
         mVertexBuffer->SetLayout(layout);
         mVertexArray->AddVertexBuffer(mVertexBuffer.get());
 
-        uint32_t indices[3] = { 0, 1, 2 };
+        uint32_t indices[6] = { 0, 1, 2, 2, 3, 0 };
         mIndexBuffer.reset(Loom::IndexBuffer::Create(indices, sizeof(indices) / sizeof(uint32_t)));
         mVertexArray->SetIndexBuffer(mIndexBuffer.get());
 
         std::string vertex_src = R"(
             #version 460 core
             layout(location = 0) in vec3 aPosition;
+            layout(location = 1) in vec2 aTexCoord;
 
             uniform mat4 uViewProjection;
+            out vec2 vTexCoord;
 
             void main() {
+                vTexCoord = aTexCoord;
                 gl_Position = uViewProjection * vec4(aPosition, 1.0);
             }
         )";
@@ -48,12 +54,16 @@ public:
             #version 460 core
             layout(location = 0) out vec4 color;
 
+            in vec2 vTexCoord;
+            uniform sampler2D uTexture;
+
             void main() {
-                color = vec4(0.8, 0.2, 0.3, 1.0);
+                color = texture(uTexture, vTexCoord);
             }
         )";
 
         mShader.reset(Loom::Shader::Create(vertex_src, fragment_src));
+        mTexture.reset(Loom::Texture2D::Create("assets/textures/box.png"));
     }
 
     void OnAttach() override {
@@ -84,8 +94,10 @@ public:
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
 
+        mTexture->Bind(0);
         mShader->Bind();
         mShader->UploadUniformMat4("uViewProjection", mCamera.GetViewProjectionMatrix());
+        mShader->UploadUniformInt("uTexture", 0);
         mVertexArray->Bind();
         Loom::RenderCommand::DrawIndexed(mVertexArray.get());
     }
@@ -101,6 +113,7 @@ private:
     std::shared_ptr<Loom::VertexArray> mVertexArray;
     std::shared_ptr<Loom::VertexBuffer> mVertexBuffer;
     std::shared_ptr<Loom::IndexBuffer> mIndexBuffer;
+    std::shared_ptr<Loom::Texture2D> mTexture;
 
     Loom::OrthographicCamera mCamera;
     glm::vec3 mCameraPosition;
