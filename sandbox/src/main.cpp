@@ -1,15 +1,18 @@
 #include <loom/core/application.h>
+#include <loom/core/input.h>
 #include <loom/core/log.h>
 #include <loom/core/layer.h>
-#include <loom/renderer/render_command.h>
-#include <loom/renderer/vertex_array.h>
 #include <loom/renderer/buffer.h>
+#include <loom/renderer/orthographic_camera.h>
+#include <loom/renderer/render_command.h>
 #include <loom/renderer/shader.h>
+#include <loom/renderer/vertex_array.h>
 #include <imgui.h>
 
 class ExampleLayer : public Loom::Layer {
 public:
-    ExampleLayer() : Layer("Example") {
+    ExampleLayer()
+        : Layer("Example"), mCamera(-1.6f, 1.6f, -0.9f, 0.9f), mCameraPosition(0.0f) {
         mVertexArray.reset(Loom::VertexArray::Create());
 
         float vertices[3 * 3] = {
@@ -34,8 +37,10 @@ public:
             #version 460 core
             layout(location = 0) in vec3 aPosition;
 
+            uniform mat4 uViewProjection;
+
             void main() {
-                gl_Position = vec4(aPosition, 1.0);
+                gl_Position = uViewProjection * vec4(aPosition, 1.0);
             }
         )";
 
@@ -64,10 +69,23 @@ public:
     }
 
     void OnUpdate() override {
+        if (Loom::Input::IsKeyPressed('A'))
+            mCameraPosition.x -= mCameraMoveSpeed;
+        else if (Loom::Input::IsKeyPressed('D'))
+            mCameraPosition.x += mCameraMoveSpeed;
+
+        if (Loom::Input::IsKeyPressed('W'))
+            mCameraPosition.y += mCameraMoveSpeed;
+        else if (Loom::Input::IsKeyPressed('S'))
+            mCameraPosition.y -= mCameraMoveSpeed;
+
+        mCamera.SetPosition(mCameraPosition);
+
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
 
         mShader->Bind();
+        mShader->UploadUniformMat4("uViewProjection", mCamera.GetViewProjectionMatrix());
         mVertexArray->Bind();
         Loom::RenderCommand::DrawIndexed(mVertexArray.get());
     }
@@ -83,6 +101,10 @@ private:
     std::shared_ptr<Loom::VertexArray> mVertexArray;
     std::shared_ptr<Loom::VertexBuffer> mVertexBuffer;
     std::shared_ptr<Loom::IndexBuffer> mIndexBuffer;
+
+    Loom::OrthographicCamera mCamera;
+    glm::vec3 mCameraPosition;
+    float mCameraMoveSpeed = 0.01f;
 };
 
 int main() {

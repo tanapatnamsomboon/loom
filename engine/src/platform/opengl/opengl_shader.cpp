@@ -1,6 +1,7 @@
 #include "platform/opengl/opengl_shader.h"
 #include "loom/core/log.h"
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <vector>
 
 namespace Loom {
@@ -88,6 +89,11 @@ namespace Loom {
 
     void OpenGLShader::Unbind() const {
         glUseProgram(0);
+    }
+
+    void OpenGLShader::UploadUniformMat4(const std::string& name, const glm::mat4& matrix) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
     }
 
 } // namespace Loom
