@@ -19,7 +19,6 @@ namespace Loom {
 
         std::shared_ptr<VertexArray>    QuadVertexArray;
         std::shared_ptr<VertexBuffer>   QuadVertexBuffer;
-        std::shared_ptr<IndexBuffer>    QuadIndexBuffer;
         std::shared_ptr<Shader>         TextureShader;
         std::shared_ptr<Texture2D>      WhiteTexture;
 
@@ -34,13 +33,13 @@ namespace Loom {
 
         sData.QuadVertexArray.reset(VertexArray::Create());
 
-        sData.QuadVertexBuffer.reset(VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex)));
+        sData.QuadVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
         sData.QuadVertexBuffer->SetLayout({
             { ShaderDataType::Float3, "aPosition" },
             { ShaderDataType::Float4, "aColor"    },
             { ShaderDataType::Float2, "aTexCoord" }
         });
-        sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer.get());
+        sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer);
 
         sData.QuadVertexBufferBase = new QuadVertex[sData.MaxVertices];
 
@@ -56,8 +55,8 @@ namespace Loom {
             offset += 4;
         }
 
-        sData.QuadIndexBuffer.reset(IndexBuffer::Create(quad_indices, sData.MaxIndices));
-        sData.QuadVertexArray->SetIndexBuffer(sData.QuadIndexBuffer.get());
+        auto ibo = IndexBuffer::Create(quad_indices, sData.MaxIndices);
+        sData.QuadVertexArray->SetIndexBuffer(ibo);
         delete[] quad_indices;
 
         sData.WhiteTexture.reset(Texture2D::Create(1, 1));
@@ -87,7 +86,6 @@ namespace Loom {
     void Renderer2D::Flush() {
         if (sData.QuadIndexCount) {
             sData.WhiteTexture->Bind(0);
-
             uint32_t data_size = (uint8_t*)sData.QuadVertexBufferPtr - (uint8_t*)sData.QuadVertexBufferBase;
             sData.QuadVertexBuffer->SetData(sData.QuadVertexBufferBase, data_size);
             RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), sData.QuadIndexCount);

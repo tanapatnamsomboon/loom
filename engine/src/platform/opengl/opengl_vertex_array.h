@@ -12,16 +12,16 @@ namespace Loom {
         void Bind() const override;
         void Unbind() const override;
 
-        void AddVertexBuffer(VertexBuffer* vertex_buffer) override;
-        void SetIndexBuffer(IndexBuffer* index_buffer) override;
+        void AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vertex_buffer) override;
+        void SetIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer) override;
 
-        const std::vector<VertexBuffer*>& GetVertexBuffers() const override { return mVertexBuffers; }
-        IndexBuffer* GetIndexBuffer() const override { return mIndexBuffer; }
+        const std::vector<std::shared_ptr<VertexBuffer>>& GetVertexBuffers() const override { return mVertexBuffers; }
+        const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const override { return mIndexBuffer; }
 
     private:
         uint32_t mRendererID;
-        std::vector<VertexBuffer*> mVertexBuffers;
-        IndexBuffer* mIndexBuffer;
+        std::vector<std::shared_ptr<VertexBuffer>> mVertexBuffers;
+        std::shared_ptr<IndexBuffer> mIndexBuffer;
     };
 
 } // namespace Loom

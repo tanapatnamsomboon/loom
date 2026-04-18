@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace Loom {
 
@@ -103,7 +104,7 @@ namespace Loom {
         virtual const BufferLayout& GetLayout() const = 0;
         virtual void SetLayout(const BufferLayout& layout) = 0;
 
-        static VertexBuffer* Create(uint32_t size);
+        static std::shared_ptr<VertexBuffer> Create(uint32_t size);
     };
 
     class LOOM_API IndexBuffer {
@@ -115,7 +116,7 @@ namespace Loom {
 
         virtual uint32_t GetCount() const = 0;
 
-        static IndexBuffer* Create(uint32_t* indices, uint32_t count);
+        static std::shared_ptr<IndexBuffer> Create(uint32_t* indices, uint32_t count);
     };
 
 } // namespace Loom

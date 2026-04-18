@@ -33,7 +33,7 @@ namespace Loom {
     void OpenGLVertexArray::Bind() const { glBindVertexArray(mRendererID); }
     void OpenGLVertexArray::Unbind() const { glBindVertexArray(0); }
 
-    void OpenGLVertexArray::AddVertexBuffer(VertexBuffer* vertex_buffer) {
+    void OpenGLVertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vertex_buffer) {
         if (vertex_buffer->GetLayout().GetElements().empty()) {
             LOOM_CORE_FATAL("Vertex Buffer has no layout!");
         }
@@ -59,7 +59,7 @@ namespace Loom {
         mVertexBuffers.push_back(vertex_buffer);
     }
 
-    void OpenGLVertexArray::SetIndexBuffer(IndexBuffer* index_buffer) {
+    void OpenGLVertexArray::SetIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer) {
         glBindVertexArray(mRendererID);
         index_buffer->Bind();
         mIndexBuffer = index_buffer;
