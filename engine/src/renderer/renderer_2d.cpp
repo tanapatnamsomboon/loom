@@ -6,59 +6,92 @@
 
 namespace Loom {
 
-    struct Renderer2DStorage {
-        std::shared_ptr<VertexArray> QuadVertexArray;
-        std::shared_ptr<VertexBuffer> QuadVBO;
-        std::shared_ptr<IndexBuffer> QuadIBO;
-        std::shared_ptr<Shader> TextureShader;
-        std::shared_ptr<Texture2D> WhiteTexture;
+    struct QuadVertex {
+        glm::vec3 Position;
+        glm::vec4 Color;
+        glm::vec2 TexCoord;
     };
 
-    static Renderer2DStorage* sData;
+    struct Renderer2DStorage {
+        static constexpr uint32_t MaxQuads      = 10'000;
+        static constexpr uint32_t MaxVertices   = MaxQuads * 4;
+        static constexpr uint32_t MaxIndices    = MaxQuads * 6;
+
+        std::shared_ptr<VertexArray>    QuadVertexArray;
+        std::shared_ptr<VertexBuffer>   QuadVertexBuffer;
+        std::shared_ptr<IndexBuffer>    QuadIndexBuffer;
+        std::shared_ptr<Shader>         TextureShader;
+        std::shared_ptr<Texture2D>      WhiteTexture;
+
+        uint32_t    QuadIndexCount          = 0;
+        QuadVertex* QuadVertexBufferBase    = nullptr;
+        QuadVertex* QuadVertexBufferPtr     = nullptr;
+    };
+
+    static Renderer2DStorage sData;
 
     void Renderer2D::Init() {
-        sData = new Renderer2DStorage();
 
-        sData->QuadVertexArray.reset(VertexArray::Create());
+        sData.QuadVertexArray.reset(VertexArray::Create());
 
-        float square_vertices[5 * 4] = {
-            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
-             0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-             0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
-            -0.5f,  0.5f, 0.0f, 0.0f, 1.0f
-        };
-
-        sData->QuadVBO = std::shared_ptr<VertexBuffer>(VertexBuffer::Create(square_vertices, sizeof(square_vertices)));
-        sData->QuadVBO->SetLayout({
+        sData.QuadVertexBuffer.reset(VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex)));
+        sData.QuadVertexBuffer->SetLayout({
             { ShaderDataType::Float3, "aPosition" },
+            { ShaderDataType::Float4, "aColor"    },
             { ShaderDataType::Float2, "aTexCoord" }
         });
-        sData->QuadVertexArray->AddVertexBuffer(sData->QuadVBO.get());
+        sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer.get());
 
-        uint32_t square_indices[6] = { 0, 1, 2, 2, 3, 0 };
-        sData->QuadIBO = std::shared_ptr<IndexBuffer>(IndexBuffer::Create(square_indices, sizeof(square_indices) / sizeof(uint32_t)));
-        sData->QuadVertexArray->SetIndexBuffer(sData->QuadIBO.get());
+        sData.QuadVertexBufferBase = new QuadVertex[sData.MaxVertices];
 
-        sData->WhiteTexture.reset(Texture2D::Create(1, 1));
-        uint32_t white_texture_data = 0xFFFFFFFF;
-        sData->WhiteTexture->SetData(&white_texture_data, sizeof(uint32_t));
+        uint32_t* quad_indices = new uint32_t[sData.MaxIndices];
+        uint32_t offset = 0;
+        for (uint32_t i = 0; i < sData.MaxIndices; i += 6) {
+            quad_indices[i + 0] = offset + 0;
+            quad_indices[i + 1] = offset + 1;
+            quad_indices[i + 2] = offset + 2;
+            quad_indices[i + 3] = offset + 2;
+            quad_indices[i + 4] = offset + 3;
+            quad_indices[i + 5] = offset + 0;
+            offset += 4;
+        }
 
-        sData->TextureShader.reset(Shader::Create("assets/shaders/texture"));
-        sData->TextureShader->Bind();
-        sData->TextureShader->UploadUniformInt("uTexture", 0);
+        sData.QuadIndexBuffer.reset(IndexBuffer::Create(quad_indices, sData.MaxIndices));
+        sData.QuadVertexArray->SetIndexBuffer(sData.QuadIndexBuffer.get());
+        delete[] quad_indices;
 
+        sData.WhiteTexture.reset(Texture2D::Create(1, 1));
+        uint32_t white_texture_data = 0xffffffff;
+        sData.WhiteTexture->SetData(&white_texture_data, sizeof(uint32_t));
+
+        sData.TextureShader.reset(Shader::Create("assets/shaders/texture"));
+        sData.TextureShader->Bind();
+        sData.TextureShader->UploadUniformInt("uTexture", 0);
     }
 
     void Renderer2D::Shutdown() {
-        delete sData;
     }
 
     void Renderer2D::BeginScene(const OrthographicCamera& camera) {
-        sData->TextureShader->Bind();
-        sData->TextureShader->UploadUniformMat4("uViewProjection", camera.GetViewProjectionMatrix());
+        sData.TextureShader->Bind();
+        sData.TextureShader->UploadUniformMat4("uViewProjection", camera.GetViewProjectionMatrix());
+
+        sData.QuadIndexCount = 0;
+        sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
     }
 
     void Renderer2D::EndScene() {
+        Flush();
+    }
+
+    void Renderer2D::Flush() {
+        if (sData.QuadIndexCount) {
+            sData.WhiteTexture->Bind(0);
+
+            uint32_t data_size = (uint8_t*)sData.QuadVertexBufferPtr - (uint8_t*)sData.QuadVertexBufferBase;
+            sData.QuadVertexBuffer->SetData(sData.QuadVertexBufferBase, data_size);
+            RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), sData.QuadIndexCount);
+        }
     }
 
     void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color) {
@@ -66,15 +99,30 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color) {
-        sData->TextureShader->Bind();
-        sData->TextureShader->UploadUniformFloat4("uColor", color);
-        sData->WhiteTexture->Bind();
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
+                            * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
-        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-        sData->TextureShader->UploadUniformMat4("uTransform", transform);
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 0.0f };
+        sData.QuadVertexBufferPtr++;
 
-        sData->QuadVertexArray->Bind();
-        RenderCommand::DrawIndexed(sData->QuadVertexArray.get());
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, -0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 0.0f };
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, 0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 1.0f };
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, 0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 1.0f };
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadIndexCount += 6;
     }
 
     void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture) {
@@ -82,15 +130,15 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture) {
-        sData->TextureShader->Bind();
-        sData->TextureShader->UploadUniformFloat4("uColor", glm::vec4(1.0f));
+        sData.TextureShader->Bind();
+        sData.TextureShader->UploadUniformFloat4("uColor", glm::vec4(1.0f));
         texture->Bind();
 
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-        sData->TextureShader->UploadUniformMat4("uTransform", transform);
+        sData.TextureShader->UploadUniformMat4("uTransform", transform);
 
-        sData->QuadVertexArray->Bind();
-        RenderCommand::DrawIndexed(sData->QuadVertexArray.get());
+        sData.QuadVertexArray->Bind();
+        RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), 0);
     }
 
 } // namespace Loom

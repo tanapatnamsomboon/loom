@@ -11,8 +11,10 @@ namespace Loom {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void OpenGLRendererAPI::DrawIndexed(VertexArray* vertex_array) {
-        glDrawElements(GL_TRIANGLES, vertex_array->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr);
+    void OpenGLRendererAPI::DrawIndexed(VertexArray* vertex_array, uint32_t index_count) {
+        vertex_array->Bind();
+        uint32_t count = index_count ? index_count : vertex_array->GetIndexBuffer()->GetCount();
+        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
     }
 
 } // namespace Loom

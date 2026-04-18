@@ -6,11 +6,13 @@ namespace Loom {
 
     class OpenGLVertexBuffer : public VertexBuffer {
     public:
-        OpenGLVertexBuffer(float* vertices, uint32_t size);
+        OpenGLVertexBuffer(uint32_t size);
         ~OpenGLVertexBuffer() override;
 
         void Bind() const override;
         void Unbind() const override;
+
+        void SetData(const void* data, uint32_t size) override;
 
         const BufferLayout& GetLayout() const override { return mLayout; }
         void SetLayout(const BufferLayout& layout) override { mLayout = layout; }

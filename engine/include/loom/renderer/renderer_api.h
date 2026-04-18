@@ -16,7 +16,7 @@ namespace Loom {
         virtual void SetClearColor(float r, float g, float b, float a) = 0;
         virtual void Clear() = 0;
 
-        virtual void DrawIndexed(VertexArray* vertex_array) = 0;
+        virtual void DrawIndexed(VertexArray* vertex_array, uint32_t index_count = 0) = 0;
 
         static API GetAPI() { return sAPI; }
 

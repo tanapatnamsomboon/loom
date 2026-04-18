@@ -41,7 +41,7 @@ public:
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer2D::BeginScene(mCamera);
-        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, mTexture);
+        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f });
         Loom::Renderer2D::EndScene();
     }
 

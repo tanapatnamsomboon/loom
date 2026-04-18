@@ -8,7 +8,7 @@ namespace Loom {
     public:
         void SetClearColor(float r, float g, float b, float a) override;
         void Clear() override;
-        void DrawIndexed(VertexArray* vertex_array) override;
+        void DrawIndexed(VertexArray* vertex_array, uint32_t index_count) override;
     };
 
 } // namespace Loom

@@ -5,10 +5,10 @@
 
 namespace Loom {
 
-    VertexBuffer* VertexBuffer::Create(float* vertices, uint32_t size) {
+    VertexBuffer* VertexBuffer::Create(uint32_t size) {
         switch (RendererAPI::GetAPI()) {
             case RendererAPI::API::None:    LOOM_CORE_FATAL("RendererAPI::None is currently not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL:  return new OpenGLVertexBuffer(vertices, size);
+            case RendererAPI::API::OpenGL:  return new OpenGLVertexBuffer(size);
         }
         LOOM_CORE_FATAL("Unknown RendererAPI!");
         return nullptr;
