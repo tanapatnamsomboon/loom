@@ -142,6 +142,24 @@ namespace Loom {
         sData.QuadIndexCount += 6;
     }
 
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
+        constexpr size_t quad_vertex_count = 4;
+        constexpr float texture_index = 0.0f;
+        constexpr glm::vec2 texture_coords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
+        constexpr float tiling_factor = 1.0f;
+
+        for (size_t i = 0; i < quad_vertex_count; i++) {
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
+            sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr++;
+        }
+
+        sData.QuadIndexCount += 6;
+    }
+
     void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
         DrawQuad({ position.x, position.y, 0.0f }, size, texture, tint_color);
     }

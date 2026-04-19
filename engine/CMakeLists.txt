@@ -29,6 +29,8 @@ set(ENGINE_SOURCES
   src/platform/opengl/opengl_shader.cpp
   src/platform/opengl/opengl_texture.cpp
   src/platform/opengl/opengl_vertex_array.cpp
+
+  src/scene/scene.cpp
 )
 
 if (WIN32)
@@ -71,6 +73,7 @@ target_link_libraries(Loom
   imgui
   glm::glm-header-only
   stb
+  EnTT::EnTT
 )
 
 if (WIN32)
