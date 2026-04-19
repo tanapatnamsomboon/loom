@@ -38,13 +38,14 @@ public:
 
         mCamera.SetPosition(mCameraPosition);
 
+        static float rotation = 0.0f;
+        rotation += 0.5f * ts;
+
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer2D::BeginScene(mCamera);
-        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, mTexture);
-        Loom::Renderer2D::DrawQuad({ 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f }, mTexture);
-        Loom::Renderer2D::DrawQuad({ 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, mTexture);
-        Loom::Renderer2D::DrawQuad({ 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f }, mTexture);
+        Loom::Renderer2D::DrawRotatedQuad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, rotation, mTexture);
+        Loom::Renderer2D::DrawRotatedQuad({ 0.5f, 0.5f, 0.1f }, { 0.8f, 0.8f }, -rotation, { 1.0f, 1.0f, 1.0f, 0.8f });
         Loom::Renderer2D::EndScene();
     }
 

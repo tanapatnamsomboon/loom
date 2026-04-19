@@ -7,6 +7,10 @@ namespace Loom {
 
     class LOOM_API RenderCommand {
     public:
+        static void Init() {
+            sRendererAPI->Init();
+        }
+
         static void SetClearColor(float r, float g, float b, float a) {
             sRendererAPI->SetClearColor(r, g, b, a);
         }

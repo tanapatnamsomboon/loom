@@ -2,6 +2,7 @@
 #include "loom/core/input.h"
 #include "loom/core/log.h"
 #include "loom/renderer/renderer_2d.h"
+#include "loom/renderer/render_command.h"
 
 namespace Loom {
 
@@ -19,6 +20,7 @@ namespace Loom {
         mLastFrameTime = std::chrono::high_resolution_clock::now();
 
         Renderer2D::Init();
+        RenderCommand::Init();
     }
 
     Application::~Application() {

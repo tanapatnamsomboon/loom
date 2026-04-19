@@ -3,6 +3,13 @@
 
 namespace Loom {
 
+    void OpenGLRendererAPI::Init() {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glEnable(GL_DEPTH_TEST);
+    }
+
     void OpenGLRendererAPI::SetClearColor(float r, float g, float b, float a) {
         glClearColor(r, g, b, a);
     }
