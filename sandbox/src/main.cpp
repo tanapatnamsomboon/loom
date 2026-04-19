@@ -10,7 +10,7 @@ class ExampleLayer : public Loom::Layer {
 public:
     ExampleLayer()
         : Layer("Example"), mCamera(-1.6f, 1.6f, -0.9f, 0.9f), mCameraPosition(0.0f) {
-        mTexture.reset(Loom::Texture2D::Create("assets/textures/box.png"));
+        mTexture = Loom::Texture2D::Create("assets/textures/box.png");
     }
 
     void OnAttach() override {
@@ -41,7 +41,10 @@ public:
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer2D::BeginScene(mCamera);
-        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f });
+        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, mTexture);
+        Loom::Renderer2D::DrawQuad({ 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f }, mTexture);
+        Loom::Renderer2D::DrawQuad({ 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, mTexture);
+        Loom::Renderer2D::DrawQuad({ 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f }, mTexture);
         Loom::Renderer2D::EndScene();
     }
 

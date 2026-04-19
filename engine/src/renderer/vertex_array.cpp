@@ -3,10 +3,9 @@
 #include "platform/opengl/opengl_vertex_array.h"
 
 namespace Loom {
-
-    VertexArray* VertexArray::Create() {
+    std::shared_ptr<VertexArray> VertexArray::Create() {
         switch (RendererAPI::GetAPI()) {
-            case RendererAPI::API::OpenGL:  return new OpenGLVertexArray();
+            case RendererAPI::API::OpenGL:  return std::make_shared<OpenGLVertexArray>();
             default: return nullptr;
         }
     }

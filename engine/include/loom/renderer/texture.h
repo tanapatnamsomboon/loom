@@ -3,6 +3,7 @@
 #include "loom/core/core.h"
 #include <cstdint>
 #include <string>
+#include <memory>
 
 namespace Loom {
 
@@ -20,8 +21,8 @@ namespace Loom {
 
     class LOOM_API Texture2D : public Texture {
     public:
-        static Texture2D* Create(const std::string& path);
-        static Texture2D* Create(uint32_t width, uint32_t height);
+        static std::shared_ptr<Texture2D> Create(const std::string& path);
+        static std::shared_ptr<Texture2D> Create(uint32_t width, uint32_t height);
     };
 
 } // namespace Loom

@@ -18,6 +18,7 @@ namespace Loom {
         void UploadUniformFloat4(const std::string& name, const glm::vec4& values) override;
         void UploadUniformFloat3(const std::string& name, const glm::vec3& values) override;
         void UploadUniformInt(const std::string& name, int value) override;
+        void UploadUniformIntArray(const std::string& name, int* values, uint32_t count) override;
 
     private:
         std::string ReadFile(const std::string& filepath);

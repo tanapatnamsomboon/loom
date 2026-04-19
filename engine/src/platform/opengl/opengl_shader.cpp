@@ -58,6 +58,11 @@ namespace Loom {
         glUniform1i(location, value);
     }
 
+    void OpenGLShader::UploadUniformIntArray(const std::string& name, int* values, uint32_t count) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform1iv(location, count, values);
+    }
+
     std::string OpenGLShader::ReadFile(const std::string& filepath) {
         std::string result;
 

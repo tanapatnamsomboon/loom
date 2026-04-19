@@ -3,6 +3,7 @@
 #include "loom/renderer/shader.h"
 #include "loom/renderer/render_command.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <array>
 
 namespace Loom {
 
@@ -10,12 +11,15 @@ namespace Loom {
         glm::vec3 Position;
         glm::vec4 Color;
         glm::vec2 TexCoord;
+        float     TexIndex;
+        float     TilingFactor;
     };
 
     struct Renderer2DStorage {
-        static constexpr uint32_t MaxQuads      = 10'000;
-        static constexpr uint32_t MaxVertices   = MaxQuads * 4;
-        static constexpr uint32_t MaxIndices    = MaxQuads * 6;
+        static constexpr uint32_t MaxQuads        = 10'000;
+        static constexpr uint32_t MaxVertices     = MaxQuads * 4;
+        static constexpr uint32_t MaxIndices      = MaxQuads * 6;
+        static constexpr uint32_t MaxTextureSlots = 32;
 
         std::shared_ptr<VertexArray>    QuadVertexArray;
         std::shared_ptr<VertexBuffer>   QuadVertexBuffer;
@@ -25,19 +29,23 @@ namespace Loom {
         uint32_t    QuadIndexCount          = 0;
         QuadVertex* QuadVertexBufferBase    = nullptr;
         QuadVertex* QuadVertexBufferPtr     = nullptr;
+
+        std::array<std::shared_ptr<Texture2D>, MaxTextureSlots> TextureSlots;
+        uint32_t TextureSlotIndex = 1;
     };
 
     static Renderer2DStorage sData;
 
     void Renderer2D::Init() {
-
-        sData.QuadVertexArray.reset(VertexArray::Create());
+        sData.QuadVertexArray = VertexArray::Create();
 
         sData.QuadVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
         sData.QuadVertexBuffer->SetLayout({
-            { ShaderDataType::Float3, "aPosition" },
-            { ShaderDataType::Float4, "aColor"    },
-            { ShaderDataType::Float2, "aTexCoord" }
+            { ShaderDataType::Float3, "aPosition"    },
+            { ShaderDataType::Float4, "aColor"       },
+            { ShaderDataType::Float2, "aTexCoord"    },
+            { ShaderDataType::Float,  "aTexIndex"    },
+            { ShaderDataType::Float,  "aTilingFactor"}
         });
         sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer);
 
@@ -59,13 +67,18 @@ namespace Loom {
         sData.QuadVertexArray->SetIndexBuffer(ibo);
         delete[] quad_indices;
 
-        sData.WhiteTexture.reset(Texture2D::Create(1, 1));
+        sData.TextureSlots[0] = Texture2D::Create(1, 1);
         uint32_t white_texture_data = 0xffffffff;
-        sData.WhiteTexture->SetData(&white_texture_data, sizeof(uint32_t));
+        sData.TextureSlots[0]->SetData(&white_texture_data, sizeof(uint32_t));
 
-        sData.TextureShader.reset(Shader::Create("assets/shaders/texture"));
+        sData.TextureShader = Shader::Create("assets/shaders/texture");
+
+        int32_t samplers[sData.MaxTextureSlots];
+        for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
+            samplers[i] = i;
+
         sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformInt("uTexture", 0);
+        sData.TextureShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
     }
 
     void Renderer2D::Shutdown() {
@@ -77,6 +90,8 @@ namespace Loom {
 
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
+
+        sData.TextureSlotIndex = 1;
     }
 
     void Renderer2D::EndScene() {
@@ -85,7 +100,10 @@ namespace Loom {
 
     void Renderer2D::Flush() {
         if (sData.QuadIndexCount) {
-            sData.WhiteTexture->Bind(0);
+            for (uint32_t i = 0; i < sData.TextureSlotIndex; i++) {
+                sData.TextureSlots[i]->Bind(i);
+            }
+
             uint32_t data_size = (uint8_t*)sData.QuadVertexBufferPtr - (uint8_t*)sData.QuadVertexBufferBase;
             sData.QuadVertexBuffer->SetData(sData.QuadVertexBufferBase, data_size);
             RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), sData.QuadIndexCount);
@@ -103,21 +121,25 @@ namespace Loom {
         sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f);
         sData.QuadVertexBufferPtr->Color = color;
         sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 0.0f };
+        sData.QuadVertexBufferPtr->TexIndex = 0.0f;
         sData.QuadVertexBufferPtr++;
 
         sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, -0.5f, 0.0f, 1.0f);
         sData.QuadVertexBufferPtr->Color = color;
         sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 0.0f };
+        sData.QuadVertexBufferPtr->TexIndex = 0.0f;
         sData.QuadVertexBufferPtr++;
 
         sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, 0.5f, 0.0f, 1.0f);
         sData.QuadVertexBufferPtr->Color = color;
         sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 1.0f };
+        sData.QuadVertexBufferPtr->TexIndex = 0.0f;
         sData.QuadVertexBufferPtr++;
 
         sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, 0.5f, 0.0f, 1.0f);
         sData.QuadVertexBufferPtr->Color = color;
         sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 1.0f };
+        sData.QuadVertexBufferPtr->TexIndex = 0.0f;
         sData.QuadVertexBufferPtr++;
 
         sData.QuadIndexCount += 6;
@@ -128,15 +150,55 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture) {
-        sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformFloat4("uColor", glm::vec4(1.0f));
-        texture->Bind();
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
+                            * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
-        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
-        sData.TextureShader->UploadUniformMat4("uTransform", transform);
+        float texture_index = 0.0f;
+        for (uint32_t i = 1; i < sData.TextureSlotIndex; i++) {
+            if (sData.TextureSlots[i].get() == texture.get()) {
+                texture_index = (float)i;
+                break;
+            }
+        }
 
-        sData.QuadVertexArray->Bind();
-        RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), 0);
+        if (texture_index == 0.0f) {
+            texture_index = (float)sData.TextureSlotIndex;
+            sData.TextureSlots[sData.TextureSlotIndex] = texture;
+            sData.TextureSlotIndex++;
+        }
+
+        constexpr glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
+        float tiling_factor = 1.0f;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 0.0f };
+        sData.QuadVertexBufferPtr->TexIndex = texture_index;
+        sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, -0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 0.0f };
+        sData.QuadVertexBufferPtr->TexIndex = texture_index;
+        sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(0.5f, 0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 1.0f, 1.0f };
+        sData.QuadVertexBufferPtr->TexIndex = texture_index;
+        sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadVertexBufferPtr->Position = transform * glm::vec4(-0.5f, 0.5f, 0.0f, 1.0f);
+        sData.QuadVertexBufferPtr->Color = color;
+        sData.QuadVertexBufferPtr->TexCoord = { 0.0f, 1.0f };
+        sData.QuadVertexBufferPtr->TexIndex = texture_index;
+        sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+        sData.QuadVertexBufferPtr++;
+
+        sData.QuadIndexCount += 6;
     }
 
 } // namespace Loom
