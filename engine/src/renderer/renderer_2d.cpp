@@ -131,10 +131,10 @@ namespace Loom {
         constexpr float tiling_factor = 1.0f;
 
         for (size_t i = 0; i < quad_vertex_count; i++) {
-            sData.QuadVertexBufferPtr->Position = transform * sData.QuadVertexPositions[i];
-            sData.QuadVertexBufferPtr->Color = color;
-            sData.QuadVertexBufferPtr->TexCoord = texture_coords[i];
-            sData.QuadVertexBufferPtr->TexIndex = texture_index;
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
             sData.QuadVertexBufferPtr++;
         }
@@ -142,11 +142,11 @@ namespace Loom {
         sData.QuadIndexCount += 6;
     }
 
-    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture) {
-        DrawQuad({ position.x, position.y, 0.0f }, size, texture);
+    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
+        DrawQuad({ position.x, position.y, 0.0f }, size, texture, tint_color);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture) {
+    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
@@ -167,14 +167,51 @@ namespace Loom {
         constexpr size_t quad_vertex_count = 4;
         constexpr glm::vec2 texture_coords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
         constexpr float tiling_factor = 1.0f;
-        constexpr glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
         for (size_t i = 0; i < quad_vertex_count; i++) {
-            sData.QuadVertexBufferPtr->Position = transform * sData.QuadVertexPositions[i];
-            sData.QuadVertexBufferPtr->Color = color;
-            sData.QuadVertexBufferPtr->TexCoord = texture_coords[i];
-            sData.QuadVertexBufferPtr->TexIndex = texture_index;
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = tint_color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr++;
+        }
+
+        sData.QuadIndexCount += 6;
+    }
+
+    void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<SubTexture2D>& sub_texture, const glm::vec4& tint_color) {
+        DrawQuad({ position.x, position.y, 0.0f }, size, sub_texture, tint_color);
+    }
+
+    void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<SubTexture2D>& sub_texture, const glm::vec4& tint_color) {
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
+                            * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+
+        const std::shared_ptr<Texture2D> texture = sub_texture->GetTexture();
+        const glm::vec2* texture_coords = sub_texture->GetTexCoords();
+        constexpr size_t quad_vertex_count = 4;
+
+        float texture_index = 0.0f;
+        for (uint32_t i = 1; i < sData.TextureSlotIndex; i++) {
+            if (sData.TextureSlots[i].get() == texture.get()) {
+                texture_index = (float)i;
+                break;
+            }
+        }
+
+        if (texture_index == 0.0f) {
+            texture_index = (float)sData.TextureSlotIndex;
+            sData.TextureSlots[sData.TextureSlotIndex] = texture;
+            sData.TextureSlotIndex++;
+        }
+
+        for (int i = 0; i < quad_vertex_count; i++) {
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = tint_color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
+            sData.QuadVertexBufferPtr->TilingFactor = 1.0f;
             sData.QuadVertexBufferPtr++;
         }
 
@@ -196,10 +233,10 @@ namespace Loom {
         constexpr float tiling_factor = 1.0f;
 
         for (size_t i = 0; i < quad_vertex_count; i++) {
-            sData.QuadVertexBufferPtr->Position = transform * sData.QuadVertexPositions[i];
-            sData.QuadVertexBufferPtr->Color = color;
-            sData.QuadVertexBufferPtr->TexCoord = texture_coords[i];
-            sData.QuadVertexBufferPtr->TexIndex = texture_index;
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
             sData.QuadVertexBufferPtr++;
         }
@@ -207,11 +244,11 @@ namespace Loom {
         sData.QuadIndexCount += 6;
     }
 
-    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const std::shared_ptr<Texture2D>& texture) {
-        DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, texture);
+    void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
+        DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, texture, tint_color);
     }
 
-    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const std::shared_ptr<Texture2D>& texture) {
+    void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
@@ -233,13 +270,12 @@ namespace Loom {
         constexpr size_t quad_vertex_count = 4;
         constexpr glm::vec2 texture_coords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
         constexpr float tiling_factor = 1.0f;
-        constexpr glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
         for (size_t i = 0; i < quad_vertex_count; i++) {
-            sData.QuadVertexBufferPtr->Position = transform * sData.QuadVertexPositions[i];
-            sData.QuadVertexBufferPtr->Color = color;
-            sData.QuadVertexBufferPtr->TexCoord = texture_coords[i];
-            sData.QuadVertexBufferPtr->TexIndex = texture_index;
+            sData.QuadVertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            sData.QuadVertexBufferPtr->Color        = tint_color;
+            sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
+            sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
             sData.QuadVertexBufferPtr++;
         }

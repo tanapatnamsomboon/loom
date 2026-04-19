@@ -10,7 +10,8 @@ class ExampleLayer : public Loom::Layer {
 public:
     ExampleLayer()
         : Layer("Example"), mCamera(-1.6f, 1.6f, -0.9f, 0.9f), mCameraPosition(0.0f) {
-        mTexture = Loom::Texture2D::Create("assets/textures/box.png");
+        mTileset = Loom::Texture2D::Create("assets/textures/tileset.png");
+        mBoatSprite = Loom::SubTexture2D::CreateFromCoords(mTileset, { 0, 0 }, { 128, 64 });
     }
 
     void OnAttach() override {
@@ -44,8 +45,7 @@ public:
         Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer2D::BeginScene(mCamera);
-        Loom::Renderer2D::DrawRotatedQuad({ 0.0f, 0.0f }, { 1.0f, 1.0f }, rotation, mTexture);
-        Loom::Renderer2D::DrawRotatedQuad({ 0.5f, 0.5f, 0.1f }, { 0.8f, 0.8f }, -rotation, { 1.0f, 1.0f, 1.0f, 0.8f });
+        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f }, { 0.5f, 0.25f }, mBoatSprite);
         Loom::Renderer2D::EndScene();
     }
 
@@ -56,7 +56,8 @@ public:
     }
 
 private:
-    std::shared_ptr<Loom::Texture2D> mTexture;
+    std::shared_ptr<Loom::Texture2D> mTileset;
+    std::shared_ptr<Loom::SubTexture2D> mBoatSprite;
     Loom::OrthographicCamera mCamera;
     glm::vec3 mCameraPosition;
     float mCameraMoveSpeed = 1.0f;

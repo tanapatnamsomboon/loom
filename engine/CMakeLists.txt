@@ -16,6 +16,7 @@ set(ENGINE_SOURCES
   src/renderer/renderer_2d.cpp
   src/renderer/renderer_api.cpp
   src/renderer/shader.cpp
+  src/renderer/subtexture_2d.cpp
   src/renderer/texture.cpp
   src/renderer/vertex_array.cpp
 
