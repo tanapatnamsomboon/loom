@@ -25,6 +25,13 @@ namespace Loom {
         if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
             mSelectionContext = {};
 
+        if (ImGui::BeginPopupContextWindow("HierarchyContextWindow", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
+            if (ImGui::MenuItem("Create Empty Entity")) {
+                mContext->CreateEntity("Empty Entity");
+            }
+            ImGui::EndPopup();
+        }
+
         ImGui::End();
 
         ImGui::Begin("Properties");
@@ -38,18 +45,42 @@ namespace Loom {
         auto& tag = entity.GetComponent<TagComponent>().Tag;
 
         ImGuiTreeNodeFlags flags = ((mSelectionContext == entity) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
+        flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
         bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, "%s", tag.c_str());
 
         if (ImGui::IsItemClicked()) {
             mSelectionContext = entity;
         }
 
+        bool entity_deleted = false;
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("Delete Entity")) {
+                entity_deleted = true;
+            }
+            ImGui::EndPopup();
+        }
+
         if (opened) {
             ImGui::TreePop();
+        }
+
+        if (entity_deleted) {
+            mContext->DestroyEntity(entity);
+
+            if (mSelectionContext == entity) {
+                mSelectionContext = {};
+            }
         }
     }
 
     void SceneHierarchyPanel::DrawComponents(Entity entity) {
+        if (entity.HasComponent<IDComponent>()) {
+            auto& uuid = entity.GetComponent<IDComponent>().ID;
+
+            ImGui::Text("UUID: %llu", (uint64_t)uuid);
+            ImGui::Separator();
+        }
+
         if (entity.HasComponent<TagComponent>()) {
             auto& tag = entity.GetComponent<TagComponent>().Tag;
 
