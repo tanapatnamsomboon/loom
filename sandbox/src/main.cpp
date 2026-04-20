@@ -1,66 +1,45 @@
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/core/log.h>
-#include <loom/renderer/orthographic_camera.h>
 #include <loom/renderer/render_command.h>
-#include <loom/renderer/renderer_2d.h>
-#include <imgui.h>
+#include <loom/scene/scene.h>
+#include <loom/scene/entity.h>
+#include <loom/scene/components.h>
 
 class ExampleLayer : public Loom::Layer {
 public:
-    ExampleLayer()
-        : Layer("Example"), mCamera(-1.6f, 1.6f, -0.9f, 0.9f), mCameraPosition(0.0f) {
-        mTileset = Loom::Texture2D::Create("assets/textures/tileset.png");
-        mBoatSprite = Loom::SubTexture2D::CreateFromCoords(mTileset, { 0, 0 }, { 128, 64 });
-    }
+    ExampleLayer() : Layer("Example") {
+        mScene = std::make_shared<Loom::Scene>();
 
-    void OnAttach() override {
-        ImGuiContext* context;
-        ImGuiMemAllocFunc alloc_func;
-        ImGuiMemFreeFunc free_func;
-        void* user_data;
+        mSquareEntity = mScene->CreateEntity("Green Square");
+        mSquareEntity.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
 
-        Loom::Application::Get().GetImGuiLayer()->GetContextAndAllocators(&context, &alloc_func, &free_func, &user_data);
+        mCameraEntity = mScene->CreateEntity("Camera");
+        mCameraEntity.AddComponent<Loom::CameraComponent>();
 
-        ImGui::SetCurrentContext(context);
-        ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
+        auto& cc = mCameraEntity.GetComponent<Loom::CameraComponent>();
+        cc.Camera.SetViewportSize(1280, 720);
     }
 
     void OnUpdate(Loom::Timestep ts) override {
-        if (Loom::Input::IsKeyPressed('A'))
-            mCameraPosition.x -= mCameraMoveSpeed * ts;
-        else if (Loom::Input::IsKeyPressed('D'))
-            mCameraPosition.x += mCameraMoveSpeed * ts;
+        auto& camera_transform = mCameraEntity.GetComponent<Loom::TransformComponent>();
+        float speed = 5.0f * ts;
 
-        if (Loom::Input::IsKeyPressed('W'))
-            mCameraPosition.y += mCameraMoveSpeed * ts;
-        else if (Loom::Input::IsKeyPressed('S'))
-            mCameraPosition.y -= mCameraMoveSpeed * ts;
+        if (Loom::Input::IsKeyPressed('A')) camera_transform.Translation.x -= speed;
+        if (Loom::Input::IsKeyPressed('D')) camera_transform.Translation.x += speed;
+        if (Loom::Input::IsKeyPressed('W')) camera_transform.Translation.y += speed;
+        if (Loom::Input::IsKeyPressed('S')) camera_transform.Translation.y -= speed;
 
-        mCamera.SetPosition(mCameraPosition);
-
-        static float rotation = 0.0f;
-        rotation += 0.5f * ts;
-
-        Loom::RenderCommand::SetClearColor(0.2f, 0.2f, 0.8f, 1.0f);
+        Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         Loom::RenderCommand::Clear();
-        Loom::Renderer2D::BeginScene(mCamera);
-        Loom::Renderer2D::DrawQuad({ 0.0f, 0.0f }, { 0.5f, 0.25f }, mBoatSprite);
-        Loom::Renderer2D::EndScene();
-    }
 
-    void OnImGuiRender() override {
-        ImGui::Begin("Settings");
-        ImGui::Text("Hello Loom Engine!");
-        ImGui::End();
+        mScene->OnUpdate(ts);
     }
 
 private:
-    std::shared_ptr<Loom::Texture2D> mTileset;
-    std::shared_ptr<Loom::SubTexture2D> mBoatSprite;
-    Loom::OrthographicCamera mCamera;
-    glm::vec3 mCameraPosition;
-    float mCameraMoveSpeed = 1.0f;
+    std::shared_ptr<Loom::Scene> mScene;
+    Loom::Entity mSquareEntity;
+    Loom::Entity mCameraEntity;
 };
 
 int main() {

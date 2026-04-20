@@ -31,6 +31,7 @@ set(ENGINE_SOURCES
   src/platform/opengl/opengl_vertex_array.cpp
 
   src/scene/scene.cpp
+  src/scene/scene_camera.cpp
 )
 
 if (WIN32)

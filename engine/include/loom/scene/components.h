@@ -1,5 +1,6 @@
 #pragma once
 
+#include "loom/scene/scene_camera.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
@@ -42,6 +43,15 @@ namespace Loom {
         SpriteRendererComponent(const SpriteRendererComponent&) = default;
         SpriteRendererComponent(const glm::vec4& color)
             : Color(color) {}
+    };
+
+    struct CameraComponent {
+        SceneCamera Camera;
+        bool Primary = true;
+        bool FixedAspectRatio = false;
+
+        CameraComponent() = default;
+        CameraComponent(const CameraComponent&) = default;
     };
 
 } // namespace Loom

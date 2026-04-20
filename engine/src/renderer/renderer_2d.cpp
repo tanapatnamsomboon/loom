@@ -97,7 +97,17 @@ namespace Loom {
 
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
+        sData.TextureSlotIndex = 1;
+    }
 
+    void Renderer2D::BeginScene(const Camera& camera, const glm::mat4& transform) {
+        glm::mat4 view_proj = camera.GetProjection() * glm::inverse(transform);
+
+        sData.TextureShader->Bind();
+        sData.TextureShader->UploadUniformMat4("uViewProjection", view_proj);
+
+        sData.QuadIndexCount = 0;
+        sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
     }
 
