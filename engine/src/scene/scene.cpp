@@ -12,11 +12,26 @@ namespace Loom {
     Entity Scene::CreateEntity(const std::string& name) {
         Entity entity = { mRegistry.create(), this };
 
+        entity.AddComponent<IDComponent>();
+
         entity.AddComponent<TransformComponent>();
         auto& tag = entity.AddComponent<TagComponent>();
         tag.Tag = name.empty() ? "Entity" : name;
 
         return entity;
+    }
+
+    void Scene::DestroyEntity(Entity entity) {
+        mRegistry.destroy(entity);
+    }
+
+    Entity Scene::GetEntityByUUID(UUID uuid) {
+        auto view = mRegistry.view<IDComponent>();
+        for (auto entity : view) {
+            if (view.get<IDComponent>(entity).ID == uuid)
+                return { entity, this };
+        }
+        return {};
     }
 
     void Scene::OnUpdate(Timestep ts) {

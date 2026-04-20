@@ -6,6 +6,7 @@ set(ENGINE_SOURCES
   src/core/layer.cpp
   src/core/layer_stack.cpp
   src/core/log.cpp
+  src/core/uuid.cpp
   src/core/window.cpp
 
   src/imgui/imgui_layer.cpp

@@ -36,6 +36,7 @@ namespace Loom {
 
         operator bool() const { return mEntityHandle != entt::null; }
         operator uint32_t() const { return (uint32_t)mEntityHandle; }
+        operator entt::entity() const { return mEntityHandle; }
 
         bool operator==(const Entity& other) const {
             return mEntityHandle == other.mEntityHandle && mScene == other.mScene;

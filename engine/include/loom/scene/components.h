@@ -1,5 +1,6 @@
 #pragma once
 
+#include "loom/core/uuid.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
 #include <glm/glm.hpp>
@@ -7,6 +8,13 @@
 #include <string>
 
 namespace Loom {
+
+    struct IDComponent {
+        UUID ID;
+
+        IDComponent() = default;
+        IDComponent(const IDComponent&) = default;
+    };
 
     struct TagComponent {
         std::string Tag;
