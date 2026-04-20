@@ -12,6 +12,7 @@ set(ENGINE_SOURCES
   src/imgui/imgui_layer.cpp
 
   src/renderer/buffer.cpp
+  src/renderer/framebuffer.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp
   src/renderer/renderer_2d.cpp
@@ -26,6 +27,7 @@ set(ENGINE_SOURCES
 
   src/platform/opengl/opengl_buffer.cpp
   src/platform/opengl/opengl_context.cpp
+  src/platform/opengl/opengl_framebuffer.cpp
   src/platform/opengl/opengl_renderer_api.cpp
   src/platform/opengl/opengl_shader.cpp
   src/platform/opengl/opengl_texture.cpp
