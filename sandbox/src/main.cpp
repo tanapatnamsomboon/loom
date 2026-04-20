@@ -5,6 +5,7 @@
 #include <loom/scene/scene.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/components.h>
+#include <loom/scene/scene_hierarchy_panel.h>
 
 class CameraController : public Loom::ScriptableEntity {
 public:
@@ -35,12 +36,18 @@ public:
         mSquareEntity = mScene->CreateEntity("Green Square");
         mSquareEntity.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
 
+        auto red_square = mScene->CreateEntity("Red Square");
+        red_square.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
+        red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
+
         mCameraEntity = mScene->CreateEntity("Main Camera");
         mCameraEntity.AddComponent<Loom::CameraComponent>();
         mCameraEntity.AddComponent<Loom::NativeScriptComponent>().Bind<CameraController>();
 
         auto& cc = mCameraEntity.GetComponent<Loom::CameraComponent>();
         cc.Camera.SetViewportSize(1280, 720);
+
+        mHierarchyPanel.SetContext(mScene);
     }
 
     void OnUpdate(Loom::Timestep ts) override {
@@ -50,10 +57,15 @@ public:
         mScene->OnUpdate(ts);
     }
 
+    void OnImGuiRender() override {
+        mHierarchyPanel.OnImGuiRender();
+    }
+
 private:
     std::shared_ptr<Loom::Scene> mScene;
     Loom::Entity mSquareEntity;
     Loom::Entity mCameraEntity;
+    Loom::SceneHierarchyPanel mHierarchyPanel;
 };
 
 int main() {

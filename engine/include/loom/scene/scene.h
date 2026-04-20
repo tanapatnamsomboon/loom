@@ -21,6 +21,7 @@ namespace Loom {
         entt::registry mRegistry;
 
         friend class Entity;
+        friend class SceneHierarchyPanel;
     };
 
 } // namespace Loom
