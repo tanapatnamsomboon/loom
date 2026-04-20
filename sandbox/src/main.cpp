@@ -6,6 +6,27 @@
 #include <loom/scene/entity.h>
 #include <loom/scene/components.h>
 
+class CameraController : public Loom::ScriptableEntity {
+public:
+    void OnCreate() override {
+        auto& name = GetComponent<Loom::TagComponent>().Tag;
+        LOOM_INFO("Camera '{0}' created!", name);
+    }
+
+    void OnDestroy() override {
+    }
+
+    void OnUpdate(Loom::Timestep ts) override {
+        auto& transform = GetComponent<Loom::TransformComponent>();
+        float speed = 5.0f * ts;
+
+        if (Loom::Input::IsKeyPressed('A')) transform.Translation.x -= speed;
+        if (Loom::Input::IsKeyPressed('D')) transform.Translation.x += speed;
+        if (Loom::Input::IsKeyPressed('W')) transform.Translation.y += speed;
+        if (Loom::Input::IsKeyPressed('S')) transform.Translation.y -= speed;
+    }
+};
+
 class ExampleLayer : public Loom::Layer {
 public:
     ExampleLayer() : Layer("Example") {
@@ -14,22 +35,15 @@ public:
         mSquareEntity = mScene->CreateEntity("Green Square");
         mSquareEntity.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
 
-        mCameraEntity = mScene->CreateEntity("Camera");
+        mCameraEntity = mScene->CreateEntity("Main Camera");
         mCameraEntity.AddComponent<Loom::CameraComponent>();
+        mCameraEntity.AddComponent<Loom::NativeScriptComponent>().Bind<CameraController>();
 
         auto& cc = mCameraEntity.GetComponent<Loom::CameraComponent>();
         cc.Camera.SetViewportSize(1280, 720);
     }
 
     void OnUpdate(Loom::Timestep ts) override {
-        auto& camera_transform = mCameraEntity.GetComponent<Loom::TransformComponent>();
-        float speed = 5.0f * ts;
-
-        if (Loom::Input::IsKeyPressed('A')) camera_transform.Translation.x -= speed;
-        if (Loom::Input::IsKeyPressed('D')) camera_transform.Translation.x += speed;
-        if (Loom::Input::IsKeyPressed('W')) camera_transform.Translation.y += speed;
-        if (Loom::Input::IsKeyPressed('S')) camera_transform.Translation.y -= speed;
-
         Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         Loom::RenderCommand::Clear();
 

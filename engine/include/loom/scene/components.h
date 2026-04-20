@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/scene/scene_camera.h"
+#include "loom/scene/scriptable_entity.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
@@ -52,6 +53,19 @@ namespace Loom {
 
         CameraComponent() = default;
         CameraComponent(const CameraComponent&) = default;
+    };
+
+    struct NativeScriptComponent {
+        ScriptableEntity* Instance = nullptr;
+
+        ScriptableEntity* (*InstantiateScript)();
+        void (*DestroyScript)(NativeScriptComponent*);
+
+        template<typename T>
+        void Bind() {
+            InstantiateScript = [](void) { return static_cast<ScriptableEntity*>(new T()); };
+            DestroyScript = [](NativeScriptComponent* nsc) { delete nsc->InstantiateScript(); nsc->Instance = nullptr; };
+        }
     };
 
 } // namespace Loom

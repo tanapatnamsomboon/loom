@@ -20,6 +20,16 @@ namespace Loom {
     }
 
     void Scene::OnUpdate(Timestep ts) {
+        mRegistry.view<NativeScriptComponent>().each([&](entt::entity entity_id, NativeScriptComponent& nsc) {
+            if (!nsc.Instance) {
+                nsc.Instance = nsc.InstantiateScript();
+                nsc.Instance->mEntity = Entity{ entity_id, this };
+                nsc.Instance->OnCreate();
+            }
+
+            nsc.Instance->OnUpdate(ts);
+        });
+
         Camera* main_camera = nullptr;
         glm::mat4 camera_transform;
 
