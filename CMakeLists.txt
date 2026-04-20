@@ -29,4 +29,5 @@ target_include_directories(stb PUBLIC vendor/stb)
 add_subdirectory(vendor/entt)
 
 add_subdirectory(engine)
-add_subdirectory(sandbox)
+# add_subdirectory(sandbox)
+add_subdirectory(weaver)
