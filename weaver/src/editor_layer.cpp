@@ -46,7 +46,11 @@ namespace Weaver {
             mEditorCamera.SetViewportSize(mViewportSize.x, mViewportSize.y);
         }
 
-        mEditorCamera.OnUpdate(ts);
+        if (mViewportHovered) {
+            mEditorCamera.OnUpdate(ts);
+        } else {
+            mEditorCamera.ResetMousePosition();
+        }
 
         mFramebuffer->Bind();
 
@@ -69,6 +73,11 @@ namespace Weaver {
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
         ImGui::Begin("Viewport");
+
+        mViewportFocused = ImGui::IsWindowFocused();
+        mViewportHovered = ImGui::IsWindowHovered();
+
+        Loom::Application::Get().GetImGuiLayer()->BlockEvents(!mViewportFocused && !mViewportHovered);
 
         ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
         mViewportSize = { viewport_panel_size.x, viewport_panel_size.y };

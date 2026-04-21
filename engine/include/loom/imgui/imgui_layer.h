@@ -21,6 +21,11 @@ namespace Loom {
         void End();
 
         void GetContextAndAllocators(ImGuiContext** context, ImGuiMemAllocFunc* alloc_func, ImGuiMemFreeFunc* free_func, void** user_data);
+
+        void BlockEvents(bool block) { mBlockEvents = block; }
+
+    private:
+        bool mBlockEvents = true;
     };
 
 } // namespace Loom

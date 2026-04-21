@@ -22,6 +22,9 @@ namespace Weaver {
         void OnImGuiRender() override;
 
     private:
+        bool mViewportFocused = false;
+        bool mViewportHovered = false;
+
         Loom::EditorCamera mEditorCamera;
 
         std::shared_ptr<Loom::Scene> mScene;

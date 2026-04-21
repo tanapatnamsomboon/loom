@@ -1,6 +1,7 @@
 #pragma once
 
 #include <loom/core/timestep.h>
+#include <loom/core/input.h>
 #include <loom/events/event.h>
 #include <loom/events/mouse_event.h>
 #include <loom/renderer/camera.h>
@@ -22,6 +23,8 @@ namespace Loom {
         glm::mat4 GetViewProjectionMatrix() const { return mProjection * mViewMatrix; }
 
         const glm::vec3& GetPosition() const { return mPosition; }
+
+        void ResetMousePosition() { mInitialMousePosition = { Input::GetMouseX(), Input::GetMouseY() }; }
 
     private:
         void UpdateProjection();

@@ -40,9 +40,11 @@ namespace Loom {
     }
 
     void ImGuiLayer::OnEvent(Event& event) {
-        ImGuiIO& io = ImGui::GetIO();
-        event.mHandled |= event.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
-        event.mHandled |= event.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
+        if (mBlockEvents) {
+            ImGuiIO& io = ImGui::GetIO();
+            event.mHandled |= event.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
+            event.mHandled |= event.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
+        }
     }
 
     void ImGuiLayer::Begin() {
