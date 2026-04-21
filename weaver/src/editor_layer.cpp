@@ -8,27 +8,7 @@
 
 namespace Weaver {
 
-    class CameraController : public Loom::ScriptableEntity {
-    public:
-        void OnCreate() override {
-            auto& name = GetComponent<Loom::TagComponent>().Tag;
-            LOOM_INFO("Camera '{0}' created!", name);
-        }
-
-        void OnDestroy() override {}
-
-        void OnUpdate(Loom::Timestep ts) override {
-            auto& transform = GetComponent<Loom::TransformComponent>();
-            float speed = 5.0f * ts;
-
-            if (Loom::Input::IsKeyPressed('A')) transform.Translation.x -= speed;
-            if (Loom::Input::IsKeyPressed('D')) transform.Translation.x += speed;
-            if (Loom::Input::IsKeyPressed('W')) transform.Translation.y += speed;
-            if (Loom::Input::IsKeyPressed('S')) transform.Translation.y -= speed;
-        }
-    };
-
-    EditorLayer::EditorLayer() {
+    EditorLayer::EditorLayer() : Layer("EditorLayer") {
         Loom::FramebufferSpecification fb_spec;
         fb_spec.Width = 1280;
         fb_spec.Height = 720;
@@ -40,12 +20,7 @@ namespace Weaver {
         red_square.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
         red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
 
-        mCameraEntity = mScene->CreateEntity("Editor Camera");
-        mCameraEntity.AddComponent<Loom::CameraComponent>();
-        mCameraEntity.AddComponent<Loom::NativeScriptComponent>().Bind<CameraController>();
-
-        auto& cc = mCameraEntity.GetComponent<Loom::CameraComponent>();
-        cc.Camera.SetViewportSize(1280, 720);
+        mEditorCamera = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
 
         mHierarchyPanel.SetContext(mScene);
     }
@@ -68,23 +43,23 @@ namespace Weaver {
             (spec.Width != mViewportSize.x || spec.Height != mViewportSize.y)) {
 
             mFramebuffer->Resize((uint32_t)mViewportSize.x, (uint32_t)mViewportSize.y);
-
-            auto view = mScene->GetAllEntitiesWith<Loom::CameraComponent>();
-            for (auto entity : view) {
-                auto& camera = view.get<Loom::CameraComponent>(entity);
-                if (!camera.FixedAspectRatio)
-                    camera.Camera.SetViewportSize((uint32_t)mViewportSize.x, (uint32_t)mViewportSize.y);
-            }
+            mEditorCamera.SetViewportSize(mViewportSize.x, mViewportSize.y);
         }
+
+        mEditorCamera.OnUpdate(ts);
 
         mFramebuffer->Bind();
 
         Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         Loom::RenderCommand::Clear();
 
-        mScene->OnUpdate(ts);
+        mScene->OnUpdateEditor(ts, mEditorCamera);
 
         mFramebuffer->Unbind();
+    }
+
+    void EditorLayer::OnEvent(Loom::Event& event) {
+        mEditorCamera.OnEvent(event);
     }
 
     void EditorLayer::OnImGuiRender() {

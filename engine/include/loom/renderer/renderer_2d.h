@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/renderer/camera.h"
+#include "loom/renderer/editor_camera.h"
 #include "loom/renderer/orthographic_camera.h"
 #include "loom/renderer/subtexture_2d.h"
 #include "loom/renderer/texture.h"
@@ -14,6 +15,7 @@ namespace Loom {
         static void Shutdown();
 
         static void BeginScene(const OrthographicCamera& camera);
+        static void BeginScene(const EditorCamera& camera);
         static void BeginScene(const Camera& camera, const glm::mat4& transform);
         static void EndScene();
 

@@ -15,14 +15,17 @@ namespace Weaver {
         ~EditorLayer() override = default;
 
         void OnAttach() override;
+
         void OnUpdate(Loom::Timestep ts) override;
+        void OnEvent(Loom::Event& event) override;
+
         void OnImGuiRender() override;
 
     private:
+        Loom::EditorCamera mEditorCamera;
+
         std::shared_ptr<Loom::Scene> mScene;
         SceneHierarchyPanel mHierarchyPanel;
-
-        Loom::Entity mCameraEntity;
 
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
         glm::vec2 mViewportSize = { 0.0f, 0.0f };

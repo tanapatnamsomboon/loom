@@ -12,6 +12,7 @@ set(ENGINE_SOURCES
   src/imgui/imgui_layer.cpp
 
   src/renderer/buffer.cpp
+  src/renderer/editor_camera.cpp
   src/renderer/framebuffer.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp

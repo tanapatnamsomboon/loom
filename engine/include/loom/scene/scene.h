@@ -3,6 +3,7 @@
 #include "loom/core/core.h"
 #include "loom/core/timestep.h"
 #include "loom/core/uuid.h"
+#include "loom/renderer/editor_camera.h"
 #include <entt/entt.hpp>
 
 namespace Loom {
@@ -15,6 +16,7 @@ namespace Loom {
         ~Scene();
 
         void OnUpdate(Timestep ts);
+        void OnUpdateEditor(Timestep ts, EditorCamera& camera);
 
         Entity CreateEntity(const std::string& name = std::string());
         void DestroyEntity(Entity entity);
