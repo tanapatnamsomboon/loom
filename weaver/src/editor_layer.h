@@ -2,6 +2,7 @@
 
 #include "panels/scene_hierarchy_panel.h"
 #include <loom/core/layer.h>
+#include <loom/events/key_event.h>
 #include <loom/scene/scene.h>
 #include <loom/scene/entity.h>
 #include <loom/renderer/framebuffer.h>
@@ -22,16 +23,22 @@ namespace Weaver {
         void OnImGuiRender() override;
 
     private:
+        bool OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event);
+        bool OnKeyPressed(Loom::KeyPressedEvent& event);
+
+    private:
         bool mViewportFocused = false;
         bool mViewportHovered = false;
 
         Loom::EditorCamera mEditorCamera;
+        Loom::Entity mHoveredEntity;
 
         std::shared_ptr<Loom::Scene> mScene;
         SceneHierarchyPanel mHierarchyPanel;
 
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
         glm::vec2 mViewportSize = { 0.0f, 0.0f };
+        glm::vec2 mViewportBounds[2];
     };
 
 } // namespace Weaver

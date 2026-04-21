@@ -97,9 +97,13 @@ namespace Loom {
 
             switch (action) {
                 case GLFW_PRESS: {
+                    MouseButtonPressedEvent event(button);
+                    data.EventCallback(event);
                     break;
                 }
                 case GLFW_RELEASE: {
+                    MouseButtonReleasedEvent event(button);
+                    data.EventCallback(event);
                     break;
                 }
                 default: break;

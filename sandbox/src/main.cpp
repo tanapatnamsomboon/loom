@@ -99,7 +99,7 @@ public:
         ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
         mViewportSize = { viewport_panel_size.x, viewport_panel_size.y };
 
-        uint32_t texture_id = mFramebuffer->GetColorAttachmentRendererID();
+        uint32_t texture_id = mFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::Image((void*)(intptr_t)texture_id, ImVec2{ mViewportSize.x, mViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
         ImGui::End();

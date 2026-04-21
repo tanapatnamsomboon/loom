@@ -12,6 +12,7 @@ namespace Weaver {
         SceneHierarchyPanel(const std::shared_ptr<Loom::Scene>& context);
 
         void SetContext(const std::shared_ptr<Loom::Scene>& context);
+        void SetSelectedEntity(const Loom::Entity& entity) { mSelectionContext = entity; }
 
         void OnImGuiRender();
 

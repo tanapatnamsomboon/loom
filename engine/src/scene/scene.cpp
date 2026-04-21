@@ -65,7 +65,10 @@ namespace Loom {
             auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
+
+                int entity_id = (int)(uint32_t)entity;
+
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, entity_id);
             }
 
             Renderer2D::EndScene();
@@ -78,7 +81,10 @@ namespace Loom {
         auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
+
+            int entity_id = (int)(uint32_t)entity;
+
+            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, entity_id);
         }
 
         Renderer2D::EndScene();

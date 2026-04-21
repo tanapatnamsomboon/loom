@@ -42,7 +42,7 @@ namespace Loom {
 
     void EditorCamera::OnEvent(Event& event) {
         EventDispatcher dispatcher(event);
-        dispatcher.Dispatch<MouseScrolledEvent>(std::bind(&EditorCamera::OnMouseScroll, this, std::placeholders::_1));
+        dispatcher.Dispatch<MouseScrolledEvent>(LOOM_BIND_EVENT_FN(OnMouseScroll));
     }
 
     void EditorCamera::SetViewportSize(float width, float height) {

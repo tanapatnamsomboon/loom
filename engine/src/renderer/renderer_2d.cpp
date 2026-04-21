@@ -13,6 +13,7 @@ namespace Loom {
         glm::vec2 TexCoord;
         float     TexIndex;
         float     TilingFactor;
+        int       EntityID;
     };
 
     struct Renderer2DStorage {
@@ -47,7 +48,8 @@ namespace Loom {
             { ShaderDataType::Float4, "aColor"       },
             { ShaderDataType::Float2, "aTexCoord"    },
             { ShaderDataType::Float,  "aTexIndex"    },
-            { ShaderDataType::Float,  "aTilingFactor"}
+            { ShaderDataType::Float,  "aTilingFactor"},
+            { ShaderDataType::Int,    "aEntityID"    }
         });
         sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer);
 
@@ -161,7 +163,7 @@ namespace Loom {
         sData.QuadIndexCount += 6;
     }
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color, int entity_id) {
         constexpr size_t quad_vertex_count = 4;
         constexpr float texture_index = 0.0f;
         constexpr glm::vec2 texture_coords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
@@ -173,6 +175,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr->EntityID     = entity_id;
             sData.QuadVertexBufferPtr++;
         }
 
