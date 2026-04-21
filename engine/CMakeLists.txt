@@ -35,7 +35,6 @@ set(ENGINE_SOURCES
 
   src/scene/scene.cpp
   src/scene/scene_camera.cpp
-  src/scene/scene_hierarchy_panel.cpp
 )
 
 if (WIN32)

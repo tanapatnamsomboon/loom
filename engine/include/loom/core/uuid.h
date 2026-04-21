@@ -1,11 +1,12 @@
 #pragma once
 
+#include "loom/core/core.h"
 #include <cstdint>
 #include <functional>
 
 namespace Loom {
 
-    class UUID {
+    class LOOM_API UUID {
     public:
         UUID();
         UUID(uint64_t uuid);

@@ -1,9 +1,9 @@
 #pragma once
 
+#include "panels/scene_hierarchy_panel.h"
 #include <loom/core/layer.h>
 #include <loom/scene/scene.h>
 #include <loom/scene/entity.h>
-#include <loom/scene/scene_hierarchy_panel.h>
 #include <loom/renderer/framebuffer.h>
 #include <glm/glm.hpp>
 
@@ -20,7 +20,8 @@ namespace Weaver {
 
     private:
         std::shared_ptr<Loom::Scene> mScene;
-        Loom::SceneHierarchyPanel mHierarchyPanel;
+        SceneHierarchyPanel mHierarchyPanel;
+
         Loom::Entity mCameraEntity;
 
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;

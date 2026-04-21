@@ -6,7 +6,6 @@
 #include <loom/scene/scene.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/components.h>
-#include <loom/scene/scene_hierarchy_panel.h>
 
 class CameraController : public Loom::ScriptableEntity {
 public:
