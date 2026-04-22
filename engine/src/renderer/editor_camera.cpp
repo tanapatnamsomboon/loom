@@ -14,7 +14,7 @@ namespace Loom {
     }
 
     void EditorCamera::OnUpdate(Timestep ts) {
-        if (Input::IsMouseButtonPressed(1)) {
+        if (Input::IsMouseButtonPressed(Mouse::ButtonRight)) {
             glm::vec2 mouse_pos = { Input::GetMouseX(), Input::GetMouseY() };
             glm::vec2 delta = (mouse_pos - mInitialMousePosition) * 0.003f;
             mInitialMousePosition = mouse_pos;
@@ -27,12 +27,12 @@ namespace Loom {
             glm::vec3 right = glm::rotate(orientation, glm::vec3(1.0f, 0.0f, 0.0f));
             glm::vec3 up = glm::rotate(orientation, glm::vec3(0.0f, 1.0f, 0.0f));
 
-            if (Input::IsKeyPressed('W')) mPosition += forward * mCameraSpeed * (float)ts;
-            if (Input::IsKeyPressed('S')) mPosition -= forward * mCameraSpeed * (float)ts;
-            if (Input::IsKeyPressed('A')) mPosition -= right * mCameraSpeed * (float)ts;
-            if (Input::IsKeyPressed('D')) mPosition += right * mCameraSpeed * (float)ts;
-            if (Input::IsKeyPressed('Q')) mPosition -= up * mCameraSpeed * (float)ts;
-            if (Input::IsKeyPressed('E')) mPosition += up * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::W)) mPosition += forward * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::S)) mPosition -= forward * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::A)) mPosition -= right * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::D)) mPosition += right * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::Q)) mPosition -= up * mCameraSpeed * (float)ts;
+            if (Input::IsKeyPressed(Key::E)) mPosition += up * mCameraSpeed * (float)ts;
         } else {
             mInitialMousePosition = { Input::GetMouseX(), Input::GetMouseY() };
         }

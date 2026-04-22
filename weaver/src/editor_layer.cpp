@@ -144,7 +144,7 @@ namespace Weaver {
             auto& tc = selected_entity.GetComponent<Loom::TransformComponent>();
             glm::mat4 transform = tc.GetTransform();
 
-            bool snap = Loom::Input::IsKeyPressed(341);
+            bool snap = Loom::Input::IsKeyPressed(Loom::Key::LeftControl);
             float snap_value = 0.5f;
             if (mGizmoType == ImGuizmo::OPERATION::ROTATE) snap_value = 45.0f;
             float snap_values[3] = { snap_value, snap_value, snap_value };
@@ -178,7 +178,7 @@ namespace Weaver {
     }
 
     bool EditorLayer::OnKeyPressed(Loom::KeyPressedEvent& event) {
-        if (!Loom::Input::IsMouseButtonPressed(1)) {
+        if (!Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight)) {
             switch (event.GetKeyCode()) {
                 case 'Q': mGizmoType = -1; break;
                 case 'W': mGizmoType = ImGuizmo::OPERATION::TRANSLATE; break;

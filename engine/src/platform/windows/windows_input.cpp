@@ -4,12 +4,12 @@
 
 namespace Loom {
 
-    bool WindowsInput::IsKeyPressedImpl(int keycode) {
-        return (GetAsyncKeyState(keycode) & 0x8000) != 0;
+    bool WindowsInput::IsKeyPressedImpl(Key keycode) {
+        return (GetAsyncKeyState((int)keycode) & 0x8000) != 0;
     }
 
-    bool WindowsInput::IsMouseButtonPressedImpl(int button) {
-        return (GetAsyncKeyState(button) & 0x8000) != 0;
+    bool WindowsInput::IsMouseButtonPressedImpl(Mouse button) {
+        return (GetAsyncKeyState((int)button) & 0x8000) != 0;
     }
 
     std::pair<float, float> WindowsInput::GetMousePositionImpl() {

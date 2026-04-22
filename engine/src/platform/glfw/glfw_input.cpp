@@ -4,15 +4,15 @@
 
 namespace Loom {
 
-    bool GLFWInput::IsKeyPressedImpl(int keycode) {
+    bool GLFWInput::IsKeyPressedImpl(Key keycode) {
         auto pWindow = (GLFWwindow*)Application::Get().GetWindow().GetNativeWindow();
-        auto state = glfwGetKey(pWindow, keycode);
+        auto state = glfwGetKey(pWindow, (int)keycode);
         return state == GLFW_PRESS || state == GLFW_REPEAT;
     }
 
-    bool GLFWInput::IsMouseButtonPressedImpl(int button) {
+    bool GLFWInput::IsMouseButtonPressedImpl(Mouse button) {
         auto pWindow = (GLFWwindow*)Application::Get().GetWindow().GetNativeWindow();
-        auto state = glfwGetMouseButton(pWindow, button);
+        auto state = glfwGetMouseButton(pWindow, (int)button);
         return state == GLFW_PRESS;
     }
 
