@@ -112,7 +112,7 @@ namespace Loom {
     }
 
     void Renderer2D::BeginScene(const Camera& camera, const glm::mat4& transform) {
-        glm::mat4 view_proj = camera.GetProjection() * glm::inverse(transform);
+        glm::mat4 view_proj = camera.GetProjectionMatrix() * glm::inverse(transform);
 
         sData.TextureShader->Bind();
         sData.TextureShader->UploadUniformMat4("uViewProjection", view_proj);

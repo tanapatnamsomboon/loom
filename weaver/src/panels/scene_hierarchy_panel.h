@@ -14,6 +14,8 @@ namespace Weaver {
         void SetContext(const std::shared_ptr<Loom::Scene>& context);
         void SetSelectedEntity(const Loom::Entity& entity) { mSelectionContext = entity; }
 
+        Loom::Entity GetSelectedEntity() const { return mSelectionContext; }
+
         void OnImGuiRender();
 
     private:

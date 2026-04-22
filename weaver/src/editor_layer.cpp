@@ -1,10 +1,12 @@
 #include "editor_layer.h"
 #include <loom/core/application.h>
 #include <loom/core/input.h>
-#include <loom/core/log.h>
+#include <loom/math/math.h>
 #include <loom/renderer/render_command.h>
 #include <loom/scene/components.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+#include <ImGuizmo.h>
 
 namespace Weaver {
 
@@ -39,6 +41,7 @@ namespace Weaver {
         Loom::Application::Get().GetImGuiLayer()->GetContextAndAllocators(&context, &alloc_func, &free_func, &user_data);
 
         ImGui::SetCurrentContext(context);
+        ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
     }
 
@@ -102,6 +105,7 @@ namespace Weaver {
     }
 
     void EditorLayer::OnImGuiRender() {
+        ImGuizmo::BeginFrame();
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
         mHierarchyPanel.OnImGuiRender();
@@ -125,13 +129,48 @@ namespace Weaver {
         uint32_t texture_id = mFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::Image((void*)(intptr_t)texture_id, ImVec2{ mViewportSize.x, mViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
+        Loom::Entity selected_entity = mHierarchyPanel.GetSelectedEntity();
+        if (selected_entity && mGizmoType != -1) {
+            ImGuizmo::SetOrthographic(false);
+            ImGuizmo::SetDrawlist();
+
+            ImGuizmo::SetRect(mViewportBounds[0].x, mViewportBounds[0].y,
+                              mViewportBounds[1].x - mViewportBounds[0].x,
+                              mViewportBounds[1].y - mViewportBounds[0].y);
+
+            const glm::mat4& camera_projection = mEditorCamera.GetProjectionMatrix();
+            glm::mat4 camera_view = mEditorCamera.GetViewMatrix();
+
+            auto& tc = selected_entity.GetComponent<Loom::TransformComponent>();
+            glm::mat4 transform = tc.GetTransform();
+
+            bool snap = Loom::Input::IsKeyPressed(341);
+            float snap_value = 0.5f;
+            if (mGizmoType == ImGuizmo::OPERATION::ROTATE) snap_value = 45.0f;
+            float snap_values[3] = { snap_value, snap_value, snap_value };
+
+            ImGuizmo::Manipulate(glm::value_ptr(camera_view), glm::value_ptr(camera_projection),
+                                 (ImGuizmo::OPERATION)mGizmoType, ImGuizmo::LOCAL, glm::value_ptr(transform),
+                                 nullptr, snap ? snap_values : nullptr);
+
+            if (ImGuizmo::IsUsing()) {
+                glm::vec3 translation, rotation, scale;
+                Loom::Math::DecomposeTransform(transform, translation, rotation, scale);
+
+                glm::vec3 delta_rotation = rotation - tc.Rotation;
+                tc.Translation = translation;
+                tc.Rotation += delta_rotation;
+                tc.Scale = scale;
+            }
+        }
+
         ImGui::End();
         ImGui::PopStyleVar();
     }
 
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() == 0) {
-            if (mViewportHovered) {
+            if (mViewportHovered && !ImGuizmo::IsOver()) {
                 mHierarchyPanel.SetSelectedEntity(mHoveredEntity);
             }
         }
@@ -139,6 +178,15 @@ namespace Weaver {
     }
 
     bool EditorLayer::OnKeyPressed(Loom::KeyPressedEvent& event) {
+        if (!Loom::Input::IsMouseButtonPressed(1)) {
+            switch (event.GetKeyCode()) {
+                case 'Q': mGizmoType = -1; break;
+                case 'W': mGizmoType = ImGuizmo::OPERATION::TRANSLATE; break;
+                case 'E': mGizmoType = ImGuizmo::OPERATION::ROTATE; break;
+                case 'R': mGizmoType = ImGuizmo::OPERATION::SCALE; break;
+                default: break;
+            }
+        }
         return false;
     }
 

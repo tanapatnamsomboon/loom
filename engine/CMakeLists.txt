@@ -11,6 +11,8 @@ set(ENGINE_SOURCES
 
   src/imgui/imgui_layer.cpp
 
+  src/math/math.cpp
+
   src/renderer/buffer.cpp
   src/renderer/editor_camera.cpp
   src/renderer/framebuffer.cpp
@@ -61,6 +63,16 @@ add_library(imgui STATIC ${IMGUI_SOURCES})
 target_include_directories(imgui PUBLIC ${IMGUI_DIR})
 target_link_libraries(imgui PRIVATE glfw glad)
 
+set (IMGUIZMO_DIR ${CMAKE_SOURCE_DIR}/vendor/imguizmo)
+
+set (IMGUIZMO_SOURCES
+  ${IMGUIZMO_DIR}/imguizmo.cpp
+)
+
+add_library(imguizmo STATIC ${IMGUIZMO_SOURCES})
+target_include_directories(imguizmo PUBLIC ${IMGUIZMO_DIR})
+target_link_libraries(imguizmo PRIVATE imgui)
+
 add_library(Loom SHARED ${ENGINE_SOURCES})
 
 target_include_directories(Loom
@@ -79,6 +91,7 @@ target_link_libraries(Loom
   glm::glm-header-only
   stb
   EnTT::EnTT
+  imguizmo
 )
 
 if (WIN32)

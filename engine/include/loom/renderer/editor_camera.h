@@ -33,7 +33,6 @@ namespace Loom {
 
     private:
         float mFOV = 45.0f, mAspectRatio = 1.778f, mNearClip = 0.1f, mFarClip = 1000.0f;
-        glm::mat4 mProjection = glm::mat4(1.0f);
         glm::mat4 mViewMatrix = glm::mat4(1.0f);
         glm::vec3 mPosition = { 0.0f, 0.0f, 5.0f };
 

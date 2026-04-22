@@ -11,7 +11,7 @@ namespace Loom {
             : mProjection(projection) {}
         virtual ~Camera() = default;
 
-        const glm::mat4& GetProjection() const { return mProjection; }
+        const glm::mat4& GetProjectionMatrix() const { return mProjection; }
 
     protected:
         glm::mat4 mProjection = glm::mat4(1.0f);

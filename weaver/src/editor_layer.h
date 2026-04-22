@@ -39,6 +39,8 @@ namespace Weaver {
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
         glm::vec2 mViewportSize = { 0.0f, 0.0f };
         glm::vec2 mViewportBounds[2];
+
+        int mGizmoType = -1;
     };
 
 } // namespace Weaver
