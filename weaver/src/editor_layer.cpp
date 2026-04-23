@@ -4,15 +4,16 @@
 #include <loom/math/math.h>
 #include <loom/renderer/render_command.h>
 #include <loom/scene/components.h>
+#include <loom/scene/scene_serializer.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <ImGuizmo.h>
+#include <nfd.hpp>
 #include <filesystem>
-
-#include "loom/scene/scene_serializer.h"
 
 namespace Weaver {
 
+#pragma region Construction
     EditorLayer::EditorLayer() : Layer("EditorLayer") {
         Loom::FramebufferSpecification fb_spec;
         fb_spec.Attachments = {
@@ -31,10 +32,11 @@ namespace Weaver {
         red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
 
         mEditorCamera = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
-
         mHierarchyPanel.SetContext(mScene);
     }
+#pragma endregion
 
+#pragma region OnAttach
     void EditorLayer::OnAttach() {
         ImGuiContext* context;
         ImGuiMemAllocFunc alloc_func;
@@ -47,7 +49,9 @@ namespace Weaver {
         ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
     }
+#pragma endregion
 
+#pragma region OnUpdate
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
         if (Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
             mViewportSize.x > 0.0f && mViewportSize.y > 0.0f &&
@@ -98,7 +102,9 @@ namespace Weaver {
 
         mFramebuffer->Unbind();
     }
+#pragma endregion
 
+#pragma region OnEvent
     void EditorLayer::OnEvent(Loom::Event& event) {
         mEditorCamera.OnEvent(event);
 
@@ -106,7 +112,9 @@ namespace Weaver {
         dispatcher.Dispatch<Loom::MouseButtonPressedEvent>(LOOM_BIND_EVENT_FN(EditorLayer::OnMouseButtonPressed));
         dispatcher.Dispatch<Loom::KeyPressedEvent>(LOOM_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
     }
+#pragma endregion
 
+#pragma region OnImGuiRender
     void EditorLayer::OnImGuiRender() {
         ImGuizmo::BeginFrame();
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
@@ -170,7 +178,9 @@ namespace Weaver {
         ImGui::End();
         ImGui::PopStyleVar();
     }
+#pragma endregion
 
+#pragma region Scene lifecycle
     void EditorLayer::NewScene() {
         mScene = std::make_shared<Loom::Scene>();
         mHierarchyPanel.SetContext(mScene);
@@ -178,7 +188,20 @@ namespace Weaver {
     }
 
     void EditorLayer::OpenScene() {
-        OpenScene("assets/scenes/scene.loom");
+        constexpr nfdfilteritem_t filters[] = {
+            { "Loom Scene", "loom" },
+            { "All Files",  "*"    },
+        };
+
+        NFD::Guard      nfd_guard;
+        NFD::UniquePath out_path;
+        nfdresult_t result = NFD::OpenDialog(out_path, filters, 2);
+
+        if (result == NFD_OKAY) {
+            OpenScene(out_path.get());
+        } else if (result == NFD_ERROR) {
+            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
+        } // NFD_CANCEL: user dismissed, do nothing
     }
 
     void EditorLayer::OpenScene(const std::string& filepath) {
@@ -206,14 +229,34 @@ namespace Weaver {
     }
 
     void EditorLayer::SaveSceneAs() {
-        const std::string default_path = "assets/scenes/scene.loom";
-        std::filesystem::create_directories(std::filesystem::path(default_path).parent_path());
+        constexpr nfdfilteritem_t filters[] = {
+            { "Loom Scene", "loom" },
+            { "All Files",  "*"    },
+        };
 
-        Loom::SceneSerializer serializer(mScene);
-        serializer.Serialize(default_path);
-        mCurrentScenePath = default_path;
+        NFD::Guard      nfd_guard;
+        NFD::UniquePath out_path;
+        nfdresult_t result = NFD::SaveDialog(out_path, filters, 2, nullptr, "scene.loom");
+
+        if (result == NFD_OKAY) {
+            // nfd-extended does NOT append the extension automatically on all platforms,
+            // so we ensure .loom is present.
+            std::filesystem::path path = out_path.get();
+            if (path.extension() != ".loom")
+                path += ".loom";
+
+            std::filesystem::create_directories(path.parent_path());
+
+            Loom::SceneSerializer serializer(mScene);
+            serializer.Serialize(path.string());
+            mCurrentScenePath = path.string();
+        } else if (result == NFD_ERROR) {
+            LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
+        }
     }
+#pragma endregion
 
+#pragma region Event handlers
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() == 0) {
             if (mViewportHovered && !ImGuizmo::IsOver()) {
@@ -246,5 +289,6 @@ namespace Weaver {
         }
         return false;
     }
+#pragma endregion
 
-}
+} // namespace Weaver

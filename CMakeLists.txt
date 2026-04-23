@@ -33,6 +33,8 @@ set(YAML_CPP_BUILD_TOOLS   OFF CACHE INTERNAL "")
 set(YAML_CPP_BUILD_CONTRIB OFF CACHE INTERNAL "")
 add_subdirectory(vendor/yaml-cpp)
 
+add_subdirectory(vendor/nativefiledialog-extended)
+
 add_subdirectory(engine)
 # add_subdirectory(sandbox)
 add_subdirectory(weaver)

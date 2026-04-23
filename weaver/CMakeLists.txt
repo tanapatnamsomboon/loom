@@ -7,7 +7,7 @@ add_executable(Weaver
   src/panels/scene_hierarchy_panel.cpp
 )
 
-target_link_libraries(Weaver PRIVATE Loom)
+target_link_libraries(Weaver PRIVATE Loom nfd)
 
 target_include_directories(Weaver PRIVATE src)
 
