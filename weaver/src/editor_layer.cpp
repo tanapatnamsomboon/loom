@@ -119,7 +119,48 @@ namespace Weaver {
         ImGuizmo::BeginFrame();
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
-        mHierarchyPanel.OnImGuiRender();
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("New", "Ctrl+N")) { NewScene(); }
+                if (ImGui::MenuItem("Open...", "Ctrl+O")) { OpenScene(); }
+                if (ImGui::MenuItem("Save", "Ctrl+S")) { SaveScene(); }
+                if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) { SaveSceneAs(); }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("View")) {
+                ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowHierarchyPanel);
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("About")) {
+                if (ImGui::MenuItem("About Weaver")) { mShowAboutModal = true; }
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMainMenuBar();
+        }
+
+        if (mShowAboutModal) {
+            ImGui::OpenPopup("About Weaver");
+            mShowAboutModal = false;
+        }
+
+        if (ImGui::BeginPopupModal("About Weaver", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Weaver Editor");
+            ImGui::Separator();
+            ImGui::Text("A custom 2D/3D engine editor.");
+
+            ImGui::Spacing();
+            if (ImGui::Button("Close", ImVec2(120, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        if (mShowHierarchyPanel) {
+            mHierarchyPanel.OnImGuiRender();
+        }
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
         ImGui::Begin("Viewport");

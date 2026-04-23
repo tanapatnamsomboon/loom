@@ -36,6 +36,9 @@ namespace Weaver {
         bool mViewportFocused = false;
         bool mViewportHovered = false;
 
+        bool mShowHierarchyPanel = true;
+        bool mShowAboutModal = false;
+
         Loom::EditorCamera mEditorCamera;
         Loom::Entity mHoveredEntity;
 
