@@ -113,6 +113,9 @@ namespace Loom {
             Renderer2D::BeginScene(*main_camera, camera_transform);
 
             auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
+            group.sort<TransformComponent>([](const auto& lhs, const auto& rhs) {
+                return lhs.Translation.z < rhs.Translation.z;
+            });
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
 
@@ -129,6 +132,9 @@ namespace Loom {
         Renderer2D::BeginScene(camera);
 
         auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
+        group.sort<TransformComponent>([](const auto& lhs, const auto& rhs) {
+            return lhs.Translation.z < rhs.Translation.z;
+        });
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
             Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
@@ -168,6 +174,9 @@ namespace Loom {
             Renderer2D::BeginScene(*main_camera, camera_transform);
 
             auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
+            group.sort<TransformComponent>([](const auto& lhs, const auto& rhs) {
+                return lhs.Translation.z < rhs.Translation.z;
+            });
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
                 Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));

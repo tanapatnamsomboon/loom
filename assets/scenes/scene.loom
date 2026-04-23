@@ -1,6 +1,15 @@
 Scene: Untitled
 Entities:
-  - Entity: 10147692413379274667
+  - Entity: 1084756317665427760
+    TagComponent:
+      Tag: Blue Square
+    TransformComponent:
+      Translation: [0.5, -0.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [0, 0, 1, 0.6666667]
+  - Entity: 12387779896649575659
     TagComponent:
       Tag: Red Square
     TransformComponent:
@@ -9,7 +18,7 @@ Entities:
       Scale: [1, 1, 1]
     SpriteRendererComponent:
       Color: [1, 0, 0, 1]
-  - Entity: 3847676846590355956
+  - Entity: 6729591766463069502
     TagComponent:
       Tag: Runtime Camera
     TransformComponent:
