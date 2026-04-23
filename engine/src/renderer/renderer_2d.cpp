@@ -157,6 +157,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr->EntityID     = -1;
             sData.QuadVertexBufferPtr++;
         }
 
@@ -214,6 +215,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr->EntityID     = -1;
             sData.QuadVertexBufferPtr++;
         }
 
@@ -252,6 +254,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = 1.0f;
+            sData.QuadVertexBufferPtr->EntityID     = -1;
             sData.QuadVertexBufferPtr++;
         }
 
@@ -278,6 +281,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr->EntityID     = -1;
             sData.QuadVertexBufferPtr++;
         }
 
@@ -317,6 +321,7 @@ namespace Loom {
             sData.QuadVertexBufferPtr->TexCoord     = texture_coords[i];
             sData.QuadVertexBufferPtr->TexIndex     = texture_index;
             sData.QuadVertexBufferPtr->TilingFactor = tiling_factor;
+            sData.QuadVertexBufferPtr->EntityID     = -1;
             sData.QuadVertexBufferPtr++;
         }
 

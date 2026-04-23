@@ -66,6 +66,8 @@ namespace Loom {
         auto& tag = entity.AddComponent<TagComponent>();
         tag.Tag = name.empty() ? "Entity" : name;
 
+
+
         return entity;
     }
 
@@ -114,7 +116,7 @@ namespace Loom {
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
 
-                int entity_id = (int)(uint32_t)entity;
+                int entity_id = (int)entt::to_entity(entity);
 
                 Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, entity_id);
             }
@@ -129,7 +131,7 @@ namespace Loom {
         auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)(uint32_t)entity);
+            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
         }
 
         Renderer2D::EndScene();
@@ -168,7 +170,7 @@ namespace Loom {
             auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)(uint32_t)entity);
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
             }
 
             Renderer2D::EndScene();

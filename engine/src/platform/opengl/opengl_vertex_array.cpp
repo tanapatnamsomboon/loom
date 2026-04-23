@@ -45,14 +45,31 @@ namespace Loom {
         const auto& layout = vertex_buffer->GetLayout();
         for (const auto& element : layout) {
             glEnableVertexAttribArray(index);
-            glVertexAttribPointer(
-                index,
-                element.GetComponentCount(),
-                ShaderDataTypeToOpenGLBaseType(element.Type),
-                element.Normalized ? GL_TRUE : GL_FALSE,
-                layout.GetStride(),
-                (const void*)(intptr_t)element.Offset
-            );
+            switch (element.Type) {
+                case ShaderDataType::Int:
+                case ShaderDataType::Int2:
+                case ShaderDataType::Int3:
+                case ShaderDataType::Int4:
+                case ShaderDataType::Bool:
+                    glVertexAttribIPointer(
+                        index,
+                        element.GetComponentCount(),
+                        ShaderDataTypeToOpenGLBaseType(element.Type),
+                        layout.GetStride(),
+                        (const void*)(intptr_t)element.Offset
+                    );
+                    break;
+                default:
+                    glVertexAttribPointer(
+                        index,
+                        element.GetComponentCount(),
+                        ShaderDataTypeToOpenGLBaseType(element.Type),
+                        element.Normalized ? GL_TRUE : GL_FALSE,
+                        layout.GetStride(),
+                        (const void*)(intptr_t)element.Offset
+                    );
+                    break;
+            }
             index++;
         }
 

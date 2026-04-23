@@ -37,7 +37,17 @@ namespace Weaver {
         mEditorScene = std::make_shared<Loom::Scene>();
         mActiveScene = mEditorScene;
 
+        auto camera_entity = mEditorScene->CreateEntity("Runtime Camera");
+        auto& camera_transform = camera_entity.GetComponent<Loom::TransformComponent>();
+        camera_transform.Translation = { 0.0f, 0.0f, 5.0f };
+
+        auto& cc = camera_entity.AddComponent<Loom::CameraComponent>();
+        cc.Primary = true;
+        cc.Camera.SetPerspective(glm::radians(45.0f), 0.1f, 1000.0f);
+
         auto red_square = mActiveScene->CreateEntity("Red Square");
+        auto idc = red_square.GetComponent<Loom::IDComponent>();
+        LOOM_INFO("red square id: {}", (int)(entt::entity)red_square);
         red_square.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
         red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
         red_square.AddComponent<Loom::NativeScriptComponent>().Bind<SpinScript>();
@@ -107,10 +117,7 @@ namespace Weaver {
         int mouse_x = (int)mx;
         int mouse_y = (int)my;
 
-        if (mouse_x >= 0                   &&
-            mouse_y >= 0                   &&
-            mouse_x < (int)viewport_size.x &&
-            mouse_y < (int)viewport_size.y) {
+        if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)viewport_size.x && mouse_y < (int)viewport_size.y) {
             int pixel_data = mFramebuffer->ReadPixel(1, mouse_x, mouse_y);
             if (pixel_data == -1) {
                 mHoveredEntity = Loom::Entity();

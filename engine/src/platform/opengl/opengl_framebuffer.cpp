@@ -61,6 +61,13 @@ namespace Loom {
             }
         }
 
+        if (mDepthAttachmentSpecification.TextureFormat != FramebufferTextureFormat::None) {
+            glCreateTextures(GL_TEXTURE_2D, 1, &mDepthAttachment);
+            glBindTexture(GL_TEXTURE_2D, mDepthAttachment);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, mSpecification.Width, mSpecification.Height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, mDepthAttachment, 0);
+        }
+
         if (mColorAttachments.size() > 1) {
             GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
             glDrawBuffers(mColorAttachments.size(), buffers);
