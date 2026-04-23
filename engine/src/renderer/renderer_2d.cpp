@@ -35,6 +35,12 @@ namespace Loom {
         uint32_t TextureSlotIndex = 1;
 
         glm::vec4 QuadVertexPositions[4];
+
+        struct CameraData {
+            glm::mat4 ViewProjection;
+        };
+        CameraData CameraBuffer;
+        std::shared_ptr<UniformBuffer> CameraUniformBuffer;
     };
 
     static Renderer2DStorage sData;
@@ -88,35 +94,38 @@ namespace Loom {
         sData.QuadVertexPositions[1] = {  0.5f, -0.5f,  0.0f,  1.0f };
         sData.QuadVertexPositions[2] = {  0.5f,  0.5f,  0.0f,  1.0f };
         sData.QuadVertexPositions[3] = { -0.5f,  0.5f,  0.0f,  1.0f };
+
+        sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
     }
 
     void Renderer2D::Shutdown() {
     }
 
     void Renderer2D::BeginScene(const OrthographicCamera& camera) {
-        sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformMat4("uViewProjection", camera.GetViewProjectionMatrix());
+        sData.CameraBuffer.ViewProjection = camera.GetViewProjectionMatrix();
+        sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
+        sData.TextureShader->Bind();
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
     }
 
     void Renderer2D::BeginScene(const EditorCamera& camera) {
-        sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformMat4("uViewProjection", camera.GetViewProjectionMatrix());
+        sData.CameraBuffer.ViewProjection = camera.GetViewProjectionMatrix();
+        sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
+        sData.TextureShader->Bind();
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
     }
 
     void Renderer2D::BeginScene(const Camera& camera, const glm::mat4& transform) {
-        glm::mat4 view_proj = camera.GetProjectionMatrix() * glm::inverse(transform);
+        sData.CameraBuffer.ViewProjection = camera.GetProjectionMatrix() * glm::inverse(transform);
+        sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
         sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformMat4("uViewProjection", view_proj);
-
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;

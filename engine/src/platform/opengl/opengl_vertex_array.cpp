@@ -59,7 +59,10 @@ namespace Loom {
                         (const void*)(intptr_t)element.Offset
                     );
                     break;
-                default:
+                case ShaderDataType::Float:
+                case ShaderDataType::Float2:
+                case ShaderDataType::Float3:
+                case ShaderDataType::Float4:
                     glVertexAttribPointer(
                         index,
                         element.GetComponentCount(),
@@ -69,6 +72,7 @@ namespace Loom {
                         (const void*)(intptr_t)element.Offset
                     );
                     break;
+                default: LOOM_CORE_ERROR("Unknown ShaderDataType!");
             }
             index++;
         }

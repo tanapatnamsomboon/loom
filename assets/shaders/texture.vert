@@ -13,7 +13,9 @@ out float vTexIndex;
 out float vTilingFactor;
 flat out int vEntityID;
 
-uniform mat4 uViewProjection;
+layout(std140, binding = 0) uniform Camera {
+    mat4 uViewProjection;
+};
 
 void main() {
     vColor = aColor;

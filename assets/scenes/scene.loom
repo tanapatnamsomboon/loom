@@ -1,17 +1,6 @@
 Scene: Untitled
 Entities:
-  - Entity: 2696363915626860822
-    TagComponent:
-      Tag: Camera
-    TransformComponent:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    CameraComponent:
-      Primary: true
-      FixedAspectRatio: false
-      OrthographicSize: 5
-  - Entity: 9099407899038052827
+  - Entity: 10147692413379274667
     TagComponent:
       Tag: Red Square
     TransformComponent:
@@ -20,3 +9,14 @@ Entities:
       Scale: [1, 1, 1]
     SpriteRendererComponent:
       Color: [1, 0, 0, 1]
+  - Entity: 3847676846590355956
+    TagComponent:
+      Tag: Runtime Camera
+    TransformComponent:
+      Translation: [0, 0, 5]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
