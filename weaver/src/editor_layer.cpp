@@ -7,11 +7,20 @@
 #include <loom/scene/scene_serializer.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <ImGuizmo.h>
 #include <nfd.hpp>
 #include <filesystem>
 
 namespace Weaver {
+
+    class SpinScript : public Loom::ScriptableEntity {
+    public:
+        void OnUpdate(Loom::Timestep ts) override {
+            auto& transform = GetComponent<Loom::TransformComponent>();
+            transform.Rotation.z += 2.0f * ts;
+        }
+    };
 
 #pragma region Construction
     EditorLayer::EditorLayer() : Layer("EditorLayer") {
@@ -25,14 +34,16 @@ namespace Weaver {
         fb_spec.Height = 720;
         mFramebuffer = Loom::Framebuffer::Create(fb_spec);
 
-        mScene = std::make_shared<Loom::Scene>();
+        mEditorScene = std::make_shared<Loom::Scene>();
+        mActiveScene = mEditorScene;
 
-        auto red_square = mScene->CreateEntity("Red Square");
+        auto red_square = mActiveScene->CreateEntity("Red Square");
         red_square.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
         red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
+        red_square.AddComponent<Loom::NativeScriptComponent>().Bind<SpinScript>();
 
         mEditorCamera = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
-        mHierarchyPanel.SetContext(mScene);
+        mHierarchyPanel.SetContext(mActiveScene);
     }
 #pragma endregion
 
@@ -53,18 +64,21 @@ namespace Weaver {
 
 #pragma region OnUpdate
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
+        mActiveScene->OnViewportResize((uint32_t)mViewportSize.x, (uint32_t)mViewportSize.y);
+
         if (Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
             mViewportSize.x > 0.0f && mViewportSize.y > 0.0f &&
             (spec.Width != mViewportSize.x || spec.Height != mViewportSize.y)) {
-
             mFramebuffer->Resize((uint32_t)mViewportSize.x, (uint32_t)mViewportSize.y);
             mEditorCamera.SetViewportSize(mViewportSize.x, mViewportSize.y);
         }
 
-        if (mViewportHovered) {
-            mEditorCamera.OnUpdate(ts);
-        } else {
-            mEditorCamera.ResetMousePosition();
+        if (mSceneState == SceneState::Edit) {
+            if (mViewportHovered) {
+                mEditorCamera.OnUpdate(ts);
+            } else {
+                mEditorCamera.ResetMousePosition();
+            }
         }
 
         mFramebuffer->Bind();
@@ -74,7 +88,14 @@ namespace Weaver {
 
         mFramebuffer->ClearAttachment(1, -1);
 
-        mScene->OnUpdateEditor(ts, mEditorCamera);
+        switch (mSceneState) {
+            case SceneState::Edit:
+                mActiveScene->OnUpdateEditor(ts, mEditorCamera);
+                break;
+            case SceneState::Play:
+                mActiveScene->OnUpdateRuntime(ts);
+                break;
+        }
 
         auto [mx, my] = ImGui::GetMousePos();
         mx -= mViewportBounds[0].x;
@@ -94,7 +115,7 @@ namespace Weaver {
             if (pixel_data == -1) {
                 mHoveredEntity = Loom::Entity();
             } else {
-                mHoveredEntity = Loom::Entity((entt::entity)pixel_data, mScene.get());
+                mHoveredEntity = Loom::Entity((entt::entity)pixel_data, mActiveScene.get());
             }
         } else {
             mHoveredEntity = Loom::Entity();
@@ -162,6 +183,26 @@ namespace Weaver {
             mHierarchyPanel.OnImGuiRender();
         }
 
+        // Toolbar
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 2));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0, 0));
+        ImGuiWindowClass window_class;
+        window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar;
+        ImGui::SetNextWindowClass(&window_class);
+        ImGui::Begin("##Toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+        float size = ImGui::GetWindowHeight() - 4.0f;
+        ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x * 0.5f - size * 0.5f);
+
+        if (mSceneState == SceneState::Edit) {
+            if (ImGui::Button("Play", ImVec2(50, size))) { OnScenePlay(); }
+        } else if (mSceneState == SceneState::Play) {
+            if (ImGui::Button("Stop", ImVec2(50, size))) { OnSceneStop(); }
+        }
+
+        ImGui::End();
+        ImGui::PopStyleVar(2);
+
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
         ImGui::Begin("Viewport");
 
@@ -223,8 +264,8 @@ namespace Weaver {
 
 #pragma region Scene lifecycle
     void EditorLayer::NewScene() {
-        mScene = std::make_shared<Loom::Scene>();
-        mHierarchyPanel.SetContext(mScene);
+        mActiveScene = std::make_shared<Loom::Scene>();
+        mHierarchyPanel.SetContext(mActiveScene);
         mCurrentScenePath.clear();
     }
 
@@ -254,8 +295,8 @@ namespace Weaver {
         auto new_scene = std::make_shared<Loom::Scene>();
         Loom::SceneSerializer serializer(new_scene);
         if (serializer.Deserialize(filepath)) {
-            mScene = new_scene;
-            mHierarchyPanel.SetContext(mScene);
+            mActiveScene = new_scene;
+            mHierarchyPanel.SetContext(mActiveScene);
             mCurrentScenePath = filepath;
         }
     }
@@ -265,7 +306,7 @@ namespace Weaver {
             SaveSceneAs();
             return;
         }
-        Loom::SceneSerializer serializer(mScene);
+        Loom::SceneSerializer serializer(mActiveScene);
         serializer.Serialize(mCurrentScenePath);
     }
 
@@ -288,12 +329,24 @@ namespace Weaver {
 
             std::filesystem::create_directories(path.parent_path());
 
-            Loom::SceneSerializer serializer(mScene);
+            Loom::SceneSerializer serializer(mActiveScene);
             serializer.Serialize(path.string());
             mCurrentScenePath = path.string();
         } else if (result == NFD_ERROR) {
             LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
         }
+    }
+
+    void EditorLayer::OnScenePlay() {
+        mSceneState = SceneState::Play;
+        mActiveScene = Loom::Scene::Copy(mEditorScene);
+        mHierarchyPanel.SetContext(mActiveScene);
+    }
+
+    void EditorLayer::OnSceneStop() {
+        mSceneState = SceneState::Edit;
+        mActiveScene = mEditorScene;
+        mHierarchyPanel.SetContext(mActiveScene);
     }
 #pragma endregion
 

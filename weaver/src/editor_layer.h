@@ -10,6 +10,10 @@
 
 namespace Weaver {
 
+    enum class SceneState {
+        Edit = 0, Play = 1
+    };
+
     class EditorLayer : public Loom::Layer {
     public:
         EditorLayer();
@@ -29,6 +33,9 @@ namespace Weaver {
         void SaveScene();
         void SaveSceneAs();
 
+        void OnScenePlay();
+        void OnSceneStop();
+
         bool OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event);
         bool OnKeyPressed(Loom::KeyPressedEvent& event);
 
@@ -42,7 +49,6 @@ namespace Weaver {
         Loom::EditorCamera mEditorCamera;
         Loom::Entity mHoveredEntity;
 
-        std::shared_ptr<Loom::Scene> mScene;
         SceneHierarchyPanel mHierarchyPanel;
 
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
@@ -52,6 +58,10 @@ namespace Weaver {
         std::string mCurrentScenePath;
 
         int mGizmoType = -1;
+
+        std::shared_ptr<Loom::Scene> mEditorScene;
+        std::shared_ptr<Loom::Scene> mActiveScene;
+        SceneState mSceneState = SceneState::Edit;
     };
 
 } // namespace Weaver

@@ -15,8 +15,12 @@ namespace Loom {
         Scene();
         ~Scene();
 
+        static std::shared_ptr<Scene> Copy(std::shared_ptr<Scene> other);
+        void OnViewportResize(uint32_t width, uint32_t height);
+
         void OnUpdate(Timestep ts);
         void OnUpdateEditor(Timestep ts, EditorCamera& camera);
+        void OnUpdateRuntime(Timestep ts);
 
         Entity CreateEntity(const std::string& name = std::string());
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
