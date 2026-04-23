@@ -23,6 +23,12 @@ namespace Weaver {
         void OnImGuiRender() override;
 
     private:
+        void NewScene();
+        void OpenScene();
+        void OpenScene(const std::string& filepath);
+        void SaveScene();
+        void SaveSceneAs();
+
         bool OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event);
         bool OnKeyPressed(Loom::KeyPressedEvent& event);
 
@@ -39,6 +45,8 @@ namespace Weaver {
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
         glm::vec2 mViewportSize = { 0.0f, 0.0f };
         glm::vec2 mViewportBounds[2];
+
+        std::string mCurrentScenePath;
 
         int mGizmoType = -1;
     };

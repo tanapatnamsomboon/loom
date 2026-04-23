@@ -10,11 +10,15 @@ namespace Loom {
     Scene::~Scene() {}
 
     Entity Scene::CreateEntity(const std::string& name) {
+        return CreateEntityWithUUID(UUID(), name);
+    }
+
+    Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name) {
         Entity entity = { mRegistry.create(), this };
 
-        entity.AddComponent<IDComponent>();
-
+        entity.AddComponent<IDComponent>().ID = uuid;
         entity.AddComponent<TransformComponent>();
+
         auto& tag = entity.AddComponent<TagComponent>();
         tag.Tag = name.empty() ? "Entity" : name;
 
@@ -81,10 +85,7 @@ namespace Loom {
         auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-
-            int entity_id = (int)(uint32_t)entity;
-
-            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, entity_id);
+            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)(uint32_t)entity);
         }
 
         Renderer2D::EndScene();

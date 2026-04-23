@@ -28,6 +28,11 @@ target_include_directories(stb PUBLIC vendor/stb)
 
 add_subdirectory(vendor/entt)
 
+set(YAML_CPP_BUILD_TESTS   OFF CACHE INTERNAL "")
+set(YAML_CPP_BUILD_TOOLS   OFF CACHE INTERNAL "")
+set(YAML_CPP_BUILD_CONTRIB OFF CACHE INTERNAL "")
+add_subdirectory(vendor/yaml-cpp)
+
 add_subdirectory(engine)
 # add_subdirectory(sandbox)
 add_subdirectory(weaver)

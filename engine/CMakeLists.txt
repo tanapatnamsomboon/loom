@@ -38,6 +38,7 @@ set(ENGINE_SOURCES
 
   src/scene/scene.cpp
   src/scene/scene_camera.cpp
+  src/scene/scene_serializer.cpp
 )
 
 if (WIN32)
@@ -92,6 +93,7 @@ target_link_libraries(Loom
   stb
   EnTT::EnTT
   imguizmo
+  yaml-cpp
 )
 
 if (WIN32)

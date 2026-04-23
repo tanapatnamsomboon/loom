@@ -19,6 +19,7 @@ namespace Loom {
         void OnUpdateEditor(Timestep ts, EditorCamera& camera);
 
         Entity CreateEntity(const std::string& name = std::string());
+        Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void DestroyEntity(Entity entity);
 
         Entity GetEntityByUUID(UUID uuid);
@@ -33,6 +34,7 @@ namespace Loom {
 
         friend class Entity;
         friend class SceneHierarchyPanel;
+        friend class SceneSerializer;
     };
 
 } // namespace Loom

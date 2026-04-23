@@ -7,6 +7,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <ImGuizmo.h>
+#include <filesystem>
+
+#include "loom/scene/scene_serializer.h"
 
 namespace Weaver {
 
@@ -168,6 +171,49 @@ namespace Weaver {
         ImGui::PopStyleVar();
     }
 
+    void EditorLayer::NewScene() {
+        mScene = std::make_shared<Loom::Scene>();
+        mHierarchyPanel.SetContext(mScene);
+        mCurrentScenePath.clear();
+    }
+
+    void EditorLayer::OpenScene() {
+        OpenScene("assets/scenes/scene.loom");
+    }
+
+    void EditorLayer::OpenScene(const std::string& filepath) {
+        if (!std::filesystem::exists(filepath)) {
+            LOOM_CORE_WARN("EditorLayer: scene file '{}' does not exist", filepath);
+            return;
+        }
+
+        auto new_scene = std::make_shared<Loom::Scene>();
+        Loom::SceneSerializer serializer(new_scene);
+        if (serializer.Deserialize(filepath)) {
+            mScene = new_scene;
+            mHierarchyPanel.SetContext(mScene);
+            mCurrentScenePath = filepath;
+        }
+    }
+
+    void EditorLayer::SaveScene() {
+        if (mCurrentScenePath.empty()) {
+            SaveSceneAs();
+            return;
+        }
+        Loom::SceneSerializer serializer(mScene);
+        serializer.Serialize(mCurrentScenePath);
+    }
+
+    void EditorLayer::SaveSceneAs() {
+        const std::string default_path = "assets/scenes/scene.loom";
+        std::filesystem::create_directories(std::filesystem::path(default_path).parent_path());
+
+        Loom::SceneSerializer serializer(mScene);
+        serializer.Serialize(default_path);
+        mCurrentScenePath = default_path;
+    }
+
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() == 0) {
             if (mViewportHovered && !ImGuizmo::IsOver()) {
@@ -178,12 +224,23 @@ namespace Weaver {
     }
 
     bool EditorLayer::OnKeyPressed(Loom::KeyPressedEvent& event) {
+        bool ctrl = Loom::Input::IsKeyPressed(Loom::Key::LeftControl) || Loom::Input::IsKeyPressed(Loom::Key::RightControl);
+        bool shift = Loom::Input::IsKeyPressed(Loom::Key::LeftShift) || Loom::Input::IsKeyPressed(Loom::Key::RightShift);
+
+        switch (event.GetKeyCode()) {
+            case 'N': if (ctrl)          { NewScene();    return true; } break;
+            case 'O': if (ctrl)          { OpenScene();   return true; } break;
+            case 'S': if (ctrl && shift) { SaveSceneAs(); return true; }
+                      if (ctrl)          { SaveScene();   return true; } break;
+            default: break;
+        }
+
         if (!Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight)) {
             switch (event.GetKeyCode()) {
-                case 'Q': mGizmoType = -1; break;
-                case 'W': mGizmoType = ImGuizmo::OPERATION::TRANSLATE; break;
-                case 'E': mGizmoType = ImGuizmo::OPERATION::ROTATE; break;
-                case 'R': mGizmoType = ImGuizmo::OPERATION::SCALE; break;
+                case 'Q': mGizmoType = -1;                              break;
+                case 'W': mGizmoType = ImGuizmo::OPERATION::TRANSLATE;  break;
+                case 'E': mGizmoType = ImGuizmo::OPERATION::ROTATE;     break;
+                case 'R': mGizmoType = ImGuizmo::OPERATION::SCALE;      break;
                 default: break;
             }
         }
