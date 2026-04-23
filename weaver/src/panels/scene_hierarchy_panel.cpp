@@ -146,9 +146,31 @@ namespace Weaver {
 
                 ImGui::Checkbox("Primary", &camera_component.Primary);
 
-                float ortho_size = camera.GetOrthographicSize();
-                if (ImGui::DragFloat("Size", &ortho_size)) {
-                    camera.SetOrthographicSize(ortho_size);
+                const char* projection_type_strings[] = { "Perspective", "Orthographic" };
+                const char* current_projection_string = projection_type_strings[(int)camera.GetProjectionType()];
+
+                if (ImGui::BeginCombo("Projection", current_projection_string)) {
+                    for (int i = 0; i < 2; i++) {
+                        bool is_selected = current_projection_string == projection_type_strings[i];
+                        if (ImGui::Selectable(projection_type_strings[i], is_selected)) {
+                            current_projection_string = projection_type_strings[i];
+                            camera.SetProjectionType((Loom::SceneCamera::ProjectionType)i);
+                        }
+                        if (is_selected) ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                if (camera.GetProjectionType() == Loom::SceneCamera::ProjectionType::Perspective) {
+                    float vertical_fov = glm::degrees(camera.GetPerspectiveVerticalFOV());
+                    if (ImGui::DragFloat("Vertical FOV", &vertical_fov)) {
+                        camera.SetPerspectiveVerticalFOV(glm::radians(vertical_fov));
+                    }
+                } else {
+                    float ortho_size = camera.GetOrthographicSize();
+                    if (ImGui::DragFloat("Size", &ortho_size)) {
+                        camera.SetOrthographicSize(ortho_size);
+                    }
                 }
 
                 ImGui::TreePop();
