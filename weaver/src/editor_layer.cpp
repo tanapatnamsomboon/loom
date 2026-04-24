@@ -405,8 +405,10 @@ namespace Weaver {
         Loom::SceneSerializer serializer(new_scene);
 
         if (serializer.Deserialize(filepath)) {
-            mActiveScene = new_scene;
-            mHierarchyPanel.SetContext(mActiveScene);
+            mEditorScene = new_scene;
+            mHierarchyPanel.SetContext(mEditorScene);
+
+            mActiveScene      = mEditorScene;
             mCurrentScenePath = filepath;
         }
     }

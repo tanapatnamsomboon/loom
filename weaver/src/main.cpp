@@ -1,6 +1,6 @@
+#include "editor_layer.h"
 #include <loom/core/application.h>
 #include <loom/core/log.h>
-#include "editor_layer.h"
 
 int main() {
     Loom::Log::Init();

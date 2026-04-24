@@ -1,6 +1,7 @@
 # Build directories
 build/
 __cmake_systeminformation/
+imgui.ini
 bin/
 bin-int/
 

@@ -1,17 +1,19 @@
 #include "loom/imgui/imgui_layer.h"
 #include "loom/core/application.h"
+#include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <GLFW/glfw3.h>
 
 namespace Loom {
 
-    ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
+    ImGuiLayer::ImGuiLayer()
+        : Layer("ImGuiLayer") {}
 
     void ImGuiLayer::OnAttach() {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        ImGuiIO& io = ImGui::GetIO();
+        (void)io;
 
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -22,12 +24,12 @@ namespace Loom {
 
         ImGuiStyle& style = ImGui::GetStyle();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            style.WindowRounding = 0.0f;
+            style.WindowRounding              = 0.0f;
             style.Colors[ImGuiCol_WindowBg].w = 1.0f;
         }
 
-        Application& app = Application::Get();
-        GLFWwindow* window = (GLFWwindow*)app.GetWindow().GetNativeWindow();
+        Application& app    = Application::Get();
+        GLFWwindow*  window = (GLFWwindow*)app.GetWindow().GetNativeWindow();
 
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 460");
@@ -54,9 +56,9 @@ namespace Loom {
     }
 
     void ImGuiLayer::End() {
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO&     io  = ImGui::GetIO();
         Application& app = Application::Get();
-        io.DisplaySize = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
+        io.DisplaySize   = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
