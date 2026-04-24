@@ -8,6 +8,10 @@
 *.md  text eol=lf
 *.cmake text eol=lf
 CMakeLists.txt text eol=lf
+*.json text eol=lf
+*.vert text eol=lf
+*.frag text eol=lf
+*.glsl text eol=lf
 
 *.bat text eol=crlf
 *.cmd text eol=crlf

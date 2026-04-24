@@ -1,10 +1,12 @@
 # Build directories
 build/
+__cmake_systeminformation/
 bin/
 bin-int/
 
 # CMake
 CMakeCache.txt
+CMakeUserPresets.json
 CMakeFiles
 CMakeScripts
 Testing
