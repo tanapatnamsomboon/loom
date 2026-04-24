@@ -337,7 +337,7 @@ namespace Weaver {
 
     void EditorLayer::RenderGizmos() {
         Loom::Entity selected_entity = mHierarchyPanel.GetSelectedEntity();
-        if (selected_entity || mGizmoType == -1)
+        if (!selected_entity || mGizmoType == -1)
             return;
 
         ImGuizmo::SetOrthographic(false);

@@ -1,31 +1,22 @@
 Scene: Untitled
 Entities:
-  - Entity: 1084756317665427760
+  - Entity: 5328067152027898860
     TagComponent:
-      Tag: Blue Square
+      Tag: Camera
     TransformComponent:
-      Translation: [0.5, -0.5, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    SpriteRendererComponent:
-      Color: [0, 0, 1, 0.6666667]
-  - Entity: 12387779896649575659
-    TagComponent:
-      Tag: Red Square
-    TransformComponent:
-      Translation: [1, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    SpriteRendererComponent:
-      Color: [1, 0, 0, 1]
-  - Entity: 6729591766463069502
-    TagComponent:
-      Tag: Runtime Camera
-    TransformComponent:
-      Translation: [0, 0, 5]
+      Translation: [0, 0, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
       OrthographicSize: 10
+  - Entity: 11190792112762867342
+    TagComponent:
+      Tag: Pink
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [0.7058824, 0.3529412, 0.3529412, 1]
