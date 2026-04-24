@@ -11,29 +11,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(SPDLOG_BUILD_EXAMPLE OFF CACHE INTERNAL "")
-set(SPDLOG_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(vendor/spdlog)
-
-set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "")
-set(GLFW_INSTALL OFF CACHE INTERNAL "")
-add_subdirectory(vendor/glfw)
-
-add_subdirectory(vendor/glad)
-
-add_subdirectory(vendor/glm)
-
-add_library(stb STATIC vendor/stb/stb_image.cpp)
-target_include_directories(stb PUBLIC vendor/stb)
-
-add_subdirectory(vendor/entt)
-
-set(YAML_CPP_BUILD_TESTS   OFF CACHE INTERNAL "")
-set(YAML_CPP_BUILD_TOOLS   OFF CACHE INTERNAL "")
-set(YAML_CPP_BUILD_CONTRIB OFF CACHE INTERNAL "")
-add_subdirectory(vendor/yaml-cpp)
-
-add_subdirectory(vendor/nativefiledialog-extended)
+include(cmake/vendors.cmake)
 
 add_subdirectory(engine)
 # add_subdirectory(sandbox)
