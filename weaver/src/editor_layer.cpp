@@ -3,6 +3,7 @@
 #include <loom/core/input.h>
 #include <loom/math/math.h>
 #include <loom/renderer/render_command.h>
+#include <loom/renderer/renderer_2d.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_serializer.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -13,14 +14,6 @@
 #include <filesystem>
 
 namespace Weaver {
-
-    class SpinScript : public Loom::ScriptableEntity {
-    public:
-        void OnUpdate(Loom::Timestep ts) override {
-            auto& transform = GetComponent<Loom::TransformComponent>();
-            transform.Rotation.z += 2.0f * ts;
-        }
-    };
 
 #pragma region Construction
     EditorLayer::EditorLayer() : Layer("EditorLayer") {
@@ -36,21 +29,6 @@ namespace Weaver {
 
         mEditorScene = std::make_shared<Loom::Scene>();
         mActiveScene = mEditorScene;
-
-        auto camera_entity = mEditorScene->CreateEntity("Runtime Camera");
-        auto& camera_transform = camera_entity.GetComponent<Loom::TransformComponent>();
-        camera_transform.Translation = { 0.0f, 0.0f, 5.0f };
-
-        auto& cc = camera_entity.AddComponent<Loom::CameraComponent>();
-        cc.Primary = true;
-        cc.Camera.SetPerspective(glm::radians(45.0f), 0.1f, 1000.0f);
-
-        auto red_square = mActiveScene->CreateEntity("Red Square");
-        auto idc = red_square.GetComponent<Loom::IDComponent>();
-        LOOM_INFO("red square id: {}", (int)(entt::entity)red_square);
-        red_square.AddComponent<Loom::SpriteRendererComponent>(glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
-        red_square.GetComponent<Loom::TransformComponent>().Translation.x = 1.0f;
-        red_square.AddComponent<Loom::NativeScriptComponent>().Bind<SpinScript>();
 
         mEditorCamera = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
         mHierarchyPanel.SetContext(mActiveScene);
@@ -105,6 +83,25 @@ namespace Weaver {
             case SceneState::Play:
                 mActiveScene->OnUpdateRuntime(ts);
                 break;
+        }
+
+        if (mSceneState == SceneState::Edit) {
+            Loom::Renderer2D::BeginScene(mEditorCamera);
+
+            float grid_size = 10.0f;
+            glm::vec4 grid_color = { 0.2f, 0.2f, 0.2f, 1.0f }; // Dark gray
+
+            // Draw horizontal and vertical grid lines
+            for (float i = -grid_size; i <= grid_size; i += 1.0f) {
+                Loom::Renderer2D::DrawLine({ -grid_size, i, 0.0f }, { grid_size, i, 0.0f }, grid_color);
+                Loom::Renderer2D::DrawLine({ i, -grid_size, 0.0f }, { i, grid_size, 0.0f }, grid_color);
+            }
+
+            // Draw thicker/brighter axes to show origin
+            Loom::Renderer2D::DrawLine({ -grid_size, 0.0f, 0.0f }, { grid_size, 0.0f, 0.0f }, { 0.8f, 0.2f, 0.2f, 1.0f }); // X Axis (Red)
+            Loom::Renderer2D::DrawLine({ 0.0f, -grid_size, 0.0f }, { 0.0f, grid_size, 0.0f }, { 0.2f, 0.8f, 0.2f, 1.0f }); // Y Axis (Green)
+
+            Loom::Renderer2D::EndScene();
         }
 
         auto [mx, my] = ImGui::GetMousePos();

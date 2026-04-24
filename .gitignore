@@ -16,6 +16,7 @@ compile_commands.json
 # IDEs
 .idea/
 .vs/
+.zed/
 *.sln
 *.vcxproj
 *.vcxproj.filters

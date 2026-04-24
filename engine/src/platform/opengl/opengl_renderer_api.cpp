@@ -24,4 +24,9 @@ namespace Loom {
         glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
     }
 
+    void OpenGLRendererAPI::DrawLines(VertexArray* vertex_array, uint32_t vertex_count) {
+        vertex_array->Bind();
+        glDrawArrays(GL_LINES, 0, vertex_count);
+    }
+
 } // namespace Loom

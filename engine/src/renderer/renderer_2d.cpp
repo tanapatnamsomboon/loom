@@ -16,26 +16,61 @@ namespace Loom {
         int       EntityID;
     };
 
+    struct CircleVertex {
+        glm::vec3 Position;
+        glm::vec3 LocalPosition;
+        glm::vec4 Color;
+        float     Thickness;
+        float     Fade;
+        int       EntityID;
+    };
+
+    struct LineVertex {
+        glm::vec3 Position;
+        glm::vec4 Color;
+        int       EntityID;
+    };
+
     struct Renderer2DStorage {
         static constexpr uint32_t MaxQuads        = 10'000;
         static constexpr uint32_t MaxVertices     = MaxQuads * 4;
         static constexpr uint32_t MaxIndices      = MaxQuads * 6;
         static constexpr uint32_t MaxTextureSlots = 32;
 
+        // Quad Data
         std::shared_ptr<VertexArray>    QuadVertexArray;
         std::shared_ptr<VertexBuffer>   QuadVertexBuffer;
-        std::shared_ptr<Shader>         TextureShader;
-        std::shared_ptr<Texture2D>      WhiteTexture;
+        std::shared_ptr<Shader>         QuadShader;
 
         uint32_t    QuadIndexCount          = 0;
         QuadVertex* QuadVertexBufferBase    = nullptr;
         QuadVertex* QuadVertexBufferPtr     = nullptr;
 
+        glm::vec4 QuadVertexPositions[4];
+
+        std::shared_ptr<Texture2D> WhiteTexture;
         std::array<std::shared_ptr<Texture2D>, MaxTextureSlots> TextureSlots;
         uint32_t TextureSlotIndex = 1;
 
-        glm::vec4 QuadVertexPositions[4];
+        // Circle Data
+        std::shared_ptr<VertexArray>    CircleVertexArray;
+        std::shared_ptr<VertexBuffer>   CircleVertexBuffer;
+        std::shared_ptr<Shader>         CircleShader;
 
+        uint32_t      CircleIndexCount          = 0;
+        CircleVertex* CircleVertexBufferBase    = nullptr;
+        CircleVertex* CircleVertexBufferPtr     = nullptr;
+
+        // Line Data
+        std::shared_ptr<VertexArray>    LineVertexArray;
+        std::shared_ptr<VertexBuffer>   LineVertexBuffer;
+        std::shared_ptr<Shader>         LineShader;
+
+        uint32_t    LineVertexCount          = 0;
+        LineVertex* LineVertexBufferBase    = nullptr;
+        LineVertex* LineVertexBufferPtr     = nullptr;
+
+        // Other
         struct CameraData {
             glm::mat4 ViewProjection;
         };
@@ -46,21 +81,6 @@ namespace Loom {
     static Renderer2DStorage sData;
 
     void Renderer2D::Init() {
-        sData.QuadVertexArray = VertexArray::Create();
-
-        sData.QuadVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
-        sData.QuadVertexBuffer->SetLayout({
-            { ShaderDataType::Float3, "aPosition"    },
-            { ShaderDataType::Float4, "aColor"       },
-            { ShaderDataType::Float2, "aTexCoord"    },
-            { ShaderDataType::Float,  "aTexIndex"    },
-            { ShaderDataType::Float,  "aTilingFactor"},
-            { ShaderDataType::Int,    "aEntityID"    }
-        });
-        sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer);
-
-        sData.QuadVertexBufferBase = new QuadVertex[sData.MaxVertices];
-
         uint32_t* quad_indices = new uint32_t[sData.MaxIndices];
         uint32_t offset = 0;
         for (uint32_t i = 0; i < sData.MaxIndices; i += 6) {
@@ -74,28 +94,82 @@ namespace Loom {
         }
 
         auto ibo = IndexBuffer::Create(quad_indices, sData.MaxIndices);
-        sData.QuadVertexArray->SetIndexBuffer(ibo);
-        delete[] quad_indices;
 
-        sData.TextureSlots[0] = Texture2D::Create(1, 1);
-        uint32_t white_texture_data = 0xffffffff;
-        sData.TextureSlots[0]->SetData(&white_texture_data, sizeof(uint32_t));
+        {
+            sData.QuadVertexArray = VertexArray::Create();
 
-        sData.TextureShader = Shader::Create("assets/shaders/texture");
+            sData.QuadVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
+            sData.QuadVertexBuffer->SetLayout({
+                { ShaderDataType::Float3, "aPosition"    },
+                { ShaderDataType::Float4, "aColor"       },
+                { ShaderDataType::Float2, "aTexCoord"    },
+                { ShaderDataType::Float,  "aTexIndex"    },
+                { ShaderDataType::Float,  "aTilingFactor"},
+                { ShaderDataType::Int,    "aEntityID"    }
+            });
+            sData.QuadVertexArray->AddVertexBuffer(sData.QuadVertexBuffer);
 
-        int32_t samplers[sData.MaxTextureSlots];
-        for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
-            samplers[i] = i;
+            sData.QuadVertexBufferBase = new QuadVertex[sData.MaxVertices];
 
-        sData.TextureShader->Bind();
-        sData.TextureShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
+            sData.QuadVertexArray->SetIndexBuffer(ibo);
 
-        sData.QuadVertexPositions[0] = { -0.5f, -0.5f,  0.0f,  1.0f };
-        sData.QuadVertexPositions[1] = {  0.5f, -0.5f,  0.0f,  1.0f };
-        sData.QuadVertexPositions[2] = {  0.5f,  0.5f,  0.0f,  1.0f };
-        sData.QuadVertexPositions[3] = { -0.5f,  0.5f,  0.0f,  1.0f };
+            sData.QuadVertexPositions[0] = { -0.5f, -0.5f,  0.0f,  1.0f };
+            sData.QuadVertexPositions[1] = {  0.5f, -0.5f,  0.0f,  1.0f };
+            sData.QuadVertexPositions[2] = {  0.5f,  0.5f,  0.0f,  1.0f };
+            sData.QuadVertexPositions[3] = { -0.5f,  0.5f,  0.0f,  1.0f };
+
+            sData.QuadShader = Shader::Create("assets/shaders/quad");
+
+            int32_t samplers[sData.MaxTextureSlots];
+            for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
+                samplers[i] = i;
+
+            sData.QuadShader->Bind();
+            sData.QuadShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
+
+            sData.TextureSlots[0] = Texture2D::Create(1, 1);
+            uint32_t white_texture_data = 0xffffffff;
+            sData.TextureSlots[0]->SetData(&white_texture_data, sizeof(uint32_t));
+        }
+
+        {
+            sData.CircleVertexArray = VertexArray::Create();
+
+            sData.CircleVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
+            sData.CircleVertexBuffer->SetLayout({
+                { ShaderDataType::Float3, "aPosition"     },
+                { ShaderDataType::Float3, "aLocalPosition"},
+                { ShaderDataType::Float4, "aColor"        },
+                { ShaderDataType::Float,  "aThickness"    },
+                { ShaderDataType::Float,  "aFade"         },
+                { ShaderDataType::Int,    "aEntityID"     }
+            });
+            sData.CircleVertexArray->AddVertexBuffer(sData.CircleVertexBuffer);
+
+            sData.CircleVertexArray->SetIndexBuffer(ibo);
+            sData.CircleVertexBufferBase = new CircleVertex[sData.MaxVertices];
+            sData.CircleShader = Shader::Create("assets/shaders/circle");
+        }
+
+        {
+            sData.LineVertexArray = VertexArray::Create();
+
+            sData.LineVertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
+            sData.LineVertexBuffer->SetLayout({
+                { ShaderDataType::Float3, "aPosition" },
+                { ShaderDataType::Float4, "aColor"    },
+                { ShaderDataType::Int,    "aEntityID" }
+            });
+            sData.LineVertexArray->AddVertexBuffer(sData.LineVertexBuffer);
+
+            sData.LineVertexBufferBase = new LineVertex[sData.MaxVertices];
+
+            sData.LineShader = Shader::Create("assets/shaders/line");
+        }
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
+
+        delete[] quad_indices;
     }
 
     void Renderer2D::Shutdown() {
@@ -105,30 +179,48 @@ namespace Loom {
         sData.CameraBuffer.ViewProjection = camera.GetViewProjectionMatrix();
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
-        sData.TextureShader->Bind();
+        sData.QuadShader->Bind();
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
+
+        sData.CircleIndexCount = 0;
+        sData.CircleVertexBufferPtr = sData.CircleVertexBufferBase;
+
+        sData.LineVertexCount = 0;
+        sData.LineVertexBufferPtr = sData.LineVertexBufferBase;
     }
 
     void Renderer2D::BeginScene(const EditorCamera& camera) {
         sData.CameraBuffer.ViewProjection = camera.GetViewProjectionMatrix();
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
-        sData.TextureShader->Bind();
+        sData.QuadShader->Bind();
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
+
+        sData.CircleIndexCount = 0;
+        sData.CircleVertexBufferPtr = sData.CircleVertexBufferBase;
+
+        sData.LineVertexCount = 0;
+        sData.LineVertexBufferPtr = sData.LineVertexBufferBase;
     }
 
     void Renderer2D::BeginScene(const Camera& camera, const glm::mat4& transform) {
         sData.CameraBuffer.ViewProjection = camera.GetProjectionMatrix() * glm::inverse(transform);
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
 
-        sData.TextureShader->Bind();
+        sData.QuadShader->Bind();
         sData.QuadIndexCount = 0;
         sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
         sData.TextureSlotIndex = 1;
+
+        sData.CircleIndexCount = 0;
+        sData.CircleVertexBufferPtr = sData.CircleVertexBufferBase;
+
+        sData.LineVertexCount = 0;
+        sData.LineVertexBufferPtr = sData.LineVertexBufferBase;
     }
 
     void Renderer2D::EndScene() {
@@ -137,13 +229,31 @@ namespace Loom {
 
     void Renderer2D::Flush() {
         if (sData.QuadIndexCount) {
+            uint32_t data_size = (uint8_t*)sData.QuadVertexBufferPtr - (uint8_t*)sData.QuadVertexBufferBase;
+            sData.QuadVertexBuffer->SetData(sData.QuadVertexBufferBase, data_size);
+
             for (uint32_t i = 0; i < sData.TextureSlotIndex; i++) {
                 sData.TextureSlots[i]->Bind(i);
             }
 
-            uint32_t data_size = (uint8_t*)sData.QuadVertexBufferPtr - (uint8_t*)sData.QuadVertexBufferBase;
-            sData.QuadVertexBuffer->SetData(sData.QuadVertexBufferBase, data_size);
+            sData.QuadShader->Bind();
             RenderCommand::DrawIndexed(sData.QuadVertexArray.get(), sData.QuadIndexCount);
+        }
+
+        if (sData.CircleIndexCount) {
+            uint32_t data_size = (uint8_t*)sData.CircleVertexBufferPtr - (uint8_t*)sData.CircleVertexBufferBase;
+            sData.CircleVertexBuffer->SetData(sData.CircleVertexBufferBase, data_size);
+
+            sData.CircleShader->Bind();
+            RenderCommand::DrawIndexed(sData.CircleVertexArray.get(), sData.CircleIndexCount);
+        }
+
+        if (sData.LineVertexCount) {
+            uint32_t data_size = (uint8_t*)sData.LineVertexBufferPtr - (uint8_t*)sData.LineVertexBufferBase;
+            sData.LineVertexBuffer->SetData(sData.LineVertexBufferBase, data_size);
+
+            sData.LineShader->Bind();
+            RenderCommand::DrawLines(sData.LineVertexArray.get(), sData.LineVertexCount);
         }
     }
 
@@ -152,6 +262,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
@@ -174,6 +288,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color, int entity_id) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         constexpr size_t quad_vertex_count = 4;
         constexpr float texture_index = 0.0f;
         constexpr glm::vec2 texture_coords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
@@ -197,6 +315,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
@@ -236,6 +358,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, const std::shared_ptr<SubTexture2D>& sub_texture, const glm::vec4& tint_color) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
 
@@ -275,6 +401,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const glm::vec4& color) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
@@ -302,6 +432,10 @@ namespace Loom {
     }
 
     void Renderer2D::DrawRotatedQuad(const glm::vec3& position, const glm::vec2& size, float rotation, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color) {
+        if (sData.QuadIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), position)
                             * glm::rotate(glm::mat4(1.0f), rotation, { 0.0f, 0.0f, 1.0f })
                             * glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
@@ -335,6 +469,58 @@ namespace Loom {
         }
 
         sData.QuadIndexCount += 6;
+    }
+
+    void Renderer2D::DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entity_id) {
+        if (sData.CircleIndexCount >= Renderer2DStorage::MaxIndices) {
+            NextBatch();
+        }
+
+        constexpr size_t circle_vertex_count = 4;
+
+        for (size_t i = 0; i < circle_vertex_count; i++) {
+            sData.CircleVertexBufferPtr->Position      = transform * sData.QuadVertexPositions[i];
+            sData.CircleVertexBufferPtr->LocalPosition = sData.QuadVertexPositions[i] * 2.0f; // Scale to -1.0 -> 1.0
+            sData.CircleVertexBufferPtr->Color         = color;
+            sData.CircleVertexBufferPtr->Thickness     = thickness;
+            sData.CircleVertexBufferPtr->Fade          = fade;
+            sData.CircleVertexBufferPtr->EntityID      = entity_id;
+            sData.CircleVertexBufferPtr++;
+        }
+
+        sData.CircleIndexCount += 6;
+    }
+
+    void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entity_id) {
+        if (sData.LineVertexCount >= Renderer2DStorage::MaxVertices) {
+            NextBatch();
+        }
+
+        sData.LineVertexBufferPtr->Position = p0;
+        sData.LineVertexBufferPtr->Color    = color;
+        sData.LineVertexBufferPtr->EntityID = entity_id;
+        sData.LineVertexBufferPtr++;
+
+        sData.LineVertexBufferPtr->Position = p1;
+        sData.LineVertexBufferPtr->Color    = color;
+        sData.LineVertexBufferPtr->EntityID = entity_id;
+        sData.LineVertexBufferPtr++;
+
+        sData.LineVertexCount += 2;
+    }
+
+    void Renderer2D::NextBatch() {
+        Flush();
+
+        sData.QuadIndexCount = 0;
+        sData.QuadVertexBufferPtr = sData.QuadVertexBufferBase;
+        sData.TextureSlotIndex = 1;
+
+        sData.CircleIndexCount = 0;
+        sData.CircleVertexBufferPtr = sData.CircleVertexBufferBase;
+
+        sData.LineVertexCount = 0;
+        sData.LineVertexBufferPtr = sData.LineVertexBufferBase;
     }
 
 } // namespace Loom

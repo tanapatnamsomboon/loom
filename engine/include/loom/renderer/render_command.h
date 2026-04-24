@@ -23,6 +23,10 @@ namespace Loom {
             sRendererAPI->DrawIndexed(vertex_array, index_count);
         }
 
+        static void DrawLines(VertexArray* vertex_array, uint32_t vertex_count) {
+            sRendererAPI->DrawLines(vertex_array, vertex_count);
+        }
+
     private:
         static RendererAPI* sRendererAPI;
     };

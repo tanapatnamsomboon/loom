@@ -19,6 +19,7 @@ namespace Loom {
         virtual void Clear() = 0;
 
         virtual void DrawIndexed(VertexArray* vertex_array, uint32_t index_count = 0) = 0;
+        virtual void DrawLines(VertexArray* vertex_array, uint32_t vertex_count) = 0;
 
         static API GetAPI() { return sAPI; }
 
