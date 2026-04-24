@@ -5,12 +5,13 @@
 #include "loom/renderer/orthographic_camera.h"
 #include "loom/renderer/subtexture_2d.h"
 #include "loom/renderer/texture.h"
+
 #include <memory>
 
 namespace Loom {
 
     class LOOM_API Renderer2D {
-    public:
+      public:
         static void Init();
         static void Shutdown();
 
@@ -41,8 +42,9 @@ namespace Loom {
 
         static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entity_id = -1);
 
-    private:
+      private:
         static void NextBatch();
+        static void ResetBatches();
     };
 
 } // namespace Loom

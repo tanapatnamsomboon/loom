@@ -1,0 +1,99 @@
+#############################
+##      .clang-format      ##
+#############################
+
+Language: Cpp
+Standard: c++20
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+IndentCaseLabels: true
+NamespaceIndentation: All
+
+# Braces
+BreakBeforeBraces: Attach
+
+# Column limit
+ColumnLimit: 0
+
+# Alignment
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+
+# Pointer and reference alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Includes
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+IncludeCategories:
+  # Local project headers (quoted)
+  - Regex: '^"loom/'
+    Priority: 1
+  # Other local quoted headers
+  - Regex: '^"'
+    Priority: 2
+  # Vendor angle-bracket headers (contain a slash, e.g. <glm/...>, <spdlog/...>)
+  - Regex: "^<[a-zA-Z0-9_]+/"
+    Priority: 3
+  # Standard library headers (no slash, e.g. <array>, <memory>)
+  - Regex: "^<[a-zA-Z0-9_]+>"
+    Priority: 4
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceBeforeSquareBrackets: false
+SpaceAroundPointerQualifiers: Default
+Cpp11BracedListStyle: false
+
+# Function/call formatting
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
+AllowShortBlocksOnASingleLine: Empty
+
+# Constructor initializer lists
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 4
+PackConstructorInitializers: Never
+
+# Template and inheritance
+BreakInheritanceList: BeforeColon
+
+# Line breaking
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+
+# Misc
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+CompactNamespaces: false
+FixNamespaceComments: true
+SortUsingDeclarations: true
