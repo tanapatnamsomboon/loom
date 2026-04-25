@@ -15,35 +15,42 @@ namespace Loom {
             return;
         }
 
-        mWidth = width;
+        mWidth  = width;
         mHeight = height;
 
         mInternalFormat = 0;
-        mDataFormat = 0;
+        mDataFormat     = 0;
         if (channels == 4) {
             mInternalFormat = GL_RGBA8;
-            mDataFormat = GL_RGBA;
+            mDataFormat     = GL_RGBA;
         } else if (channels == 3) {
             mInternalFormat = GL_RGB8;
-            mDataFormat = GL_RGB;
+            mDataFormat     = GL_RGB;
         }
 
-        glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
-        glTextureStorage2D(mRendererID, 1, mInternalFormat, mWidth, mHeight);
+        uint32_t levels = static_cast<uint32_t>(std::floor(std::log2(std::max(mWidth, mHeight)))) + 1;
 
-        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
+        glTextureStorage2D(mRendererID, levels, mInternalFormat, mWidth, mHeight);
+
+        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        float max_anisotropy;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_anisotropy);
+        glTextureParameterf(mRendererID, GL_TEXTURE_MAX_ANISOTROPY, max_anisotropy);
 
         glTextureSubImage2D(mRendererID, 0, 0, 0, mWidth, mHeight, mDataFormat, GL_UNSIGNED_BYTE, data);
+        glGenerateTextureMipmap(mRendererID);
 
         stbi_image_free(data);
     }
 
     OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
-        : mWidth(width), mHeight(height) {
-
+        : mWidth(width)
+        , mHeight(height) {
         mInternalFormat = GL_RGBA8;
-        mDataFormat = GL_RGBA;
+        mDataFormat     = GL_RGBA;
 
         glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
         glTextureStorage2D(mRendererID, 1, mInternalFormat, mWidth, mHeight);

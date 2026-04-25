@@ -135,7 +135,11 @@ namespace Loom {
         });
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-            Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+            if (sprite.Texture) {
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, (int)entt::to_entity(entity));
+            } else {
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+            }
         }
 
         Renderer2D::EndScene();
@@ -177,7 +181,11 @@ namespace Loom {
             });
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+                if (sprite.Texture) {
+                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, (int)entt::to_entity(entity));
+                } else {
+                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+                }
             }
 
             Renderer2D::EndScene();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/uuid.h"
+#include "loom/renderer/texture.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
 #include <glm/glm.hpp>
@@ -42,7 +43,9 @@ namespace Loom {
     };
 
     struct SpriteRendererComponent {
-        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        glm::vec4                  Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+        std::shared_ptr<Texture2D> Texture      = nullptr;
+        float                      TilingFactor = 1.0f;
 
         SpriteRendererComponent()                               = default;
         SpriteRendererComponent(const SpriteRendererComponent&) = default;

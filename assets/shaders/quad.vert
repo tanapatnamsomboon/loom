@@ -9,7 +9,7 @@ layout(location = 5) in int aEntityID;
 
 out vec4 vColor;
 out vec2 vTexCoord;
-out float vTexIndex;
+flat out float vTexIndex;
 out float vTilingFactor;
 flat out int vEntityID;
 

@@ -53,6 +53,8 @@ namespace Weaver {
         ImGui::SetCurrentContext(context);
         ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
+
+        mHierarchyPanel.Init();
     }
 
 #pragma endregion
@@ -60,10 +62,10 @@ namespace Weaver {
 #pragma region Update Loop
 
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
-        HandleViewportResize();
         UpdateScene(ts);
         HandleMousePicking();
         mFramebuffer->Unbind();
+        HandleViewportResize();
     }
 
     void EditorLayer::HandleViewportResize() {

@@ -5,7 +5,7 @@ layout(location = 1) out int oEntityID;
 
 in vec4 vColor;
 in vec2 vTexCoord;
-in float vTexIndex;
+flat in float vTexIndex;
 in float vTilingFactor;
 flat in int vEntityID;
 

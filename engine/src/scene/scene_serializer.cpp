@@ -3,8 +3,8 @@
 #include "loom/core/uuid.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
-#include <yaml-cpp/yaml.h>
 #include <fstream>
+#include <yaml-cpp/yaml.h>
 
 namespace YAML {
 
@@ -19,7 +19,8 @@ namespace YAML {
         }
 
         static bool decode(const Node& node, glm::vec2& v) {
-            if (!node.IsSequence() || node.size() != 2) return false;
+            if (!node.IsSequence() || node.size() != 2)
+                return false;
             v.x = node[0].as<float>();
             v.y = node[1].as<float>();
             return true;
@@ -38,7 +39,8 @@ namespace YAML {
         }
 
         static bool decode(const Node& node, glm::vec3& v) {
-            if (!node.IsSequence() || node.size() != 3) return false;
+            if (!node.IsSequence() || node.size() != 3)
+                return false;
             v.x = node[0].as<float>();
             v.y = node[1].as<float>();
             v.z = node[2].as<float>();
@@ -59,7 +61,8 @@ namespace YAML {
         }
 
         static bool decode(const Node& node, glm::vec4& v) {
-            if (!node.IsSequence() || node.size() != 4) return false;
+            if (!node.IsSequence() || node.size() != 4)
+                return false;
             v.x = node[0].as<float>();
             v.y = node[1].as<float>();
             v.z = node[2].as<float>();
@@ -107,8 +110,8 @@ namespace Loom {
             out << YAML::BeginMap;
             auto& tc = entity.GetComponent<TransformComponent>();
             out << YAML::Key << "Translation" << YAML::Value << tc.Translation;
-            out << YAML::Key << "Rotation"    << YAML::Value << tc.Rotation;
-            out << YAML::Key << "Scale"       << YAML::Value << tc.Scale;
+            out << YAML::Key << "Rotation" << YAML::Value << tc.Rotation;
+            out << YAML::Key << "Scale" << YAML::Value << tc.Scale;
             out << YAML::EndMap;
         }
 
@@ -116,9 +119,9 @@ namespace Loom {
         if (entity.HasComponent<CameraComponent>()) {
             out << YAML::Key << "CameraComponent";
             out << YAML::BeginMap;
-            auto& cc = entity.GetComponent<CameraComponent>();
+            auto& cc  = entity.GetComponent<CameraComponent>();
             auto& cam = cc.Camera;
-            out << YAML::Key << "Primary"          << YAML::Value << cc.Primary;
+            out << YAML::Key << "Primary" << YAML::Value << cc.Primary;
             out << YAML::Key << "FixedAspectRatio" << YAML::Value << cc.FixedAspectRatio;
             out << YAML::Key << "OrthographicSize" << YAML::Value << cam.GetOrthographicSize();
             out << YAML::EndMap;
@@ -130,6 +133,8 @@ namespace Loom {
             out << YAML::BeginMap;
             auto& src = entity.GetComponent<SpriteRendererComponent>();
             out << YAML::Key << "Color" << YAML::Value << src.Color;
+            out << YAML::Key << "Texture" << YAML::Value << (src.Texture ? src.Texture->GetPath() : "");
+            out << YAML::Key << "TilingFactor" << YAML::Value << src.TilingFactor;
             out << YAML::EndMap;
         }
 
@@ -148,7 +153,8 @@ namespace Loom {
         auto view = mScene->GetAllEntitiesWith<IDComponent>();
         for (auto entity_id : view) {
             Entity entity{ entity_id, mScene.get() };
-            if (!entity) continue;
+            if (!entity)
+                continue;
             SerializeEntity(out, entity);
         }
 
@@ -179,7 +185,8 @@ namespace Loom {
         }
 
         auto entities_node = data["Entities"];
-        if (!entities_node) return true;
+        if (!entities_node)
+            return true;
 
         for (auto entity_node : entities_node) {
             uint64_t uuid = entity_node["Entity"].as<uint64_t>();
@@ -193,7 +200,7 @@ namespace Loom {
 
             // Transform
             if (auto tc_node = entity_node["TransformComponent"]) {
-                auto& tc = entity.GetComponent<TransformComponent>();
+                auto& tc       = entity.GetComponent<TransformComponent>();
                 tc.Translation = tc_node["Translation"].as<glm::vec3>();
                 tc.Rotation    = tc_node["Rotation"].as<glm::vec3>();
                 tc.Scale       = tc_node["Scale"].as<glm::vec3>();
@@ -201,7 +208,7 @@ namespace Loom {
 
             // Camera
             if (auto cc_node = entity_node["CameraComponent"]) {
-                auto& cc = entity.AddComponent<CameraComponent>();
+                auto& cc            = entity.AddComponent<CameraComponent>();
                 cc.Primary          = cc_node["Primary"].as<bool>();
                 cc.FixedAspectRatio = cc_node["FixedAspectRatio"].as<bool>();
                 cc.Camera.SetOrthographicSize(cc_node["OrthographicSize"].as<float>());
@@ -209,8 +216,11 @@ namespace Loom {
 
             // Sprite Renderer
             if (auto src_node = entity_node["SpriteRendererComponent"]) {
-                auto& src = entity.AddComponent<SpriteRendererComponent>();
-                src.Color = src_node["Color"].as<glm::vec4>();
+                auto& src          = entity.AddComponent<SpriteRendererComponent>();
+                auto  texture_path = src_node["Texture"] ? src_node["Texture"].as<std::string>() : "";
+                src.Color          = src_node["Color"].as<glm::vec4>();
+                src.Texture        = texture_path.empty() ? nullptr : Texture2D::Create(texture_path);
+                src.TilingFactor   = src_node["TilingFactor"] ? src_node["TilingFactor"].as<float>() : 1.0f;
             }
         }
 

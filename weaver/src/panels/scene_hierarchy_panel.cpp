@@ -1,7 +1,8 @@
 #include "scene_hierarchy_panel.h"
-#include "loom/scene/components.h"
-#include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <loom/scene/components.h>
+#include <imgui.h>
+#include <nfd.hpp>
 
 namespace Weaver {
     SceneHierarchyPanel::SceneHierarchyPanel(const std::shared_ptr<Loom::Scene>& context) {
@@ -9,8 +10,14 @@ namespace Weaver {
     }
 
     void SceneHierarchyPanel::SetContext(const std::shared_ptr<Loom::Scene>& context) {
-        mContext = context;
+        mContext          = context;
         mSelectionContext = {};
+    }
+
+    void SceneHierarchyPanel::Init() {
+        mCheckerboard           = Loom::Texture2D::Create(2, 2);
+        uint32_t checkerboard[] = { 0xFFFFFFFF, 0xFFCCCCCC, 0xFFCCCCCC, 0xFFFFFFFF };
+        mCheckerboard->SetData(checkerboard, sizeof(uint32_t) * 4);
     }
 
     void SceneHierarchyPanel::OnImGuiRender() {
@@ -131,10 +138,29 @@ namespace Weaver {
 
         if (entity.HasComponent<Loom::SpriteRendererComponent>()) {
             if (ImGui::TreeNodeEx((void*)typeid(Loom::SpriteRendererComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Sprite Renderer")) {
-                auto& src = entity.GetComponent<Loom::SpriteRendererComponent>();
+                auto& src     = entity.GetComponent<Loom::SpriteRendererComponent>();
+                auto& texture = src.Texture;
+                auto& color   = src.Color;
+
+                ImTextureID texture_to_display = (ImTextureID)(uintptr_t)((texture != nullptr) ? texture->GetRendererID() : mCheckerboard->GetRendererID());
+                std::string label_text         = (texture != nullptr) ? texture->GetPath() : "None (Select...)";
+
+                ImGui::PushID("TextureSlot1");
+                ImGui::Image(texture_to_display, ImVec2(32, 32), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                ImGui::SameLine();
+                if (ImGui::Button(label_text.c_str(), ImVec2(150, 0))) {
+                    texture = LoadTexture();
+                }
+
+                if (texture) {
+                    ImGui::SameLine();
+                    if (ImGui::Button("X")) {
+                        texture = nullptr;
+                    }
+                }
+                ImGui::PopID();
 
                 ImGui::ColorEdit4("Color", glm::value_ptr(src.Color));
-
                 ImGui::TreePop();
             }
         }
@@ -142,7 +168,7 @@ namespace Weaver {
         if (entity.HasComponent<Loom::CameraComponent>()) {
             if (ImGui::TreeNodeEx((void*)typeid(Loom::CameraComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Camera")) {
                 auto& camera_component = entity.GetComponent<Loom::CameraComponent>();
-                auto& camera = camera_component.Camera;
+                auto& camera           = camera_component.Camera;
 
                 ImGui::Checkbox("Primary", &camera_component.Primary);
 
@@ -156,7 +182,8 @@ namespace Weaver {
                             current_projection_string = projection_type_strings[i];
                             camera.SetProjectionType((Loom::SceneCamera::ProjectionType)i);
                         }
-                        if (is_selected) ImGui::SetItemDefaultFocus();
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
                     }
                     ImGui::EndCombo();
                 }
@@ -178,4 +205,23 @@ namespace Weaver {
         }
     }
 
-} // namespace Loom
+    std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture() {
+        constexpr nfdfilteritem_t filters[] = {
+            { "Images", "png,jpg,jpeg,bmp,tga" },
+            { "All Files", "*" },
+        };
+
+        NFD::Guard      nfd_guard;
+        NFD::UniquePath out_path;
+        nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
+
+        if (result == NFD_OKAY) {
+            return Loom::Texture2D::Create(out_path.get());
+        } else if (result == NFD_ERROR) {
+            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
+        }
+
+        return nullptr;
+    }
+
+} // namespace Weaver

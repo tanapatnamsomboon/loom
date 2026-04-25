@@ -13,6 +13,9 @@ namespace Loom {
 
         uint32_t GetWidth() const override { return mWidth; }
         uint32_t GetHeight() const override { return mHeight; }
+        uint32_t GetRendererID() const override { return mRendererID; }
+
+        const std::string& GetPath() const override { return mPath; }
 
         void SetData(void* data, uint32_t size) override;
 
@@ -20,9 +23,9 @@ namespace Loom {
 
     private:
         std::string mPath;
-        uint32_t mWidth, mHeight;
-        uint32_t mRendererID;
-        GLenum mInternalFormat, mDataFormat;
+        uint32_t    mWidth, mHeight;
+        uint32_t    mRendererID;
+        GLenum      mInternalFormat, mDataFormat;
     };
 
 } // namespace Loom

@@ -350,6 +350,41 @@ namespace Loom {
         q.IndexCount += 6;
     }
 
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color, int entity_id) {
+        auto& q = sData.Quads;
+        q.FlushIfFull();
+
+        float texture_index = 0.0f;
+        for (uint32_t i = 1; i < sData.TextureSlotIndex; i++) {
+            if (sData.TextureSlots[i].get() == texture.get()) {
+                texture_index = (float)i;
+                break;
+            }
+        }
+
+        if (texture_index == 0.0f) {
+            texture_index                              = (float)sData.TextureSlotIndex;
+            sData.TextureSlots[sData.TextureSlotIndex] = texture;
+            sData.TextureSlotIndex++;
+        }
+
+        constexpr size_t    quad_vertex_count = 4;
+        constexpr glm::vec2 texture_coords[]  = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
+        constexpr float     tiling_factor     = 1.0f;
+
+        for (size_t i = 0; i < quad_vertex_count; i++) {
+            q.VertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
+            q.VertexBufferPtr->Color        = tint_color;
+            q.VertexBufferPtr->TexCoord     = texture_coords[i];
+            q.VertexBufferPtr->TexIndex     = texture_index;
+            q.VertexBufferPtr->TilingFactor = tiling_factor;
+            q.VertexBufferPtr->EntityID     = entity_id;
+            q.VertexBufferPtr++;
+        }
+
+        q.IndexCount += 6;
+    }
+
     void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size, const std::shared_ptr<SubTexture2D>& sub_texture, const glm::vec4& tint_color) {
         DrawQuad({ position.x, position.y, 0.0f }, size, sub_texture, tint_color);
     }

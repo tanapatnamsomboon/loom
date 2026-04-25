@@ -1,6 +1,7 @@
 #include "platform/opengl/opengl_context.h"
 #include "loom/core/log.h"
 #include <glad/glad.h>
+
 #include <GLFW/glfw3.h>
 
 namespace Loom {
