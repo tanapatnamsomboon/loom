@@ -1,7 +1,7 @@
 #pragma once
 
-#include "loom/scene/entity.h"
 #include "loom/core/timestep.h"
+#include "loom/scene/entity.h"
 
 namespace Loom {
 

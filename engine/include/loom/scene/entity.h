@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/log.h"
+#include "loom/scene/scene.h"
 #include <entt/entt.hpp>
 
 namespace Loom {
@@ -9,17 +10,20 @@ namespace Loom {
     public:
         Entity() = default;
         Entity(entt::entity handle, Scene* scene)
-            : mEntityHandle(handle), mScene(scene) {}
+            : mEntityHandle(handle)
+            , mScene(scene) {}
 
         template<typename T, typename... Args>
         T& AddComponent(Args&&... args) {
-            if (HasComponent<T>()) LOOM_CORE_FATAL("Entity already has component!");
+            if (HasComponent<T>())
+                LOOM_CORE_FATAL("Entity already has component!");
             return mScene->mRegistry.emplace<T>(mEntityHandle, std::forward<Args>(args)...);
         }
 
         template<typename T>
         T& GetComponent() {
-            if (!HasComponent<T>()) LOOM_CORE_FATAL("Entity does not have component!");
+            if (!HasComponent<T>())
+                LOOM_CORE_FATAL("Entity does not have component!");
             return mScene->mRegistry.get<T>(mEntityHandle);
         }
 
@@ -30,7 +34,8 @@ namespace Loom {
 
         template<typename T>
         void RemoveComponent() {
-            if (!HasComponent<T>()) LOOM_CORE_FATAL("Entity does not have component!");
+            if (!HasComponent<T>())
+                LOOM_CORE_FATAL("Entity does not have component!");
             mScene->mRegistry.remove<T>(mEntityHandle);
         }
 
@@ -48,7 +53,7 @@ namespace Loom {
 
     private:
         entt::entity mEntityHandle{ entt::null };
-        Scene* mScene = nullptr;
+        Scene*       mScene = nullptr;
     };
 
 } // namespace Loom

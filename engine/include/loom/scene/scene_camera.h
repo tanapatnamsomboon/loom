@@ -22,13 +22,22 @@ namespace Loom {
         void SetViewportSize(uint32_t width, uint32_t height);
 
         ProjectionType GetProjectionType() const { return mProjectionType; }
-        void SetProjectionType(ProjectionType type) { mProjectionType = type; RecalculateProjection(); }
+        void           SetProjectionType(ProjectionType type) {
+            mProjectionType = type;
+            RecalculateProjection();
+        }
 
         float GetOrthographicSize() const { return mOrthographicSize; }
-        void SetOrthographicSize(float size) { mOrthographicSize = size; RecalculateProjection(); }
+        void  SetOrthographicSize(float size) {
+            mOrthographicSize = size;
+            RecalculateProjection();
+        }
 
         float GetPerspectiveVerticalFOV() const { return mPerspectiveFOV; }
-        void SetPerspectiveVerticalFOV(float vertical_fov) { mPerspectiveFOV = vertical_fov; }
+        void  SetPerspectiveVerticalFOV(float vertical_fov) {
+            mPerspectiveFOV = vertical_fov;
+            RecalculateProjection();
+        }
 
     private:
         void RecalculateProjection();
@@ -44,7 +53,7 @@ namespace Loom {
         float mOrthographicNear = -1.0f;
         float mOrthographicFar  = 1.0f;
 
-        float mAspectRatio      = 0.0f;
+        float mAspectRatio = 0.0f;
     };
 
 } // namespace Loom
