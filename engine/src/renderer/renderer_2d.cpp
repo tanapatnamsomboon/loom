@@ -350,7 +350,7 @@ namespace Loom {
         q.IndexCount += 6;
     }
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color, int entity_id) {
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const std::shared_ptr<Texture2D>& texture, const glm::vec4& tint_color, float tiling_factor, int entity_id) {
         auto& q = sData.Quads;
         q.FlushIfFull();
 
@@ -370,7 +370,6 @@ namespace Loom {
 
         constexpr size_t    quad_vertex_count = 4;
         constexpr glm::vec2 texture_coords[]  = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
-        constexpr float     tiling_factor     = 1.0f;
 
         for (size_t i = 0; i < quad_vertex_count; i++) {
             q.VertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];

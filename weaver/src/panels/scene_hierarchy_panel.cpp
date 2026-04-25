@@ -161,6 +161,7 @@ namespace Weaver {
                 ImGui::PopID();
 
                 ImGui::ColorEdit4("Color", glm::value_ptr(src.Color));
+                ImGui::DragFloat("Tiling Factor", &src.TilingFactor, 0.1f, 0.1f, 100.0f);
                 ImGui::TreePop();
             }
         }
