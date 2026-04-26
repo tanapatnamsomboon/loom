@@ -1,8 +1,9 @@
 #include "scene_hierarchy_panel.h"
 #include <glm/gtc/type_ptr.hpp>
-#include <loom/scene/components.h>
 #include <imgui.h>
+#include <loom/scene/components.h>
 #include <nfd.hpp>
+#include <filesystem>
 
 namespace Weaver {
     SceneHierarchyPanel::SceneHierarchyPanel(const std::shared_ptr<Loom::Scene>& context) {
@@ -143,7 +144,7 @@ namespace Weaver {
                 auto& color   = src.Color;
 
                 ImTextureID texture_to_display = (ImTextureID)(uintptr_t)((texture != nullptr) ? texture->GetRendererID() : mCheckerboard->GetRendererID());
-                std::string label_text         = (texture != nullptr) ? texture->GetPath() : "None (Select...)";
+                std::string label_text         = (texture != nullptr) ? std::filesystem::path(texture->GetPath()).filename().string() : "None (Select...)";
 
                 ImGui::PushID("TextureSlot1");
                 ImGui::Image(texture_to_display, ImVec2(32, 32), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));

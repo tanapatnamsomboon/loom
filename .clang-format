@@ -46,17 +46,19 @@ ReferenceAlignment: Left
 SortIncludes: CaseSensitive
 IncludeBlocks: Preserve
 IncludeCategories:
-  # Local project headers (quoted)
-  - Regex: '^"loom/'
+  # 1. Local includes (relative/quoted)
+  - Regex: '^"([^l]|l[^o]|lo[^o]|loo[^m]).*"'
     Priority: 1
-  # Other local quoted headers
-  - Regex: '^"'
+  # 2. Project includes (loom/)
+  - Regex: '^"loom/'
     Priority: 2
-  # Vendor angle-bracket headers (contain a slash, e.g. <glm/...>, <spdlog/...>)
-  - Regex: "^<[a-zA-Z0-9_]+/"
+  # 3. Vendor/Third-party (angle brackets with OR without slashes)
+  # This catches <glm/...>, <imgui.h>, and <nfd.hpp>
+  - Regex: '^<.*\.(h|hpp|ptr)>'
     Priority: 3
-  # Standard library headers (no slash, e.g. <array>, <memory>)
-  - Regex: "^<[a-zA-Z0-9_]+>"
+  # 4. Standard Library (things like <vector>, <filesystem>, <iostream>)
+  # Usually no file extension
+  - Regex: "^<[^.]*>$"
     Priority: 4
 
 # Spacing
