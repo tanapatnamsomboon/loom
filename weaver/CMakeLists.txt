@@ -5,6 +5,7 @@ add_executable(Weaver
   src/editor_layer.h
   src/editor_layer.cpp
   src/panels/scene_hierarchy_panel.cpp
+  src/panels/content_browser_panel.cpp
 )
 
 target_link_libraries(Weaver PRIVATE Loom nfd)

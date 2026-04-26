@@ -39,7 +39,7 @@ namespace Weaver {
         mEditorCamera = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
 
         // Hierarchy Panel
-        mHierarchyPanel.SetContext(mActiveScene);
+        mSceneHierarchyPanel.SetContext(mActiveScene);
     }
 
     void EditorLayer::OnAttach() {
@@ -54,7 +54,7 @@ namespace Weaver {
         ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
 
-        mHierarchyPanel.Init();
+        mSceneHierarchyPanel.Init();
     }
 
 #pragma endregion
@@ -139,7 +139,7 @@ namespace Weaver {
 
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() == 0 && mViewportHovered && !ImGuizmo::IsOver()) {
-            mHierarchyPanel.SetSelectedEntity(mHoveredEntity);
+            mSceneHierarchyPanel.SetSelectedEntity(mHoveredEntity);
         }
         return false;
     }
@@ -238,7 +238,7 @@ namespace Weaver {
             }
 
             if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowHierarchyPanel);
+                ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowSceneHierarchyPanel);
                 ImGui::EndMenu();
             }
 
@@ -273,8 +273,11 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderPanels() {
-        if (mShowHierarchyPanel) {
-            mHierarchyPanel.OnImGuiRender();
+        if (mShowSceneHierarchyPanel) {
+            mSceneHierarchyPanel.OnImGuiRender();
+        }
+        if (mShowContentBrowserPanel) {
+            mContentBrowserPanel.OnImGuiRender();
         }
     }
 
@@ -338,7 +341,7 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderGizmos() {
-        Loom::Entity selected_entity = mHierarchyPanel.GetSelectedEntity();
+        Loom::Entity selected_entity = mSceneHierarchyPanel.GetSelectedEntity();
         if (!selected_entity || mGizmoType == -1)
             return;
 
@@ -375,7 +378,7 @@ namespace Weaver {
 
     void EditorLayer::NewScene() {
         mActiveScene = std::make_shared<Loom::Scene>();
-        mHierarchyPanel.SetContext(mActiveScene);
+        mSceneHierarchyPanel.SetContext(mActiveScene);
         mCurrentScenePath.clear();
     }
 
@@ -408,7 +411,7 @@ namespace Weaver {
 
         if (serializer.Deserialize(filepath)) {
             mEditorScene = new_scene;
-            mHierarchyPanel.SetContext(mEditorScene);
+            mSceneHierarchyPanel.SetContext(mEditorScene);
 
             mActiveScene      = mEditorScene;
             mCurrentScenePath = filepath;
@@ -454,13 +457,13 @@ namespace Weaver {
     void EditorLayer::OnScenePlay() {
         mSceneState  = SceneState::Play;
         mActiveScene = Loom::Scene::Copy(mEditorScene);
-        mHierarchyPanel.SetContext(mActiveScene);
+        mSceneHierarchyPanel.SetContext(mActiveScene);
     }
 
     void EditorLayer::OnSceneStop() {
         mSceneState  = SceneState::Edit;
         mActiveScene = mEditorScene;
-        mHierarchyPanel.SetContext(mActiveScene);
+        mSceneHierarchyPanel.SetContext(mActiveScene);
     }
 
 #pragma endregion

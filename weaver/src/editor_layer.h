@@ -1,5 +1,6 @@
 #pragma once
 
+#include "panels/content_browser_panel.h"
 #include "panels/scene_hierarchy_panel.h"
 #include <glm/glm.hpp>
 #include <loom/core/layer.h>
@@ -59,13 +60,15 @@ namespace Weaver {
         bool mViewportFocused = false;
         bool mViewportHovered = false;
 
-        bool mShowHierarchyPanel = true;
-        bool mShowAboutModal     = false;
+        bool mShowSceneHierarchyPanel = true;
+        bool mShowContentBrowserPanel = true;
+        bool mShowAboutModal          = false;
 
         Loom::EditorCamera mEditorCamera;
         Loom::Entity       mHoveredEntity;
 
-        SceneHierarchyPanel mHierarchyPanel;
+        SceneHierarchyPanel mSceneHierarchyPanel;
+        ContentBrowserPanel mContentBrowserPanel;
 
         std::shared_ptr<Loom::Framebuffer> mFramebuffer;
         glm::vec2                          mViewportSize = { 0.0f, 0.0f };
