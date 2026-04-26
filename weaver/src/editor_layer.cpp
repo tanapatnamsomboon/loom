@@ -1,6 +1,11 @@
 #include "editor_layer.h"
 #include "loom/renderer/framebuffer.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <imgui.h>
+// clang-format off
+#include <ImGuizmo.h>
+#include <imgui_internal.h>
+// clang-format on
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/math/math.h>
@@ -8,11 +13,8 @@
 #include <loom/renderer/renderer_2d.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_serializer.h>
-#include <filesystem>
-#include <ImGuizmo.h>
-#include <imgui.h>
-#include <imgui_internal.h>
 #include <nfd.hpp>
+#include <filesystem>
 
 namespace Weaver {
 
@@ -62,10 +64,10 @@ namespace Weaver {
 #pragma region Update Loop
 
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
+        HandleViewportResize();
         UpdateScene(ts);
         HandleMousePicking();
         mFramebuffer->Unbind();
-        HandleViewportResize();
     }
 
     void EditorLayer::HandleViewportResize() {
@@ -94,7 +96,7 @@ namespace Weaver {
 
         switch (mSceneState) {
             case SceneState::Edit:
-                mActiveScene->OnUpdateEditor(ts, mEditorCamera);
+                mActiveScene->OnUpdateEditor(ts, mEditorCamera, mSceneHierarchyPanel.GetSelectedEntity());
                 break;
             case SceneState::Play:
                 mActiveScene->OnUpdateRuntime(ts);

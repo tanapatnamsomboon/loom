@@ -93,6 +93,8 @@ BreakInheritanceList: BeforeColon
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
+BreakBeforeBinaryOperators: All
+AlignOperands: AlignAfterOperator
 
 # Misc
 MaxEmptyLinesToKeep: 1

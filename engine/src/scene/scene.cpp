@@ -5,7 +5,9 @@
 #include "loom/scene/entity.h"
 
 namespace Loom {
-    Scene::Scene() {}
+    Scene::Scene() {
+        mCameraIcon = Texture2D::Create("assets/icons/camera_icon.png");
+    }
 
     Scene::~Scene() {}
 
@@ -126,7 +128,7 @@ namespace Loom {
         }
     }
 
-    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera) {
+    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
         Renderer2D::BeginScene(camera);
 
         auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
@@ -140,6 +142,20 @@ namespace Loom {
             } else {
                 Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
             }
+        }
+
+        auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
+        for (auto entity : camera_view) {
+            auto&     transform       = camera_view.get<TransformComponent>(entity);
+            glm::mat4 camera_rotation = glm::mat4(glm::mat3(glm::transpose(camera.GetViewMatrix())));
+            glm::mat4 billboard       = glm::translate(glm::mat4(1.0f), transform.Translation)
+                                      * camera_rotation
+                                      * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+            Renderer2D::DrawQuad(billboard, mCameraIcon, glm::vec4(1.0f), 1.0f, (int)entt::to_entity(entity));
+        }
+
+        if (selected_entity && selected_entity.HasComponent<CameraComponent>()) {
+            DrawCameraFrustum(selected_entity.GetComponent<TransformComponent>(), selected_entity.GetComponent<CameraComponent>());
         }
 
         Renderer2D::EndScene();
@@ -182,7 +198,7 @@ namespace Loom {
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
                 if (sprite.Texture) {
-                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, (int)entt::to_entity(entity));
+                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
                 } else {
                     Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
                 }
@@ -190,6 +206,73 @@ namespace Loom {
 
             Renderer2D::EndScene();
         }
+    }
+
+    void Scene::DrawCameraFrustum(const TransformComponent& transform_component, const CameraComponent& camera_component) {
+        const SceneCamera& camera    = camera_component.Camera;
+        const glm::mat4&   world     = transform_component.GetTransform();
+        const glm::vec4    color     = { 0.9f, 0.9f, 0.2f, 1.0f };
+        const int          entity_id = -1;
+
+        glm::vec3 near_corners[4];
+        glm::vec3 far_corners[4];
+
+        if (camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic) {
+            float size = camera.GetOrthographicSize();
+            float w    = size * camera.GetAspectRatio() * 0.5f;
+            float h    = size * 0.5f;
+            float n    = camera.GetOrthographicNearClip();
+            float f    = camera.GetOrthographicFarClip();
+
+            near_corners[0] = { -w, h, -n };
+            near_corners[1] = { w, h, -n };
+            near_corners[2] = { w, -h, -n };
+            near_corners[3] = { -w, -h, -n };
+
+            far_corners[0] = { -w, h, -f };
+            far_corners[1] = { w, h, -f };
+            far_corners[2] = { w, -h, -f };
+            far_corners[3] = { -w, -h, -f };
+        } else {
+            float fov    = camera.GetPerspectiveVerticalFOV();
+            float n      = camera.GetPerspectiveNearClip();
+            float f      = camera.GetPerspectiveFarClip();
+            float near_h = glm::tan(fov * 0.5f) * n;
+            float near_w = near_h * camera.GetAspectRatio();
+            float far_h  = glm::tan(fov * 0.5f) * f;
+            float far_w  = far_h * camera.GetAspectRatio();
+
+            near_corners[0] = { -near_w, near_h, -n };
+            near_corners[1] = { near_w, near_h, -n };
+            near_corners[2] = { near_w, -near_h, -n };
+            near_corners[3] = { -near_w, -near_h, -n };
+
+            far_corners[0] = { -far_w, far_h, -f };
+            far_corners[1] = { far_w, far_h, -f };
+            far_corners[2] = { far_w, -far_h, -f };
+            far_corners[3] = { -far_w, -far_h, -f };
+        }
+
+        glm::vec3 wn[4], wf[4];
+        for (int i = 0; i < 4; i++) {
+            wn[i] = glm::vec3(world * glm::vec4(near_corners[i], 1.0f));
+            wf[i] = glm::vec3(world * glm::vec4(far_corners[i], 1.0f));
+        }
+
+        Renderer2D::DrawLine(wn[0], wn[1], color, entity_id);
+        Renderer2D::DrawLine(wn[1], wn[2], color, entity_id);
+        Renderer2D::DrawLine(wn[2], wn[3], color, entity_id);
+        Renderer2D::DrawLine(wn[3], wn[0], color, entity_id);
+
+        Renderer2D::DrawLine(wf[0], wf[1], color, entity_id);
+        Renderer2D::DrawLine(wf[1], wf[2], color, entity_id);
+        Renderer2D::DrawLine(wf[2], wf[3], color, entity_id);
+        Renderer2D::DrawLine(wf[3], wf[0], color, entity_id);
+
+        Renderer2D::DrawLine(wn[0], wf[0], color, entity_id);
+        Renderer2D::DrawLine(wn[1], wf[1], color, entity_id);
+        Renderer2D::DrawLine(wn[2], wf[2], color, entity_id);
+        Renderer2D::DrawLine(wn[3], wf[3], color, entity_id);
     }
 
 } // namespace Loom

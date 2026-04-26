@@ -4,11 +4,15 @@
 #include "loom/core/timestep.h"
 #include "loom/core/uuid.h"
 #include "loom/renderer/editor_camera.h"
+#include "loom/renderer/texture.h"
 #include <entt/entt.hpp>
 
 namespace Loom {
 
     class Entity;
+
+    struct TransformComponent;
+    struct CameraComponent;
 
     class LOOM_API Scene {
     public:
@@ -20,7 +24,7 @@ namespace Loom {
 
         [[deprecated("Use OnUpdateEditor or OnUpdateRuntime instead.")]]
         void OnUpdate(Timestep ts);
-        void OnUpdateEditor(Timestep ts, EditorCamera& camera);
+        void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
         void OnUpdateRuntime(Timestep ts);
 
         Entity CreateEntity(const std::string& name = std::string());
@@ -35,7 +39,12 @@ namespace Loom {
         }
 
     private:
+        void DrawCameraFrustum(const TransformComponent& transform, const CameraComponent& camera);
+
+    private:
         entt::registry mRegistry;
+
+        std::shared_ptr<Texture2D> mCameraIcon;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

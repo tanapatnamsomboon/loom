@@ -4,20 +4,26 @@ Entities:
     TagComponent:
       Tag: Camera
     TransformComponent:
-      Translation: [0, 0, 0]
+      Translation: [0, 0, 10]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
       OrthographicSize: 10
+      OrthographicNear: 0.1
+      OrthographicFar: 1000
+      PerspectiveFOV: 1.7453293
+      PerspectiveNear: 0.1
+      PerspectiveFar: 100
+      ProjectionType: 0
   - Entity: 11190792112762867342
     TagComponent:
       Tag: Pink
     TransformComponent:
       Translation: [0, 0, 0]
       Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Scale: [2, 2, 1]
     SpriteRendererComponent:
       Color: [1, 1, 1, 1]
       Texture: C:\Users\phukao\Work\loom\assets\textures\box.png

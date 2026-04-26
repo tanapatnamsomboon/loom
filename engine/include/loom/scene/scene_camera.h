@@ -32,12 +32,18 @@ namespace Loom {
             mOrthographicSize = size;
             RecalculateProjection();
         }
+        float GetOrthographicNearClip() const { return mOrthographicNear; }
+        float GetOrthographicFarClip() const { return mOrthographicFar; }
 
         float GetPerspectiveVerticalFOV() const { return mPerspectiveFOV; }
         void  SetPerspectiveVerticalFOV(float vertical_fov) {
             mPerspectiveFOV = vertical_fov;
             RecalculateProjection();
         }
+        float GetPerspectiveNearClip() const { return mPerspectiveNear; }
+        float GetPerspectiveFarClip() const { return mPerspectiveFar; }
+
+        float GetAspectRatio() const { return mAspectRatio; }
 
     private:
         void RecalculateProjection();

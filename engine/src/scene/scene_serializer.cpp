@@ -3,8 +3,8 @@
 #include "loom/core/uuid.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
-#include <fstream>
 #include <yaml-cpp/yaml.h>
+#include <fstream>
 
 namespace YAML {
 
@@ -123,7 +123,20 @@ namespace Loom {
             auto& cam = cc.Camera;
             out << YAML::Key << "Primary" << YAML::Value << cc.Primary;
             out << YAML::Key << "FixedAspectRatio" << YAML::Value << cc.FixedAspectRatio;
+
+            // Orthographic
             out << YAML::Key << "OrthographicSize" << YAML::Value << cam.GetOrthographicSize();
+            out << YAML::Key << "OrthographicNear" << YAML::Value << cam.GetOrthographicNearClip();
+            out << YAML::Key << "OrthographicFar" << YAML::Value << cam.GetOrthographicFarClip();
+
+            // Perspective
+            out << YAML::Key << "PerspectiveFOV" << YAML::Value << cam.GetPerspectiveVerticalFOV();
+            out << YAML::Key << "PerspectiveNear" << YAML::Value << cam.GetPerspectiveNearClip();
+            out << YAML::Key << "PerspectiveFar" << YAML::Value << cam.GetPerspectiveFarClip();
+
+            // Projection type
+            out << YAML::Key << "ProjectionType" << YAML::Value << (int)cam.GetProjectionType();
+
             out << YAML::EndMap;
         }
 
@@ -170,6 +183,11 @@ namespace Loom {
         LOOM_CORE_INFO("SceneSerializer: saved scene to '{}'", filepath);
     }
 
+    #define YAML_GET(node_value, type, fallback) ([&]() -> type { \
+        auto&& _yaml_node_ = (node_value);                        \
+        return _yaml_node_ ? _yaml_node_.as<type>() : (fallback); \
+    }())
+
     bool SceneSerializer::Deserialize(const std::string& filepath) {
         YAML::Node data;
         try {
@@ -194,33 +212,45 @@ namespace Loom {
             // Tag
             std::string name = "Entity";
             if (auto tag_node = entity_node["TagComponent"])
-                name = tag_node["Tag"].as<std::string>();
+                name = YAML_GET(tag_node["Tag"], std::string, "Untitled Entity");
 
             Entity entity = mScene->CreateEntityWithUUID(UUID(uuid), name);
 
             // Transform
             if (auto tc_node = entity_node["TransformComponent"]) {
                 auto& tc       = entity.GetComponent<TransformComponent>();
-                tc.Translation = tc_node["Translation"].as<glm::vec3>();
-                tc.Rotation    = tc_node["Rotation"].as<glm::vec3>();
-                tc.Scale       = tc_node["Scale"].as<glm::vec3>();
+                tc.Translation = YAML_GET(tc_node["Translation"], glm::vec3, glm::vec3(1.0f));
+                tc.Rotation    = YAML_GET(tc_node["Rotation"], glm::vec3, glm::vec3(1.0f));
+                tc.Scale       = YAML_GET(tc_node["Scale"], glm::vec3, glm::vec3(1.0f));
             }
 
             // Camera
             if (auto cc_node = entity_node["CameraComponent"]) {
                 auto& cc            = entity.AddComponent<CameraComponent>();
-                cc.Primary          = cc_node["Primary"].as<bool>();
-                cc.FixedAspectRatio = cc_node["FixedAspectRatio"].as<bool>();
-                cc.Camera.SetOrthographicSize(cc_node["OrthographicSize"].as<float>());
+                cc.Primary          = YAML_GET(cc_node["Primary"], bool, false);
+                cc.FixedAspectRatio = YAML_GET(cc_node["FixedAspectRatio"], bool, true);
+
+                auto ortho_size = YAML_GET(cc_node["OrthographicSize"], float, 10.0f);
+                auto ortho_near = YAML_GET(cc_node["OrthographicNear"], float, 0.1f);
+                auto ortho_far  = YAML_GET(cc_node["OrthographicFar"], float, 1000.0f);
+                cc.Camera.SetOrthographic(ortho_size, ortho_near, ortho_far);
+
+                auto perspective_fov  = YAML_GET(cc_node["PerspectiveFOV"], float, 60.0f);
+                auto perspective_near = YAML_GET(cc_node["PerspectiveNear"], float, 0.1f);
+                auto perspective_far  = YAML_GET(cc_node["PerspectiveFar"], float, 100.0f);
+                cc.Camera.SetPerspective(perspective_fov, perspective_near, perspective_far);
+
+                auto projection_type = YAML_GET(cc_node["ProjectionType"], int, 0);
+                cc.Camera.SetProjectionType((SceneCamera::ProjectionType)projection_type);
             }
 
             // Sprite Renderer
             if (auto src_node = entity_node["SpriteRendererComponent"]) {
                 auto& src          = entity.AddComponent<SpriteRendererComponent>();
-                auto  texture_path = src_node["Texture"] ? src_node["Texture"].as<std::string>() : "";
-                src.Color          = src_node["Color"].as<glm::vec4>();
+                auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
+                src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
                 src.Texture        = texture_path.empty() ? nullptr : Texture2D::Create(texture_path);
-                src.TilingFactor   = src_node["TilingFactor"] ? src_node["TilingFactor"].as<float>() : 1.0f;
+                src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
             }
         }
 

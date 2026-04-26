@@ -192,14 +192,24 @@ namespace Weaver {
 
                 if (camera.GetProjectionType() == Loom::SceneCamera::ProjectionType::Perspective) {
                     float vertical_fov = glm::degrees(camera.GetPerspectiveVerticalFOV());
-                    if (ImGui::DragFloat("Vertical FOV", &vertical_fov)) {
-                        camera.SetPerspectiveVerticalFOV(glm::radians(vertical_fov));
-                    }
+                    float near_clip    = camera.GetPerspectiveNearClip();
+                    float far_clip     = camera.GetPerspectiveFarClip();
+                    bool  changed      = false;
+                    changed |= ImGui::DragFloat("Vertical FOV", &vertical_fov);
+                    changed |= ImGui::DragFloat("Near Clip", &near_clip);
+                    changed |= ImGui::DragFloat("Far Clip", &far_clip);
+                    if (changed)
+                        camera.SetPerspective(glm::radians(vertical_fov), near_clip, far_clip);
                 } else {
                     float ortho_size = camera.GetOrthographicSize();
-                    if (ImGui::DragFloat("Size", &ortho_size)) {
-                        camera.SetOrthographicSize(ortho_size);
-                    }
+                    float near_clip  = camera.GetOrthographicNearClip();
+                    float far_clip   = camera.GetOrthographicFarClip();
+                    bool  changed    = false;
+                    changed |= ImGui::DragFloat("Size", &ortho_size);
+                    changed |= ImGui::DragFloat("Near Clip", &near_clip);
+                    changed |= ImGui::DragFloat("Far Clip", &far_clip);
+                    if (changed)
+                        camera.SetOrthographic(ortho_size, near_clip, far_clip);
                 }
 
                 ImGui::TreePop();
