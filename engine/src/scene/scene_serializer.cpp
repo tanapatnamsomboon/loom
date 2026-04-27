@@ -219,8 +219,8 @@ namespace Loom {
             // Transform
             if (auto tc_node = entity_node["TransformComponent"]) {
                 auto& tc       = entity.GetComponent<TransformComponent>();
-                tc.Translation = YAML_GET(tc_node["Translation"], glm::vec3, glm::vec3(1.0f));
-                tc.Rotation    = YAML_GET(tc_node["Rotation"], glm::vec3, glm::vec3(1.0f));
+                tc.Translation = YAML_GET(tc_node["Translation"], glm::vec3, glm::vec3(0.0f));
+                tc.Rotation    = YAML_GET(tc_node["Rotation"], glm::vec3, glm::vec3(0.0f));
                 tc.Scale       = YAML_GET(tc_node["Scale"], glm::vec3, glm::vec3(1.0f));
             }
 

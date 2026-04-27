@@ -109,13 +109,17 @@ namespace Weaver {
         ImGui::PopItemWidth();
 
         if (ImGui::BeginPopup("AddComponent")) {
-            if (ImGui::MenuItem("Camera")) {
-                mSelectionContext.AddComponent<Loom::CameraComponent>();
-                ImGui::CloseCurrentPopup();
+            if (!mSelectionContext.HasComponent<Loom::CameraComponent>()) {
+                if (ImGui::MenuItem("Camera")) {
+                    mSelectionContext.AddComponent<Loom::CameraComponent>();
+                    ImGui::CloseCurrentPopup();
+                }
             }
-            if (ImGui::MenuItem("Sprite Renderer")) {
-                mSelectionContext.AddComponent<Loom::SpriteRendererComponent>();
-                ImGui::CloseCurrentPopup();
+            if (!mSelectionContext.HasComponent<Loom::CameraComponent>()) {
+                if (ImGui::MenuItem("Sprite Renderer")) {
+                    mSelectionContext.AddComponent<Loom::SpriteRendererComponent>();
+                    ImGui::CloseCurrentPopup();
+                }
             }
             ImGui::EndPopup();
         }

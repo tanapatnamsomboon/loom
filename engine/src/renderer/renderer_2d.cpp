@@ -125,9 +125,7 @@ namespace Loom {
         sData.QuadVertexPositions[2] = { 0.5f, 0.5f, 0.0f, 1.0f };
         sData.QuadVertexPositions[3] = { -0.5f, 0.5f, 0.0f, 1.0f };
 
-        //////////////////////////
-        //      Quad Setup      //
-        //////////////////////////
+        // Quad Setup
         auto& q        = sData.Quads;
         q.VertexArray  = VertexArray::Create();
         q.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
@@ -148,17 +146,13 @@ namespace Loom {
         q.Shader->Bind();
         q.Shader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
 
-        /////////////////////////////
-        //      White texture      //
-        /////////////////////////////
+        // White texture
         sData.WhiteTexture = Texture2D::Create(1, 1);
         uint32_t white     = 0xFFFFFFFF;
         sData.WhiteTexture->SetData(&white, sizeof(uint32_t));
         sData.TextureSlots[0] = sData.WhiteTexture;
 
-        ////////////////////////////
-        //      Circle Setup      //
-        ////////////////////////////
+        // Circle Setup
         auto& c        = sData.Circles;
         c.VertexArray  = VertexArray::Create();
         c.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
@@ -173,9 +167,7 @@ namespace Loom {
         c.VertexBufferBase = new CircleVertex[sData.MaxVertices];
         c.Shader           = Shader::Create("assets/shaders/circle");
 
-        //////////////////////////
-        //      Line Setup      //
-        //////////////////////////
+        // Line Setup
         auto& l        = sData.Lines;
         l.VertexArray  = VertexArray::Create();
         l.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
@@ -186,14 +178,17 @@ namespace Loom {
         l.VertexBufferBase = new LineVertex[sData.MaxVertices];
         l.Shader           = Shader::Create("assets/shaders/line");
 
-        sData.Quads.SetFlushCallback([]() { Renderer2D::NextBatch(); });
-        sData.Circles.SetFlushCallback([]() { Renderer2D::NextBatch(); });
-        sData.Lines.SetFlushCallback([]() { Renderer2D::NextBatch(); });
+        sData.Quads.SetFlushCallback([]() { NextBatch(); });
+        sData.Circles.SetFlushCallback([]() { NextBatch(); });
+        sData.Lines.SetFlushCallback([]() { NextBatch(); });
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
     }
 
     void Renderer2D::Shutdown() {
+        delete[] sData.Quads.VertexBufferBase;
+        delete[] sData.Circles.VertexBufferBase;
+        delete[] sData.Lines.VertexBufferBase;
     }
 
     void Renderer2D::BeginScene(const OrthographicCamera& camera) {
@@ -222,9 +217,7 @@ namespace Loom {
     }
 
     void Renderer2D::Flush() {
-        /////////////////////
-        //      Quads      //
-        /////////////////////
+        // Quads
         if (sData.Quads.IndexCount) {
             uint32_t size = (uint8_t*)sData.Quads.VertexBufferPtr - (uint8_t*)sData.Quads.VertexBufferBase;
             sData.Quads.VertexBuffer->SetData(sData.Quads.VertexBufferBase, size);
@@ -236,9 +229,7 @@ namespace Loom {
             RenderCommand::DrawIndexed(sData.Quads.VertexArray.get(), sData.Quads.IndexCount);
         }
 
-        //////////////////////
-        //      Circle      //
-        //////////////////////
+        // Circle
         if (sData.Circles.IndexCount) {
             uint32_t size = (uint8_t*)sData.Circles.VertexBufferPtr - (uint8_t*)sData.Circles.VertexBufferBase;
             sData.Circles.VertexBuffer->SetData(sData.Circles.VertexBufferBase, size);
@@ -247,9 +238,7 @@ namespace Loom {
             RenderCommand::DrawIndexed(sData.Circles.VertexArray.get(), sData.Circles.IndexCount);
         }
 
-        ////////////////////
-        //      Line      //
-        ////////////////////
+        // Line
         if (sData.Lines.VertexCount) {
             uint32_t data_size = (uint8_t*)sData.Lines.VertexBufferPtr - (uint8_t*)sData.Lines.VertexBufferBase;
             sData.Lines.VertexBuffer->SetData(sData.Lines.VertexBufferBase, data_size);
@@ -328,6 +317,9 @@ namespace Loom {
         }
 
         if (texture_index == 0.0f) {
+            if (sData.TextureSlotIndex >= Renderer2DStorage::MaxTextureSlots)
+                NextBatch();
+
             texture_index                              = (float)sData.TextureSlotIndex;
             sData.TextureSlots[sData.TextureSlotIndex] = texture;
             sData.TextureSlotIndex++;
@@ -363,6 +355,9 @@ namespace Loom {
         }
 
         if (texture_index == 0.0f) {
+            if (sData.TextureSlotIndex >= Renderer2DStorage::MaxTextureSlots)
+                NextBatch();
+
             texture_index                              = (float)sData.TextureSlotIndex;
             sData.TextureSlots[sData.TextureSlotIndex] = texture;
             sData.TextureSlotIndex++;
@@ -407,12 +402,15 @@ namespace Loom {
         }
 
         if (texture_index == 0.0f) {
+            if (sData.TextureSlotIndex >= Renderer2DStorage::MaxTextureSlots)
+                NextBatch();
+
             texture_index                              = (float)sData.TextureSlotIndex;
             sData.TextureSlots[sData.TextureSlotIndex] = texture;
             sData.TextureSlotIndex++;
         }
 
-        for (int i = 0; i < quad_vertex_count; i++) {
+        for (size_t i = 0; i < quad_vertex_count; i++) {
             q.VertexBufferPtr->Position     = transform * sData.QuadVertexPositions[i];
             q.VertexBufferPtr->Color        = tint_color;
             q.VertexBufferPtr->TexCoord     = texture_coords[i];
@@ -472,6 +470,9 @@ namespace Loom {
         }
 
         if (texture_index == 0.0f) {
+            if (sData.TextureSlotIndex >= Renderer2DStorage::MaxTextureSlots)
+                NextBatch();
+
             texture_index                              = (float)sData.TextureSlotIndex;
             sData.TextureSlots[sData.TextureSlotIndex] = texture;
             sData.TextureSlotIndex++;
