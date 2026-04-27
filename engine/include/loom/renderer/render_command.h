@@ -28,7 +28,7 @@ namespace Loom {
         }
 
     private:
-        static RendererAPI* sRendererAPI;
+        static std::unique_ptr<RendererAPI> sRendererAPI;
     };
 
 } // namespace Loom

@@ -22,8 +22,6 @@ namespace Loom {
         static std::shared_ptr<Scene> Copy(std::shared_ptr<Scene> other);
         void                          OnViewportResize(uint32_t width, uint32_t height);
 
-        [[deprecated("Use OnUpdateEditor or OnUpdateRuntime instead.")]]
-        void OnUpdate(Timestep ts);
         void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
         void OnUpdateRuntime(Timestep ts);
 

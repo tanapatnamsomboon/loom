@@ -3,6 +3,6 @@
 
 namespace Loom {
 
-    RendererAPI* RenderCommand::sRendererAPI = new OpenGLRendererAPI();
+    std::unique_ptr<RendererAPI> RenderCommand::sRendererAPI = std::make_unique<OpenGLRendererAPI>();
 
 }

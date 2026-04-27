@@ -19,6 +19,7 @@
 #endif
 
 #include <functional>
+#include <memory>
 
 #define BIT(x) (1 << x)
 #define LOOM_BIND_EVENT_FN(fn) [this](auto&& event) { return fn(std::forward<decltype(event)>(event)); }

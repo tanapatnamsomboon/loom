@@ -156,20 +156,20 @@ namespace Weaver {
         bool ctrl  = Loom::Input::IsKeyPressed(Loom::Key::LeftControl) || Loom::Input::IsKeyPressed(Loom::Key::RightControl);
         bool shift = Loom::Input::IsKeyPressed(Loom::Key::LeftShift) || Loom::Input::IsKeyPressed(Loom::Key::RightShift);
 
-        switch (event.GetKeyCode()) {
-            case 'N':
+        switch ((Loom::Key)event.GetKeyCode()) {
+            case Loom::Key::N:
                 if (ctrl) {
                     NewScene();
                     return;
                 }
                 break;
-            case 'O':
+            case Loom::Key::O:
                 if (ctrl) {
                     OpenScene();
                     return;
                 }
                 break;
-            case 'S':
+            case Loom::Key::S:
                 if (ctrl && shift) {
                     SaveSceneAs();
                     return;
@@ -188,17 +188,17 @@ namespace Weaver {
         if (Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight))
             return;
 
-        switch (event.GetKeyCode()) {
-            case 'Q':
+        switch ((Loom::Key)event.GetKeyCode()) {
+            case Loom::Key::Q:
                 mGizmoType = -1;
                 break;
-            case 'W':
+            case Loom::Key::W:
                 mGizmoType = ImGuizmo::OPERATION::TRANSLATE;
                 break;
-            case 'E':
+            case Loom::Key::E:
                 mGizmoType = ImGuizmo::OPERATION::ROTATE;
                 break;
-            case 'R':
+            case Loom::Key::R:
                 mGizmoType = ImGuizmo::OPERATION::SCALE;
                 break;
             default:

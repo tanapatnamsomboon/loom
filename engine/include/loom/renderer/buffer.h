@@ -20,7 +20,7 @@ namespace Loom {
         None = 0, Float, Float2, Float3, Float4, Mat3, Mat4, Int, Int2, Int3, Int4, Bool
     };
 
-    static uint32_t ShaderDataTypeSize(ShaderDataType type) {
+    inline uint32_t ShaderDataTypeSize(ShaderDataType type) {
         switch (type) {
             case ShaderDataType::Float:     return 4;
             case ShaderDataType::Float2:    return 4 * 2;

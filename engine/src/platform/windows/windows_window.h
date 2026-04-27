@@ -9,7 +9,7 @@ namespace Loom {
     class WindowsWindow : public Window {
     public:
         WindowsWindow(const WindowProps& props);
-        virtual ~WindowsWindow();
+        ~WindowsWindow() override;
 
         void OnUpdate() override;
 
@@ -35,7 +35,7 @@ namespace Loom {
     private:
         HWND mHWND;
         HINSTANCE mHInstance;
-        GraphicsContext* mContext;
+        std::unique_ptr<GraphicsContext> mContext;
         WindowData mData;
     };
 

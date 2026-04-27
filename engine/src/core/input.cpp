@@ -8,16 +8,16 @@
 
 namespace Loom {
 
-    Input* Input::sInstance = nullptr;
+    std::unique_ptr<Input> Input::sInstance = nullptr;
 
     void Input::Create() {
         if (RendererAPI::GetAPI() == RendererAPI::API::OpenGL) {
-            sInstance = new GLFWInput();
+            sInstance = std::make_unique<GLFWInput>();
             return;
         }
 
 #if defined(LOOM_PLATFORM_WINDOWS)
-        sInstance = new WindowsInput();
+        sInstance = std::make_unique<WindowsInput>();
 #endif
     }
 } // namespace Loom

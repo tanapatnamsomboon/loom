@@ -515,7 +515,7 @@ namespace Loom {
 
     void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entity_id) {
         auto& q = sData.Lines;
-        q.FlushIfFull();
+        q.FlushIfFull(2);
 
         q.VertexBufferPtr->Position = p0;
         q.VertexBufferPtr->Color    = color;

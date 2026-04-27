@@ -48,7 +48,7 @@ namespace Loom {
         }
 
         mWindow = glfwCreateWindow((int)props.Width, (int)props.Height, mData.Title.c_str(), nullptr, nullptr);
-        mContext = new OpenGLContext(mWindow);
+        mContext = std::make_unique<OpenGLContext>(mWindow);
         mContext->Init();
         glfwSetWindowUserPointer(mWindow, &mData);
         SetVSync(true);
