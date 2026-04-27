@@ -1,4 +1,5 @@
 #include "loom/scene/scene_serializer.h"
+#include "loom/asset/asset_manager.h"
 #include "loom/core/log.h"
 #include "loom/core/uuid.h"
 #include "loom/scene/components.h"
@@ -249,7 +250,7 @@ namespace Loom {
                 auto& src          = entity.AddComponent<SpriteRendererComponent>();
                 auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
                 src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
-                src.Texture        = texture_path.empty() ? nullptr : Texture2D::Create(texture_path);
+                src.Texture        = texture_path.empty() ? nullptr : AssetManager::GetTexture(texture_path);
                 src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
             }
         }

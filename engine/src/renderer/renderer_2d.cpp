@@ -1,4 +1,5 @@
 #include "loom/renderer/renderer_2d.h"
+#include "loom/asset/asset_manager.h"
 #include "loom/renderer/render_command.h"
 #include "loom/renderer/shader.h"
 #include "loom/renderer/vertex_array.h"
@@ -138,7 +139,7 @@ namespace Loom {
         q.VertexArray->AddVertexBuffer(q.VertexBuffer);
         q.VertexArray->SetIndexBuffer(ibo);
         q.VertexBufferBase = new QuadVertex[sData.MaxVertices];
-        q.Shader           = Shader::Create("assets/shaders/quad");
+        q.Shader           = AssetManager::GetShader("assets/shaders/quad");
 
         int32_t samplers[sData.MaxTextureSlots];
         for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
@@ -165,7 +166,7 @@ namespace Loom {
         c.VertexArray->AddVertexBuffer(c.VertexBuffer);
         c.VertexArray->SetIndexBuffer(ibo);
         c.VertexBufferBase = new CircleVertex[sData.MaxVertices];
-        c.Shader           = Shader::Create("assets/shaders/circle");
+        c.Shader           = AssetManager::GetShader("assets/shaders/circle");
 
         // Line Setup
         auto& l        = sData.Lines;
@@ -176,7 +177,7 @@ namespace Loom {
                                     { ShaderDataType::Int, "aEntityID" } });
         l.VertexArray->AddVertexBuffer(l.VertexBuffer);
         l.VertexBufferBase = new LineVertex[sData.MaxVertices];
-        l.Shader           = Shader::Create("assets/shaders/line");
+        l.Shader           = AssetManager::GetShader("assets/shaders/line");
 
         sData.Quads.SetFlushCallback([]() { NextBatch(); });
         sData.Circles.SetFlushCallback([]() { NextBatch(); });

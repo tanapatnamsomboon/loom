@@ -1,8 +1,9 @@
 #include "scene_hierarchy_panel.h"
-#include <glm/gtc/type_ptr.hpp>
-#include <imgui.h>
+#include <loom/asset/asset_manager.h>
 #include <loom/scene/components.h>
 #include <nfd.hpp>
+#include <imgui.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <filesystem>
 
 namespace Weaver {
@@ -232,7 +233,7 @@ namespace Weaver {
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
 
         if (result == NFD_OKAY) {
-            return Loom::Texture2D::Create(out_path.get());
+            return Loom::AssetManager::GetTexture(out_path.get());
         } else if (result == NFD_ERROR) {
             LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
         }

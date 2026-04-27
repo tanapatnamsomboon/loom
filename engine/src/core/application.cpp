@@ -1,4 +1,5 @@
 #include "loom/core/application.h"
+#include "loom/asset/asset_manager.h"
 #include "loom/core/input.h"
 #include "loom/core/log.h"
 #include "loom/renderer/renderer_2d.h"
@@ -25,6 +26,7 @@ namespace Loom {
 
     Application::~Application() {
         Renderer2D::Shutdown();
+        AssetManager::Clear();
     }
 
     void Application::Run() {

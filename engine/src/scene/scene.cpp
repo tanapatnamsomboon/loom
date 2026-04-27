@@ -1,4 +1,5 @@
 #include "loom/scene/scene.h"
+#include "loom/asset/asset_manager.h"
 #include "loom/core/uuid.h"
 #include "loom/renderer/renderer_2d.h"
 #include "loom/scene/components.h"
@@ -6,7 +7,7 @@
 
 namespace Loom {
     Scene::Scene() {
-        mCameraIcon = Texture2D::Create("assets/icons/camera_icon.png");
+        mCameraIcon = AssetManager::GetTexture("assets/icons/camera_icon.png");
     }
 
     Scene::~Scene() {}
