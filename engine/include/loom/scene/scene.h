@@ -6,6 +6,7 @@
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/texture.h"
 #include <entt/entt.hpp>
+#include <unordered_map>
 
 namespace Loom {
 
@@ -42,6 +43,7 @@ namespace Loom {
     private:
         entt::registry mRegistry;
 
+        std::unordered_map<UUID, entt::entity> mEntityMap;
         std::shared_ptr<Texture2D> mCameraIcon;
 
         friend class Entity;

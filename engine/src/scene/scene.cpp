@@ -43,7 +43,7 @@ namespace Loom {
 
         auto nsc_view = src_registry.view<NativeScriptComponent>();
         for (auto entity : nsc_view) {
-            UUID id = src_registry.get<IDComponent>(entity).ID;
+            UUID uuid = src_registry.get<IDComponent>(entity).ID;
             entt::entity dst_entity_id = entt_map.at(uuid);
             auto& src_nsc = src_registry.get<NativeScriptComponent>(entity);
             auto& dst_nsc = dst_registry.emplace_or_replace<NativeScriptComponent>(dst_entity_id, src_nsc);
@@ -76,19 +76,20 @@ namespace Loom {
         auto& tag = entity.AddComponent<TagComponent>();
         tag.Tag   = name.empty() ? "Entity" : name;
 
+        mEntityMap[uuid] = (entt::entity)entity;
+
         return entity;
     }
 
     void Scene::DestroyEntity(Entity entity) {
+        mEntityMap.erase(entity.GetComponent<IDComponent>().ID);
         mRegistry.destroy(entity);
     }
 
     Entity Scene::GetEntityByUUID(UUID uuid) {
-        auto view = mRegistry.view<IDComponent>();
-        for (auto entity : view) {
-            if (view.get<IDComponent>(entity).ID == uuid)
-                return { entity, this };
-        }
+        auto it = mEntityMap.find(uuid);
+        if (it != mEntityMap.end())
+            return { it->second, this };
         return {};
     }
 
