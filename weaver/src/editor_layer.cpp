@@ -463,6 +463,7 @@ namespace Weaver {
     }
 
     void EditorLayer::OnSceneStop() {
+        mActiveScene->OnRuntimeStop();
         mSceneState  = SceneState::Edit;
         mActiveScene = mEditorScene;
         mSceneHierarchyPanel.SetContext(mActiveScene);

@@ -152,6 +152,15 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Native Script Component
+        if (entity.HasComponent<NativeScriptComponent>()) {
+            out << YAML::Key << "NativeScriptComponent";
+            out << YAML::BeginMap;
+            auto& nsc = entity.GetComponent<NativeScriptComponent>();
+            out << YAML::Key << "ScriptName" << YAML::Value << nsc.ScriptName;
+            out << YAML::EndMap;
+        }
+
         out << YAML::EndMap;
     }
 
@@ -208,16 +217,17 @@ namespace Loom {
             return true;
 
         for (auto entity_node : entities_node) {
+            // ID Component
             uint64_t uuid = entity_node["Entity"].as<uint64_t>();
 
-            // Tag
+            // Tag Component
             std::string name = "Entity";
             if (auto tag_node = entity_node["TagComponent"])
                 name = YAML_GET(tag_node["Tag"], std::string, "Untitled Entity");
 
             Entity entity = mScene->CreateEntityWithUUID(UUID(uuid), name);
 
-            // Transform
+            // Transform Component
             if (auto tc_node = entity_node["TransformComponent"]) {
                 auto& tc       = entity.GetComponent<TransformComponent>();
                 tc.Translation = YAML_GET(tc_node["Translation"], glm::vec3, glm::vec3(0.0f));
@@ -225,7 +235,7 @@ namespace Loom {
                 tc.Scale       = YAML_GET(tc_node["Scale"], glm::vec3, glm::vec3(1.0f));
             }
 
-            // Camera
+            // Camera Component
             if (auto cc_node = entity_node["CameraComponent"]) {
                 auto& cc            = entity.AddComponent<CameraComponent>();
                 cc.Primary          = YAML_GET(cc_node["Primary"], bool, false);
@@ -245,13 +255,20 @@ namespace Loom {
                 cc.Camera.SetProjectionType((SceneCamera::ProjectionType)projection_type);
             }
 
-            // Sprite Renderer
+            // Sprite Renderer Component
             if (auto src_node = entity_node["SpriteRendererComponent"]) {
                 auto& src          = entity.AddComponent<SpriteRendererComponent>();
                 auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
                 src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
                 src.Texture        = texture_path.empty() ? nullptr : AssetManager::GetTexture(texture_path);
                 src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
+            }
+
+            // Native Script Component
+            if (auto nsc_node = entity_node["NativeScriptComponent"]) {
+                auto& nsc         = entity.AddComponent<NativeScriptComponent>();
+                auto  script_name = YAML_GET(nsc_node["ScriptName"], std::string, "");
+                nsc.BindByName(script_name);
             }
         }
 

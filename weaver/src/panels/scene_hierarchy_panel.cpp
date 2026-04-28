@@ -1,6 +1,7 @@
 #include "scene_hierarchy_panel.h"
 #include <loom/asset/asset_manager.h>
 #include <loom/scene/components.h>
+#include <loom/scene/script_registry.h>
 #include <nfd.hpp>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -116,9 +117,15 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
-            if (!mSelectionContext.HasComponent<Loom::CameraComponent>()) {
+            if (!mSelectionContext.HasComponent<Loom::SpriteRendererComponent>()) {
                 if (ImGui::MenuItem("Sprite Renderer")) {
                     mSelectionContext.AddComponent<Loom::SpriteRendererComponent>();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            if (!mSelectionContext.HasComponent<Loom::NativeScriptComponent>()) {
+                if (ImGui::MenuItem("Script")) {
+                    mSelectionContext.AddComponent<Loom::NativeScriptComponent>();
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -215,6 +222,38 @@ namespace Weaver {
                     changed |= ImGui::DragFloat("Far Clip", &far_clip);
                     if (changed)
                         camera.SetOrthographic(ortho_size, near_clip, far_clip);
+                }
+
+                ImGui::TreePop();
+            }
+        }
+
+        if (entity.HasComponent<Loom::NativeScriptComponent>()) {
+            if (ImGui::TreeNodeEx((void*)typeid(Loom::NativeScriptComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Script")) {
+                auto& nsc = entity.GetComponent<Loom::NativeScriptComponent>();
+
+                const auto& names   = Loom::ScriptRegistry::GetNames();
+                const char* current = nsc.ScriptName.empty() ? "None" : nsc.ScriptName.c_str();
+
+                if (ImGui::BeginCombo("Script", current)) {
+                    if (ImGui::Selectable("None", nsc.ScriptName.empty())) {
+                        nsc = Loom::NativeScriptComponent{};
+                    }
+                    for (const auto& name : names) {
+                        bool selected = (nsc.ScriptName == name);
+                        if (ImGui::Selectable(name.c_str(), selected)) {
+                            if (nsc.Instance && nsc.DestroyScript)
+                                nsc.DestroyScript(&nsc);
+                            nsc.BindByName(name);
+                        }
+                        if (selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                if (nsc.IsValid() && nsc.Instance) {
+                    ImGui::TextDisabled("(running)");
                 }
 
                 ImGui::TreePop();

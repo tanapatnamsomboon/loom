@@ -25,6 +25,7 @@ namespace Loom {
 
         void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
         void OnUpdateRuntime(Timestep ts);
+        void OnRuntimeStop();
 
         Entity CreateEntity(const std::string& name = std::string());
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());

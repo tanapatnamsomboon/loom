@@ -62,17 +62,25 @@ namespace Loom {
         CameraComponent(const CameraComponent&) = default;
     };
 
-    struct NativeScriptComponent {
+    struct LOOM_API NativeScriptComponent {
         ScriptableEntity* Instance = nullptr;
+        std::string ScriptName;
 
-        ScriptableEntity* (*InstantiateScript)();
-        void (*DestroyScript)(NativeScriptComponent*);
+        std::function<ScriptableEntity*()>          InstantiateScript;
+        std::function<void(NativeScriptComponent*)> DestroyScript;
 
         template<typename T>
         void Bind() {
-            InstantiateScript = [](void) { return static_cast<ScriptableEntity*>(new T()); };
-            DestroyScript     = [](NativeScriptComponent* nsc) { delete nsc->Instance; nsc->Instance = nullptr; };
+            ScriptName        = typeid(T).name(); // fallback
+            InstantiateScript = []() { return static_cast<ScriptableEntity*>(new T()); };
+            DestroyScript     = [](NativeScriptComponent* nsc) {
+                delete nsc->Instance;
+                nsc->Instance = nullptr;
+            };
         }
+
+        void BindByName(const std::string& name);
+        bool IsValid() const { return InstantiateScript != nullptr; }
     };
 
 } // namespace Loom

@@ -10,7 +10,9 @@ namespace Loom {
         mCameraIcon = AssetManager::GetTexture("assets/icons/camera_icon.png");
     }
 
-    Scene::~Scene() {}
+    Scene::~Scene() {
+        OnRuntimeStop();
+    }
 
     template<typename Component>
     static void CopyComponent(entt::registry& dst, entt::registry& src, const std::unordered_map<UUID, entt::entity>& entt_map) {
@@ -129,11 +131,18 @@ namespace Loom {
 
     void Scene::OnUpdateRuntime(Timestep ts) {
         // 1. Update Scripts
-        // 2. Update Physics
-        // 3. Find the primary camera
         mRegistry.view<NativeScriptComponent>().each([&](entt::entity entity_id, NativeScriptComponent& nsc) {
+            if (!nsc.IsValid())
+                return;
+
             if (!nsc.Instance) {
-                nsc.Instance          = nsc.InstantiateScript();
+                nsc.Instance = nsc.InstantiateScript();
+
+                if (!nsc.Instance) {
+                    LOOM_CORE_ERROR("Scene: failed to instantiate script: '{}' - skipping.", nsc.ScriptName);
+                    return;
+                }
+
                 nsc.Instance->mEntity = Entity{ entity_id, this };
                 nsc.Instance->OnCreate();
             }
@@ -141,6 +150,9 @@ namespace Loom {
             nsc.Instance->OnUpdate(ts);
         });
 
+        // 2. Update Physics
+
+        // 3. Find the primary camera
         Camera*   main_camera = nullptr;
         glm::mat4 camera_transform;
 
@@ -172,6 +184,15 @@ namespace Loom {
 
             Renderer2D::EndScene();
         }
+    }
+
+    void Scene::OnRuntimeStop() {
+        mRegistry.view<NativeScriptComponent>().each([](NativeScriptComponent& nsc) {
+            if (nsc.Instance) {
+                nsc.Instance->OnDestroy();
+                nsc.DestroyScript(&nsc);
+            }
+        });
     }
 
     void Scene::DrawCameraFrustum(const TransformComponent& transform_component, const CameraComponent& camera_component) {
