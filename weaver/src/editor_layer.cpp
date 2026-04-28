@@ -343,6 +343,9 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderGizmos() {
+        if (mSceneState != SceneState::Edit)   // ADD THIS
+            return;
+
         Loom::Entity selected_entity = mSceneHierarchyPanel.GetSelectedEntity();
         if (!selected_entity || mGizmoType == -1)
             return;
