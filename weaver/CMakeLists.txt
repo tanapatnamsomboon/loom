@@ -13,8 +13,11 @@ target_link_libraries(Weaver PRIVATE Loom nfd)
 
 target_include_directories(Weaver PRIVATE src)
 
-add_custom_command(TARGET Weaver POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
+add_custom_target(CopyWeaverAssets ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
   "${CMAKE_SOURCE_DIR}/assets"
-  $<TARGET_FILE_DIR:Weaver>/assets
+  "$<TARGET_FILE_DIR:Weaver>/assets"
+  COMMENT "Syncing Weaver assets..."
 )
+
+add_dependencies(Weaver CopyWeaverAssets)

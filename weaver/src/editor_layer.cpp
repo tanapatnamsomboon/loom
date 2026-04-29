@@ -1,14 +1,15 @@
 #include "editor_layer.h"
-#include "loom/renderer/framebuffer.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 // clang-format off
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 // clang-format on
+#include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/math/math.h>
+#include <loom/renderer/framebuffer.h>
 #include <loom/renderer/render_command.h>
 #include <loom/renderer/renderer_2d.h>
 #include <loom/scene/components.h>
@@ -56,6 +57,32 @@ namespace Weaver {
         ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
 
+        float skybox_vertices[] = {
+            -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f
+        };
+
+        uint32_t skybox_indices[] = {
+            1, 2, 6, 6, 5, 1, // Right
+            0, 4, 7, 7, 3, 0, // Left
+            3, 7, 6, 6, 2, 3, // Top
+            0, 1, 5, 5, 4, 0, // Bottom
+            5, 6, 7, 7, 4, 5, // Back
+            1, 0, 3, 3, 2, 1  // Front
+        };
+
+        mSkyboxVAO = Loom::VertexArray::Create();
+
+        mSkyboxVBO = Loom::VertexBuffer::Create(sizeof(skybox_vertices));
+        mSkyboxVBO->SetData(skybox_vertices, sizeof(skybox_vertices));
+        mSkyboxVBO->SetLayout({ { Loom::ShaderDataType::Float3, "aPosition" } });
+        mSkyboxVAO->AddVertexBuffer(mSkyboxVBO);
+
+        auto skybox_ibo = Loom::IndexBuffer::Create(skybox_indices, sizeof(skybox_indices) / sizeof(uint32_t));
+        mSkyboxVAO->SetIndexBuffer(skybox_ibo);
+
+        mSkyboxShader = Loom::AssetManager::GetShader("assets/shaders/skybox");
+
         mSceneHierarchyPanel.Init();
     }
 
@@ -93,6 +120,40 @@ namespace Weaver {
         Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         Loom::RenderCommand::Clear();
         mFramebuffer->ClearAttachment(1, -1);
+
+        if (mSceneState == SceneState::Edit) {
+            // Render Skybox
+            glm::mat4 view = mEditorCamera.GetViewMatrix();
+            view[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+            glm::mat4 skybox_view_projection = mEditorCamera.GetProjectionMatrix() * view;
+
+            mSkyboxShader->Bind();
+            mSkyboxShader->UploadUniformMat4("uViewProjection", skybox_view_projection);
+            Loom::RenderCommand::DrawIndexed(mSkyboxVAO.get(), 36);
+
+            // Editor Grid
+            Loom::Renderer2D::BeginScene(mEditorCamera);
+
+            glm::vec3 cam_pos = mEditorCamera.GetPosition();
+
+            float start_x = std::floor(cam_pos.x);
+            float start_z = std::floor(cam_pos.z);
+
+            int grid_size = 50;
+            float grid_y = 0.0f;
+
+            for (int i = -grid_size; i <= grid_size; i++) {
+                float current_x = start_x + (float)i;
+                float current_z = start_z + (float)i;
+                glm::vec4 color_x = (current_x == 0) ? glm::vec4(0.8f, 0.2f, 0.2f, 0.8f) : glm::vec4(0.4f, 0.4f, 0.4f, 0.5f);
+                glm::vec4 color_z = (current_z == 0) ? glm::vec4(0.2f, 0.2f, 0.8f, 0.8f) : glm::vec4(0.4f, 0.4f, 0.4f, 0.5f);
+                Loom::Renderer2D::DrawLine({ current_x, grid_y, start_z - grid_size }, { current_x, grid_y, start_z + grid_size }, color_x, -1);
+                Loom::Renderer2D::DrawLine({ start_x - grid_size, grid_y, current_z }, { start_x + grid_size, grid_y, current_z }, color_z, -1);
+            }
+
+            Loom::Renderer2D::EndScene();
+        }
 
         switch (mSceneState) {
             case SceneState::Edit:

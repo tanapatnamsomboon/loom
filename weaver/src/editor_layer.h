@@ -5,7 +5,10 @@
 #include <glm/glm.hpp>
 #include <loom/core/layer.h>
 #include <loom/events/key_event.h>
+#include <loom/renderer/buffer.h>
 #include <loom/renderer/framebuffer.h>
+#include <loom/renderer/vertex_array.h>
+#include <loom/renderer/shader.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/scene.h>
 
@@ -59,6 +62,10 @@ namespace Weaver {
     private:
         bool mViewportFocused = false;
         bool mViewportHovered = false;
+
+        std::shared_ptr<Loom::VertexArray> mSkyboxVAO;
+        std::shared_ptr<Loom::VertexBuffer> mSkyboxVBO;
+        std::shared_ptr<Loom::Shader> mSkyboxShader;
 
         bool mShowSceneHierarchyPanel = true;
         bool mShowContentBrowserPanel = true;
