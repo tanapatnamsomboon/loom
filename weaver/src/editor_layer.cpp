@@ -62,6 +62,7 @@ namespace Weaver {
             -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f
         };
 
+        // Skybox Initialization
         uint32_t skybox_indices[] = {
             1, 2, 6, 6, 5, 1, // Right
             0, 4, 7, 7, 3, 0, // Left
@@ -82,6 +83,28 @@ namespace Weaver {
         mSkyboxVAO->SetIndexBuffer(skybox_ibo);
 
         mSkyboxShader = Loom::AssetManager::GetShader("assets/shaders/skybox");
+
+        // Grid Initialization
+        float grid_vertices[] = {
+            -1.0f, 0.0f, -1.0f,
+             1.0f, 0.0f, -1.0f,
+             1.0f, 0.0f,  1.0f,
+            -1.0f, 0.0f,  1.0f
+        };
+
+        uint32_t grid_indices[] = { 0, 1, 2, 2, 3, 0 };
+
+        mGridVAO = Loom::VertexArray::Create();
+
+        mGridVBO = Loom::VertexBuffer::Create(sizeof(grid_vertices));
+        mGridVBO->SetData(grid_vertices, sizeof(grid_vertices));
+        mGridVBO->SetLayout({ { Loom::ShaderDataType::Float3, "aPosition" } });
+        mGridVAO->AddVertexBuffer(mGridVBO);
+
+        auto grid_ibo = Loom::IndexBuffer::Create(grid_indices, sizeof(grid_indices) / sizeof(uint32_t));
+        mGridVAO->SetIndexBuffer(grid_ibo);
+
+        mGridShader = Loom::AssetManager::GetShader("assets/shaders/grid");
 
         mSceneHierarchyPanel.Init();
     }
@@ -132,27 +155,17 @@ namespace Weaver {
             mSkyboxShader->UploadUniformMat4("uViewProjection", skybox_view_projection);
             Loom::RenderCommand::DrawIndexed(mSkyboxVAO.get(), 36);
 
-            // Editor Grid
-            Loom::Renderer2D::BeginScene(mEditorCamera);
+            // Render Grid
+            glm::vec3 camera_pos = mEditorCamera.GetPosition();
 
-            glm::vec3 cam_pos = mEditorCamera.GetPosition();
+            glm::mat4 grid_transform = glm::translate(glm::mat4(1.0f), { camera_pos.x, 0.0f, camera_pos.z }) * glm::scale(glm::mat4(1.0f), { 100.0f, 1.0f, 100.0f });
 
-            float start_x = std::floor(cam_pos.x);
-            float start_z = std::floor(cam_pos.z);
+            mGridShader->Bind();
+            mGridShader->UploadUniformMat4("uViewProjection", mEditorCamera.GetViewProjectionMatrix());
+            mGridShader->UploadUniformMat4("uTransform", grid_transform);
+            mGridShader->UploadUniformFloat3("uCameraPos", camera_pos);
 
-            int grid_size = 50;
-            float grid_y = 0.0f;
-
-            for (int i = -grid_size; i <= grid_size; i++) {
-                float current_x = start_x + (float)i;
-                float current_z = start_z + (float)i;
-                glm::vec4 color_x = (current_x == 0) ? glm::vec4(0.8f, 0.2f, 0.2f, 0.8f) : glm::vec4(0.4f, 0.4f, 0.4f, 0.5f);
-                glm::vec4 color_z = (current_z == 0) ? glm::vec4(0.2f, 0.2f, 0.8f, 0.8f) : glm::vec4(0.4f, 0.4f, 0.4f, 0.5f);
-                Loom::Renderer2D::DrawLine({ current_x, grid_y, start_z - grid_size }, { current_x, grid_y, start_z + grid_size }, color_x, -1);
-                Loom::Renderer2D::DrawLine({ start_x - grid_size, grid_y, current_z }, { start_x + grid_size, grid_y, current_z }, color_z, -1);
-            }
-
-            Loom::Renderer2D::EndScene();
+            Loom::RenderCommand::DrawIndexed(mGridVAO.get(), 6);
         }
 
         switch (mSceneState) {

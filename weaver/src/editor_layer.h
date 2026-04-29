@@ -67,6 +67,10 @@ namespace Weaver {
         std::shared_ptr<Loom::VertexBuffer> mSkyboxVBO;
         std::shared_ptr<Loom::Shader> mSkyboxShader;
 
+        std::shared_ptr<Loom::VertexArray> mGridVAO;
+        std::shared_ptr<Loom::VertexBuffer> mGridVBO;
+        std::shared_ptr<Loom::Shader> mGridShader;
+
         bool mShowSceneHierarchyPanel = true;
         bool mShowContentBrowserPanel = true;
         bool mShowAboutModal          = false;
