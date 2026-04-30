@@ -13,9 +13,9 @@ namespace Loom {
     struct Batcher {
         uint32_t MaxVertices;
 
-        std::shared_ptr<VertexArray>  VertexArray;
-        std::shared_ptr<VertexBuffer> VertexBuffer;
-        std::shared_ptr<Shader>       Shader;
+        std::shared_ptr<VertexArray>  VAO;
+        std::shared_ptr<VertexBuffer> VBO;
+        std::shared_ptr<Shader>       ActiveShader;
 
         uint32_t IndexCount  = 0;
         uint32_t VertexCount = 0;
@@ -128,24 +128,24 @@ namespace Loom {
 
         // Quad Setup
         auto& q        = sData.Quads;
-        q.VertexArray  = VertexArray::Create();
-        q.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
-        q.VertexBuffer->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        q.VAO  = VertexArray::Create();
+        q.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
+        q.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Float2, "aTexCoord" },
                                     { ShaderDataType::Float, "aTexIndex" },
                                     { ShaderDataType::Float, "aTilingFactor" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        q.VertexArray->AddVertexBuffer(q.VertexBuffer);
-        q.VertexArray->SetIndexBuffer(ibo);
+        q.VAO->AddVertexBuffer(q.VBO);
+        q.VAO->SetIndexBuffer(ibo);
         q.VertexBufferBase = new QuadVertex[sData.MaxVertices];
-        q.Shader           = AssetManager::GetShader("assets/shaders/quad");
+        q.ActiveShader           = AssetManager::GetShader("assets/shaders/quad");
 
         int32_t samplers[sData.MaxTextureSlots];
         for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
             samplers[i] = i;
-        q.Shader->Bind();
-        q.Shader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
+        q.ActiveShader->Bind();
+        q.ActiveShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
 
         // White texture
         sData.WhiteTexture = Texture2D::Create(1, 1);
@@ -155,29 +155,29 @@ namespace Loom {
 
         // Circle Setup
         auto& c        = sData.Circles;
-        c.VertexArray  = VertexArray::Create();
-        c.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
-        c.VertexBuffer->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        c.VAO  = VertexArray::Create();
+        c.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
+        c.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float3, "aLocalPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Float, "aThickness" },
                                     { ShaderDataType::Float, "aFade" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        c.VertexArray->AddVertexBuffer(c.VertexBuffer);
-        c.VertexArray->SetIndexBuffer(ibo);
+        c.VAO->AddVertexBuffer(c.VBO);
+        c.VAO->SetIndexBuffer(ibo);
         c.VertexBufferBase = new CircleVertex[sData.MaxVertices];
-        c.Shader           = AssetManager::GetShader("assets/shaders/circle");
+        c.ActiveShader           = AssetManager::GetShader("assets/shaders/circle");
 
         // Line Setup
         auto& l        = sData.Lines;
-        l.VertexArray  = VertexArray::Create();
-        l.VertexBuffer = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
-        l.VertexBuffer->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        l.VAO  = VertexArray::Create();
+        l.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
+        l.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        l.VertexArray->AddVertexBuffer(l.VertexBuffer);
+        l.VAO->AddVertexBuffer(l.VBO);
         l.VertexBufferBase = new LineVertex[sData.MaxVertices];
-        l.Shader           = AssetManager::GetShader("assets/shaders/line");
+        l.ActiveShader           = AssetManager::GetShader("assets/shaders/line");
 
         sData.Quads.SetFlushCallback([]() { NextBatch(); });
         sData.Circles.SetFlushCallback([]() { NextBatch(); });
@@ -221,31 +221,31 @@ namespace Loom {
         // Quads
         if (sData.Quads.IndexCount) {
             uint32_t size = (uint8_t*)sData.Quads.VertexBufferPtr - (uint8_t*)sData.Quads.VertexBufferBase;
-            sData.Quads.VertexBuffer->SetData(sData.Quads.VertexBufferBase, size);
+            sData.Quads.VBO->SetData(sData.Quads.VertexBufferBase, size);
 
             for (uint32_t i = 0; i < sData.TextureSlotIndex; ++i)
                 sData.TextureSlots[i]->Bind(i);
 
-            sData.Quads.Shader->Bind();
-            RenderCommand::DrawIndexed(sData.Quads.VertexArray.get(), sData.Quads.IndexCount);
+            sData.Quads.ActiveShader->Bind();
+            RenderCommand::DrawIndexed(sData.Quads.VAO.get(), sData.Quads.IndexCount);
         }
 
         // Circle
         if (sData.Circles.IndexCount) {
             uint32_t size = (uint8_t*)sData.Circles.VertexBufferPtr - (uint8_t*)sData.Circles.VertexBufferBase;
-            sData.Circles.VertexBuffer->SetData(sData.Circles.VertexBufferBase, size);
+            sData.Circles.VBO->SetData(sData.Circles.VertexBufferBase, size);
 
-            sData.Circles.Shader->Bind();
-            RenderCommand::DrawIndexed(sData.Circles.VertexArray.get(), sData.Circles.IndexCount);
+            sData.Circles.ActiveShader->Bind();
+            RenderCommand::DrawIndexed(sData.Circles.VAO.get(), sData.Circles.IndexCount);
         }
 
         // Line
         if (sData.Lines.VertexCount) {
             uint32_t data_size = (uint8_t*)sData.Lines.VertexBufferPtr - (uint8_t*)sData.Lines.VertexBufferBase;
-            sData.Lines.VertexBuffer->SetData(sData.Lines.VertexBufferBase, data_size);
+            sData.Lines.VBO->SetData(sData.Lines.VertexBufferBase, data_size);
 
-            sData.Lines.Shader->Bind();
-            RenderCommand::DrawLines(sData.Lines.VertexArray.get(), sData.Lines.VertexCount);
+            sData.Lines.ActiveShader->Bind();
+            RenderCommand::DrawLines(sData.Lines.VAO.get(), sData.Lines.VertexCount);
         }
     }
 

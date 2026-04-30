@@ -1,4 +1,5 @@
 #include "loom/core/window.h"
+#include "loom/core/log.h"
 #include "loom/renderer/renderer_api.h"
 #include "platform/glfw/glfw_window.h"
 #ifdef LOOM_PLATFORM_WINDOWS
