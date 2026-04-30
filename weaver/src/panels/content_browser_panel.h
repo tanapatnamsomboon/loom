@@ -7,7 +7,10 @@ namespace Weaver {
 
     class ContentBrowserPanel {
     public:
-        ContentBrowserPanel();
+        ContentBrowserPanel() = default;
+
+        void Init();
+
         void OnImGuiRender();
 
     private:

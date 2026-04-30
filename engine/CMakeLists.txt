@@ -43,6 +43,7 @@ set(ENGINE_SOURCES
   src/scene/scene_camera.cpp
   src/scene/scene_serializer.cpp
   src/scene/script_registry.cpp
+  include/loom/core/project.h
 )
 
 if (WIN32)

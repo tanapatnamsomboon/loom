@@ -1,16 +1,20 @@
 #include "content_browser_panel.h"
 #include <imgui.h>
+#include <loom/core/project.h>
+#include <loom/asset/asset_manager.h>
 
 namespace Weaver {
 
-    ContentBrowserPanel::ContentBrowserPanel()
-        : mBaseDirectory(std::filesystem::path("assets"))
-        , mCurrentDirectory(mBaseDirectory) {
-        mDirectoryIcon = Loom::Texture2D::Create("assets/icons/directory_icon.png");
-        mFileIcon      = Loom::Texture2D::Create("assets/icons/file_icon.png");
+    void ContentBrowserPanel::Init() {
+        mBaseDirectory = Loom::Project::GetAssetDirectory();
+        mCurrentDirectory = mBaseDirectory;
+        mDirectoryIcon = Loom::AssetManager::GetTexture("icons/directory_icon.png");
+        mFileIcon      = Loom::AssetManager::GetTexture("icons/file_icon.png");
     }
 
     void ContentBrowserPanel::OnImGuiRender() {
+        if (mBaseDirectory.empty()) return;
+
         ImGui::Begin("Content Browser");
 
         if (!std::filesystem::equivalent(mCurrentDirectory, mBaseDirectory)) {

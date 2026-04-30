@@ -63,13 +63,24 @@ namespace Weaver {
         bool mViewportFocused = false;
         bool mViewportHovered = false;
 
-        std::shared_ptr<Loom::VertexArray> mSkyboxVAO;
+        std::shared_ptr<Loom::VertexArray>  mSkyboxVAO;
         std::shared_ptr<Loom::VertexBuffer> mSkyboxVBO;
-        std::shared_ptr<Loom::Shader> mSkyboxShader;
+        std::shared_ptr<Loom::Shader>       mSkyboxShader;
 
-        std::shared_ptr<Loom::VertexArray> mGridVAO;
+        struct GridSettings {
+            float MinorScale     = 1.0f;
+            float MajorScale     = 10.0f;
+            float LineThickness  = 1.5f;
+            float FadeStart      = 20.0f;
+            float FadeEnd        = 80.0f;
+            glm::vec4 MinorColor = { 0.3f, 0.3f, 0.3f, 0.3f };
+            glm::vec4 MajorColor = { 0.5f, 0.5f, 0.5f, 0.6f };
+        };
+        GridSettings mGridSettings;
+
+        std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;
-        std::shared_ptr<Loom::Shader> mGridShader;
+        std::shared_ptr<Loom::Shader>       mGridShader;
 
         bool mShowSceneHierarchyPanel = true;
         bool mShowContentBrowserPanel = true;
