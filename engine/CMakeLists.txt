@@ -15,6 +15,8 @@ set(ENGINE_SOURCES
 
   src/math/math.cpp
 
+  src/project/project_serializer.cpp
+
   src/renderer/buffer.cpp
   src/renderer/editor_camera.cpp
   src/renderer/framebuffer.cpp
@@ -43,7 +45,6 @@ set(ENGINE_SOURCES
   src/scene/scene_camera.cpp
   src/scene/scene_serializer.cpp
   src/scene/script_registry.cpp
-  include/loom/core/project.h
 )
 
 if (WIN32)

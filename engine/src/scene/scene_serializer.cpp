@@ -2,6 +2,7 @@
 #include "loom/asset/asset_manager.h"
 #include "loom/core/log.h"
 #include "loom/core/uuid.h"
+#include "loom/project/project.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include <yaml-cpp/yaml.h>
@@ -147,7 +148,20 @@ namespace Loom {
             out << YAML::BeginMap;
             auto& src = entity.GetComponent<SpriteRendererComponent>();
             out << YAML::Key << "Color" << YAML::Value << src.Color;
-            out << YAML::Key << "Texture" << YAML::Value << (src.Texture ? src.Texture->GetPath() : "");
+
+            std::string texture_path = "";
+            if (src.Texture) {
+                std::filesystem::path abs_path = src.Texture->GetPath();
+                std::filesystem::path project_dir = Project::GetAssetDirectory();
+
+                if (!project_dir.empty() && abs_path.string().find(project_dir.string()) != std::string::npos) {
+                    texture_path = std::filesystem::relative(abs_path, project_dir).generic_string();
+                } else {
+                    texture_path = abs_path.string();
+                }
+            }
+
+            out << YAML::Key << "Texture" << YAML::Value << texture_path;
             out << YAML::Key << "TilingFactor" << YAML::Value << src.TilingFactor;
             out << YAML::EndMap;
         }
@@ -260,7 +274,14 @@ namespace Loom {
                 auto& src          = entity.AddComponent<SpriteRendererComponent>();
                 auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
                 src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
-                src.Texture        = texture_path.empty() ? nullptr : AssetManager::GetTexture(texture_path);
+
+                if (!texture_path.empty()) {
+                    std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
+                    src.Texture = AssetManager::GetTexture(physical_path.string());
+                } else {
+                    src.Texture = nullptr;
+                }
+
                 src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
             }
 

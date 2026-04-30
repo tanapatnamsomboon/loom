@@ -8,8 +8,8 @@
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
-#include <loom/core/project.h>
 #include <loom/math/math.h>
+#include <loom/project/project_serializer.h>
 #include <loom/renderer/framebuffer.h>
 #include <loom/renderer/render_command.h>
 #include <loom/renderer/renderer_2d.h>
@@ -52,6 +52,9 @@ namespace Weaver {
         dummy_project->GetConfig().AssetDirectory = "assets";
         Loom::Project::SetActive(dummy_project);
 
+        std::string skybox_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
+        std::string grid_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
+
         mContentBrowserPanel.Init();
 
         ImGuiContext*     context;
@@ -90,7 +93,7 @@ namespace Weaver {
         auto skybox_ibo = Loom::IndexBuffer::Create(skybox_indices, sizeof(skybox_indices) / sizeof(uint32_t));
         mSkyboxVAO->SetIndexBuffer(skybox_ibo);
 
-        mSkyboxShader = Loom::AssetManager::GetShader("shaders/skybox");
+        mSkyboxShader = Loom::AssetManager::GetShader(skybox_path);
 
         // Grid Initialization
         float grid_vertices[] = {
@@ -112,7 +115,7 @@ namespace Weaver {
         auto grid_ibo = Loom::IndexBuffer::Create(grid_indices, sizeof(grid_indices) / sizeof(uint32_t));
         mGridVAO->SetIndexBuffer(grid_ibo);
 
-        mGridShader = Loom::AssetManager::GetShader("shaders/grid");
+        mGridShader = Loom::AssetManager::GetShader(grid_path);
 
         mSceneHierarchyPanel.Init();
     }
@@ -306,6 +309,20 @@ namespace Weaver {
     void EditorLayer::RenderMainMenuBar() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                // Project Management
+                if (ImGui::MenuItem("New Project...")) {
+                    NewProject();
+                }
+                if (ImGui::MenuItem("Open Project...")) {
+                    OpenProject();
+                }
+                if (ImGui::MenuItem("Save Project As...")) {
+                    SaveProjectAs();
+                }
+
+                ImGui::Separator();
+
+                // Scene Management
                 if (ImGui::MenuItem("New", "Ctrl+N")) {
                     NewScene();
                 }
@@ -462,6 +479,75 @@ namespace Weaver {
 
 #pragma endregion
 
+#pragma region Project Management
+
+    void EditorLayer::NewProject() {
+        Loom::Project::SetActive(std::make_shared<Loom::Project>());
+        mContentBrowserPanel.Init();
+        NewScene();
+    }
+
+    void EditorLayer::OpenProject() {
+        constexpr nfdfilteritem_t filters[] = {
+            { "Loom Project", "loomproj" },
+            { "All Files", "*" },
+        };
+
+        NFD::Guard      nfd_guard;
+        NFD::UniquePath out_path;
+        nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
+
+        if (result == NFD_OKAY) {
+            OpenProject(out_path.get());
+        } else if (result == NFD_ERROR) {
+            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
+        } // else if NFD_CANCEL: user dismissed, do nothing
+    }
+
+    void EditorLayer::OpenProject(const std::string& filepath) {
+        std::shared_ptr<Loom::Project> project = std::make_shared<Loom::Project>();
+        Loom::ProjectSerializer serializer(project);
+
+        if (serializer.Deserialize(filepath)) {
+            Loom::Project::SetActive(project);
+
+            mContentBrowserPanel.Init();
+
+            std::filesystem::path start_scene_path = Loom::Project::GetAssetFileSystemPath(project->GetConfig().StartScene);
+            if (std::filesystem::exists(start_scene_path) && !project->GetConfig().StartScene.empty()) {
+                OpenScene(start_scene_path.string());
+            } else {
+                NewScene(); // If no start scene exists, give them a blank slate
+            }
+        }
+    }
+
+    void EditorLayer::SaveProjectAs() {
+        constexpr nfdfilteritem_t filters[] = {
+            { "Loom Project", "loomproj" },
+            { "All Files", "*" },
+        };
+
+        NFD::Guard      nfd_guard;
+        NFD::UniquePath out_path;
+        nfdresult_t     result = NFD::SaveDialog(out_path, filters, 2, nullptr, "MyProject.loomproj");
+
+        if (result == NFD_OKAY) {
+            std::filesystem::path path = out_path.get();
+            if (path.extension() != ".loomproj")
+                path += ".loomproj";
+
+            std::filesystem::create_directories(path.parent_path());
+
+            Loom::ProjectSerializer serializer(Loom::Project::GetActive());
+            serializer.Serialize(path.string());
+        } else if (result == NFD_ERROR) {
+            LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
+        }
+    }
+
+#pragma endregion
+
 #pragma region Scene Management
 
     void EditorLayer::NewScene() {
@@ -537,6 +623,18 @@ namespace Weaver {
             Loom::SceneSerializer serializer(mActiveScene);
             serializer.Serialize(path.string());
             mCurrentScenePath = path.string();
+
+            // Scene Management Connection:
+            // Update the project's start scene if it doesn't have one, making it
+            // relative to the active asset directory.
+            auto active_project = Loom::Project::GetActive();
+            if (active_project && active_project->GetConfig().StartScene.empty()) {
+                std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                std::filesystem::path relative_scene_path = std::filesystem::relative(path, asset_dir);
+
+                active_project->GetConfig().StartScene = relative_scene_path;
+                LOOM_CORE_INFO("Set project StartScene to {}", relative_scene_path.string());
+            }
         } else if (result == NFD_ERROR) {
             LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
         }

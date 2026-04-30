@@ -1,13 +1,15 @@
 #include "loom/scene/scene.h"
 #include "loom/asset/asset_manager.h"
 #include "loom/core/uuid.h"
+#include "loom/project/project.h"
 #include "loom/renderer/renderer_2d.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 
 namespace Loom {
     Scene::Scene() {
-        mCameraIcon = AssetManager::GetTexture("assets/icons/camera_icon.png");
+        std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/directory_icon.png").generic_string();
+        mCameraIcon = AssetManager::GetTexture(camera_icon_path);
     }
 
     Scene::~Scene() {

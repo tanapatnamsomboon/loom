@@ -27,6 +27,14 @@ namespace Loom {
             return path;
         }
 
+        static std::filesystem::path GetEngineAssetDirectory() {
+            return "resources";
+        }
+
+        static std::filesystem::path GetEngineAssetFileSystemPath(const std::filesystem::path& path) {
+            return GetEngineAssetDirectory() / path;
+        }
+
         static std::shared_ptr<Project> GetActive() { return sActiveProject; }
 
         static void SetActive(std::shared_ptr<Project> project) { sActiveProject = project; }

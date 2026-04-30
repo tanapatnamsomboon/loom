@@ -15,9 +15,9 @@ target_include_directories(Weaver PRIVATE src)
 
 add_custom_target(CopyWeaverAssets ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
-  "${CMAKE_SOURCE_DIR}/assets"
-  "$<TARGET_FILE_DIR:Weaver>/assets"
-  COMMENT "Syncing Weaver assets..."
+  "${CMAKE_SOURCE_DIR}/resources"
+  "$<TARGET_FILE_DIR:Weaver>/resources"
+  COMMENT "Syncing Weaver resources..."
 )
 
 add_dependencies(Weaver CopyWeaverAssets)

@@ -14,5 +14,4 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(cmake/vendors.cmake)
 
 add_subdirectory(engine)
-# add_subdirectory(sandbox)
 add_subdirectory(weaver)

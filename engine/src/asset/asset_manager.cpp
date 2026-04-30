@@ -1,6 +1,5 @@
 #include "loom/asset/asset_manager.h"
 #include "loom/core/log.h"
-#include "loom/core/project.h"
 #include <filesystem>
 
 namespace Loom {
@@ -19,9 +18,7 @@ namespace Loom {
         }
 
         LOOM_CORE_TRACE("AssetManager: loading texture '{}'", path);
-        std::filesystem::path physical_path = Project::GetAssetFileSystemPath(path);
-
-        auto asset = Texture2D::Create(physical_path.string());
+        auto asset = Texture2D::Create(path);
         sTextureCache[path] = asset;
         return asset;
     }
@@ -36,8 +33,7 @@ namespace Loom {
         }
 
         LOOM_CORE_TRACE("AssetManager: loading shader '{}'", path);
-        std::filesystem::path physical_path = Project::GetAssetFileSystemPath(path);
-        auto asset = Shader::Create(physical_path.string());
+        auto asset = Shader::Create(path);
         sShaderCache[path] = asset;
         return asset;
     }

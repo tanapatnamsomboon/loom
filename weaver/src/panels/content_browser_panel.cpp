@@ -1,6 +1,6 @@
 #include "content_browser_panel.h"
 #include <imgui.h>
-#include <loom/core/project.h>
+#include <loom/project/project.h>
 #include <loom/asset/asset_manager.h>
 
 namespace Weaver {
@@ -8,8 +8,12 @@ namespace Weaver {
     void ContentBrowserPanel::Init() {
         mBaseDirectory = Loom::Project::GetAssetDirectory();
         mCurrentDirectory = mBaseDirectory;
-        mDirectoryIcon = Loom::AssetManager::GetTexture("icons/directory_icon.png");
-        mFileIcon      = Loom::AssetManager::GetTexture("icons/file_icon.png");
+
+        std::string dir_icon_path = Loom::Project::GetEngineAssetFileSystemPath("icons/directory_icon.png").generic_string();
+        std::string file_icon_path = Loom::Project::GetEngineAssetFileSystemPath("icons/file_icon.png").generic_string();
+
+        mDirectoryIcon = Loom::AssetManager::GetTexture(dir_icon_path);
+        mFileIcon      = Loom::AssetManager::GetTexture(file_icon_path);
     }
 
     void ContentBrowserPanel::OnImGuiRender() {

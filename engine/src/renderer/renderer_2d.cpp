@@ -1,5 +1,6 @@
 #include "loom/renderer/renderer_2d.h"
 #include "loom/asset/asset_manager.h"
+#include "loom/project/project.h"
 #include "loom/renderer/render_command.h"
 #include "loom/renderer/shader.h"
 #include "loom/renderer/vertex_array.h"
@@ -127,25 +128,26 @@ namespace Loom {
         sData.QuadVertexPositions[3] = { -0.5f, 0.5f, 0.0f, 1.0f };
 
         // Quad Setup
-        auto& q        = sData.Quads;
-        q.VAO  = VertexArray::Create();
-        q.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
-        q.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        auto& quad = sData.Quads;
+        quad.VAO = VertexArray::Create();
+        quad.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(QuadVertex));
+        quad.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Float2, "aTexCoord" },
                                     { ShaderDataType::Float, "aTexIndex" },
                                     { ShaderDataType::Float, "aTilingFactor" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        q.VAO->AddVertexBuffer(q.VBO);
-        q.VAO->SetIndexBuffer(ibo);
-        q.VertexBufferBase = new QuadVertex[sData.MaxVertices];
-        q.ActiveShader           = AssetManager::GetShader("assets/shaders/quad");
+        quad.VAO->AddVertexBuffer(quad.VBO);
+        quad.VAO->SetIndexBuffer(ibo);
+        quad.VertexBufferBase = new QuadVertex[sData.MaxVertices];
+        std::string quad_shader_path = Project::GetEngineAssetFileSystemPath("shaders/quad").generic_string();
+        quad.ActiveShader            = AssetManager::GetShader(quad_shader_path);
 
         int32_t samplers[sData.MaxTextureSlots];
         for (uint32_t i = 0; i < sData.MaxTextureSlots; i++)
             samplers[i] = i;
-        q.ActiveShader->Bind();
-        q.ActiveShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
+        quad.ActiveShader->Bind();
+        quad.ActiveShader->UploadUniformIntArray("uTextures", samplers, sData.MaxTextureSlots);
 
         // White texture
         sData.WhiteTexture = Texture2D::Create(1, 1);
@@ -154,30 +156,35 @@ namespace Loom {
         sData.TextureSlots[0] = sData.WhiteTexture;
 
         // Circle Setup
-        auto& c        = sData.Circles;
-        c.VAO  = VertexArray::Create();
-        c.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
-        c.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        auto& circle = sData.Circles;
+        circle.VAO = VertexArray::Create();
+        circle.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(CircleVertex));
+        circle.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float3, "aLocalPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Float, "aThickness" },
                                     { ShaderDataType::Float, "aFade" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        c.VAO->AddVertexBuffer(c.VBO);
-        c.VAO->SetIndexBuffer(ibo);
-        c.VertexBufferBase = new CircleVertex[sData.MaxVertices];
-        c.ActiveShader           = AssetManager::GetShader("assets/shaders/circle");
+        circle.VAO->AddVertexBuffer(circle.VBO);
+        circle.VAO->SetIndexBuffer(ibo);
+        circle.VertexBufferBase = new CircleVertex[sData.MaxVertices];
+
+        std::string circle_shader_path = Project::GetEngineAssetFileSystemPath("shaders/circle").generic_string();
+        circle.ActiveShader            = AssetManager::GetShader(circle_shader_path);
 
         // Line Setup
-        auto& l        = sData.Lines;
-        l.VAO  = VertexArray::Create();
-        l.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
-        l.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
+        auto& line = sData.Lines;
+        line.VAO = VertexArray::Create();
+        line.VBO = VertexBuffer::Create(sData.MaxVertices * sizeof(LineVertex));
+        line.VBO->SetLayout({ { ShaderDataType::Float3, "aPosition" },
                                     { ShaderDataType::Float4, "aColor" },
                                     { ShaderDataType::Int, "aEntityID" } });
-        l.VAO->AddVertexBuffer(l.VBO);
-        l.VertexBufferBase = new LineVertex[sData.MaxVertices];
-        l.ActiveShader           = AssetManager::GetShader("assets/shaders/line");
+        line.VAO->AddVertexBuffer(line.VBO);
+        line.VertexBufferBase = new LineVertex[sData.MaxVertices];
+
+        std::string line_shader_path = Project::GetEngineAssetFileSystemPath("shaders/line").generic_string();
+        line.ActiveShader            = AssetManager::GetShader(line_shader_path);
+
 
         sData.Quads.SetFlushCallback([]() { NextBatch(); });
         sData.Circles.SetFlushCallback([]() { NextBatch(); });

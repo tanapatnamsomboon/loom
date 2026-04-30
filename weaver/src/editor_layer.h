@@ -50,6 +50,11 @@ namespace Weaver {
         void UpdateViewportSize();
         void RenderGizmos();
 
+        void NewProject();
+        void OpenProject();
+        void OpenProject(const std::string& filepath);
+        void SaveProjectAs();
+
         void NewScene();
         void OpenScene();
         void OpenScene(const std::string& filepath);
