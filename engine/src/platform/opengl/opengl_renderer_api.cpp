@@ -8,6 +8,8 @@ namespace Loom {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glEnable(GL_DEPTH_TEST);
+
+        glEnable(GL_MULTISAMPLE);
     }
 
     void OpenGLRendererAPI::SetClearColor(float r, float g, float b, float a) {

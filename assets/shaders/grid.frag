@@ -9,7 +9,8 @@ uniform vec3 uCameraPosition;
 float grid(vec2 coord, float size) {
     vec2 grid_pattern = abs(fract(coord / size - 0.5) - 0.5) / fwidth(coord / size);
     float line = min(grid_pattern.x, grid_pattern.y);
-    return 1.0 - min(line, 1.0);
+    float line_thickness = 1.5;
+    return 1.0 - smoothstep(0.0, line_thickness, line);
 }
 
 void main() {
