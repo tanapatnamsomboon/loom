@@ -315,6 +315,7 @@ namespace Weaver {
 
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowSceneHierarchyPanel);
+                ImGui::MenuItem("Content Browser", nullptr, &mShowContentBrowserPanel);
                 ImGui::EndMenu();
             }
 
