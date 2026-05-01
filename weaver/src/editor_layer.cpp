@@ -51,6 +51,9 @@ namespace Weaver {
 
         std::string skybox_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
         std::string grid_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
+        std::string icon_path = Loom::Project::GetEngineAssetFileSystemPath("icons/weaver.png").generic_string();
+
+        Loom::Application::Get().GetWindow().SetIcon(icon_path);
 
         mContentBrowserPanel.Init();
 

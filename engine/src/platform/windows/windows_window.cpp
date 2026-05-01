@@ -167,6 +167,10 @@ namespace Loom {
         ::SetWindowTextW(mHWND, StringToWideString(title).c_str());
     }
 
+    void WindowsWindow::SetIcon(const std::string& filepath) {
+        // TODO: Implement properly
+    }
+
     void WindowsWindow::SetVSync(bool enabled) {
         mData.VSync = enabled;
     }

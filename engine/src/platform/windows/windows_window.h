@@ -17,6 +17,7 @@ namespace Loom {
         unsigned int GetHeight() const override { return mData.Height; }
 
         void SetTitle(const std::string& title) override;
+        void SetIcon(const std::string& filepath) override;
 
         void SetEventCallback(const EventCallbackFn& callback) override { mData.EventCallback = callback; }
         void SetVSync(bool enabled) override;

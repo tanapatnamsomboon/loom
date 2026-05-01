@@ -4,6 +4,7 @@
 #include "loom/events/application_event.h"
 #include "loom/events/mouse_event.h"
 #include "loom/events/key_event.h"
+#include <stb_image.h>
 
 namespace Loom {
 
@@ -25,6 +26,20 @@ namespace Loom {
     void GLFWWindow::SetTitle(const std::string& title) {
         mData.Title = title;
         glfwSetWindowTitle(mWindow, mData.Title.c_str());
+    }
+
+    void GLFWWindow::SetIcon(const std::string& filepath) {
+        GLFWimage images[1];
+        int channels;
+
+        images[0].pixels = stbi_load(filepath.c_str(), &images[0].width, &images[0].height, &channels, 4);
+
+        if (images[0].pixels) {
+            glfwSetWindowIcon(mWindow, 1, images);
+            stbi_image_free(images[0].pixels);
+        } else {
+            LOOM_CORE_WARN("Failed to load window icon from: {0}", filepath);
+        }
     }
 
     void GLFWWindow::SetVSync(bool enabled) {
