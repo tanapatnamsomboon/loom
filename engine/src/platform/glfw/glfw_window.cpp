@@ -22,6 +22,11 @@ namespace Loom {
         mContext->SwapBuffers();
     }
 
+    void GLFWWindow::SetTitle(const std::string& title) {
+        mData.Title = title;
+        glfwSetWindowTitle(mWindow, mData.Title.c_str());
+    }
+
     void GLFWWindow::SetVSync(bool enabled) {
         if (enabled) glfwSwapInterval(1);
         else glfwSwapInterval(0);

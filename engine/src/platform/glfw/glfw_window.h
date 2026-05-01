@@ -16,6 +16,8 @@ namespace Loom {
         unsigned int GetWidth() const override { return mData.Width; }
         unsigned int GetHeight() const override { return mData.Height; }
 
+        void SetTitle(const std::string& title) override;
+
         void SetEventCallback(const EventCallbackFn& callback) override { mData.EventCallback = callback; }
         void SetVSync(bool enabled) override;
         bool IsVSync() const override;
@@ -25,6 +27,7 @@ namespace Loom {
     private:
         void Init(const WindowProps& props);
         void Shutdown();
+
 
     private:
         GLFWwindow* mWindow;

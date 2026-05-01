@@ -9,7 +9,7 @@ Entities:
       Scale: [2, 2, 1]
     SpriteRendererComponent:
       Color: [1, 1, 1, 1]
-      Texture: C:\Users\phukao\Work\loom\assets\textures\box.png
+      Texture: C:\Users\phukao\Work\loom\sandbox\assets\textures\box.png
       TilingFactor: 1
     NativeScriptComponent:
       ScriptName: PlayerController

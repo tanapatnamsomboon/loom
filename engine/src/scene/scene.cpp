@@ -8,7 +8,7 @@
 
 namespace Loom {
     Scene::Scene() {
-        std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/directory_icon.png").generic_string();
+        std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/camera_icon.png").generic_string();
         mCameraIcon = AssetManager::GetTexture(camera_icon_path);
     }
 

@@ -437,6 +437,12 @@ namespace Weaver {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 0.9f));
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
 
+        bool has_active_scene = Loom::Project::GetActive() != nullptr;
+
+        if (!has_active_scene) {
+            ImGui::BeginDisabled();
+        }
+
         if (mSceneState == SceneState::Edit) {
             if (ImGui::Button("Play", ImVec2(button_width, button_height)))
                 OnScenePlay();
@@ -445,13 +451,28 @@ namespace Weaver {
                 OnSceneStop();
         }
 
+        if (!has_active_scene) {
+            ImGui::EndDisabled();
+        }
+
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(2);
     }
 
     void EditorLayer::RenderViewport() {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
-        ImGui::Begin("Viewport");
+
+        std::string viewport_title = "Viewport###Viewport";
+        if (Loom::Project::GetActive()) {
+            if (!mCurrentScenePath.empty()) {
+                std::filesystem::path path = mCurrentScenePath;
+                viewport_title = path.filename().string() + " (Viewport)###Viewport";
+            } else {
+                viewport_title = "Untitled Scene (Viewport)###Viewport";
+            }
+        }
+
+        ImGui::Begin(viewport_title.c_str());
 
         mViewportFocused = ImGui::IsWindowFocused();
         mViewportHovered = ImGui::IsWindowHovered();
@@ -552,6 +573,9 @@ namespace Weaver {
         if (serializer.Deserialize(filepath)) {
             Loom::Project::SetActive(project);
 
+            std::string title = "Weaver Editor - " + project->GetConfig().Name;
+            Loom::Application::Get().GetWindow().SetTitle(title);
+
             mContentBrowserPanel.Init();
 
             std::filesystem::path start_scene_path = Loom::Project::GetAssetFileSystemPath(project->GetConfig().StartScene);
@@ -641,6 +665,8 @@ namespace Weaver {
 
                 // 4. Set it activates and boot the editor
                 Loom::Project::SetActive(new_project);
+                std::string title = "Weaver Editor - " + std::string(mNewProjectName);
+                Loom::Application::Get().GetWindow().SetTitle(title);
                 mContentBrowserPanel.Init();
                 NewScene();
 

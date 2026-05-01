@@ -161,6 +161,12 @@ namespace Loom {
         }
     }
 
+    void WindowsWindow::SetTitle(const std::string& title) {
+        // TODO: Implement properly
+        mData.Title = title;
+        ::SetWindowTextW(mHWND, StringToWideString(title).c_str());
+    }
+
     void WindowsWindow::SetVSync(bool enabled) {
         mData.VSync = enabled;
     }
