@@ -58,8 +58,10 @@ namespace Weaver {
         void RenderProjectWizard();
 
         void NewScene();
+        void NewSceneImpl();
         void OpenScene();
         void OpenScene(const std::string& filepath);
+        void OpenSceneImpl(const std::string& filepath);
         void SaveScene();
         void SaveSceneAs();
 
@@ -114,6 +116,13 @@ namespace Weaver {
         bool mShowProjectWizard = false;
         char mNewProjectName[256] = "MyAwesomeGame";
         std::string mNewProjectPath = "";
+
+        bool mSceneDirty = false;
+        bool mShowSavePrompt = false;
+
+        enum class SceneAction { None, Open, New };
+        SceneAction mPendingSceneAction = SceneAction::None;
+        std::string mPendingScenePath;
     };
 
 } // namespace Weaver

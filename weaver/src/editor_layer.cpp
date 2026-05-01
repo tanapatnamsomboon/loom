@@ -414,6 +414,43 @@ namespace Weaver {
             }
             ImGui::EndPopup();
         }
+
+        if (mShowSavePrompt) {
+            ImGui::OpenPopup("Save Changes?");
+            mShowSavePrompt = false;
+        }
+
+        if (ImGui::BeginPopupModal("Save Changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("You have unsaved changes in the current scene.\nDo you want to save them?");
+            ImGui::Separator();
+
+            if (ImGui::Button("Save", ImVec2(100, 0))) {
+                SaveScene();
+
+                if (mPendingSceneAction == SceneAction::Open) OpenSceneImpl(mPendingScenePath);
+                if (mPendingSceneAction == SceneAction::New)  NewSceneImpl();
+
+                mPendingSceneAction = SceneAction::None;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Don't Save", ImVec2(100, 0))) {
+                if (mPendingSceneAction == SceneAction::Open) OpenSceneImpl(mPendingScenePath);
+                if (mPendingSceneAction == SceneAction::New)  NewSceneImpl();
+
+                mPendingSceneAction = SceneAction::None;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(100, 0))) {
+                mPendingSceneAction = SceneAction::None;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
     }
 
     void EditorLayer::RenderPanels() {
@@ -471,12 +508,12 @@ namespace Weaver {
 
         std::string viewport_title = "Viewport###Viewport";
         if (Loom::Project::GetActive()) {
-            if (!mCurrentScenePath.empty()) {
-                std::filesystem::path path = mCurrentScenePath;
-                viewport_title = path.filename().string() + " (Viewport)###Viewport";
-            } else {
-                viewport_title = "Untitled Scene (Viewport)###Viewport";
-            }
+            std::string filename = mCurrentScenePath.empty()
+                                 ? "Untitled Scene"
+                                 : std::filesystem::path(mCurrentScenePath).filename().string();
+            std::string dirty_flag = mSceneDirty ? "*" : "";
+
+            viewport_title = filename + dirty_flag + " (Viewport)###Viewport";
         }
 
         ImGui::Begin(viewport_title.c_str());
@@ -538,6 +575,8 @@ namespace Weaver {
         ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), (ImGuizmo::OPERATION)mGizmoType, ImGuizmo::LOCAL, glm::value_ptr(transform), nullptr, snap ? snap_values : nullptr);
 
         if (ImGuizmo::IsUsing()) {
+            mSceneDirty = true;
+
             glm::vec3 translation, rotation, scale;
             Loom::Math::DecomposeTransform(transform, translation, rotation, scale);
 
@@ -697,9 +736,19 @@ namespace Weaver {
 #pragma region Scene Management
 
     void EditorLayer::NewScene() {
+        if (mSceneDirty) {
+            mPendingSceneAction = SceneAction::New;
+            mShowSavePrompt = true;
+        } else {
+            NewSceneImpl();
+        }
+    }
+
+    void EditorLayer::NewSceneImpl() {
         mActiveScene = std::make_shared<Loom::Scene>();
         mSceneHierarchyPanel.SetContext(mActiveScene);
         mCurrentScenePath.clear();
+        mSceneDirty = false;
     }
 
     void EditorLayer::OpenScene() {
@@ -720,13 +769,22 @@ namespace Weaver {
     }
 
     void EditorLayer::OpenScene(const std::string& filepath) {
+        if (mSceneDirty) {
+            mPendingSceneAction = SceneAction::Open;
+            mPendingScenePath = filepath;
+            mShowSavePrompt = true;
+        } else {
+            OpenSceneImpl(filepath);
+        }
+    }
+
+    void EditorLayer::OpenSceneImpl(const std::string& filepath) {
         if (!std::filesystem::exists(filepath)) {
             LOOM_CORE_WARN("EditorLayer: scene file '{}' does not exist", filepath);
             return;
         }
 
         auto new_scene = std::make_shared<Loom::Scene>();
-
         Loom::SceneSerializer serializer(new_scene);
 
         if (serializer.Deserialize(filepath)) {
@@ -735,6 +793,7 @@ namespace Weaver {
 
             mActiveScene      = mEditorScene;
             mCurrentScenePath = filepath;
+            mSceneDirty       = false;
         }
     }
 
@@ -745,6 +804,7 @@ namespace Weaver {
         }
         Loom::SceneSerializer serializer(mActiveScene);
         serializer.Serialize(mCurrentScenePath);
+        mSceneDirty = false;
     }
 
     void EditorLayer::SaveSceneAs() {
@@ -769,6 +829,7 @@ namespace Weaver {
             Loom::SceneSerializer serializer(mActiveScene);
             serializer.Serialize(path.string());
             mCurrentScenePath = path.string();
+            mSceneDirty = false;
 
             // Scene Management Connection:
             // Update the project's start scene if it doesn't have one, making it
