@@ -691,7 +691,8 @@ namespace Weaver {
 
             if (ImGui::Button("Create Project", ImVec2(120, 0))) {
                 // Directory Generation
-                std::filesystem::path root_dir = std::filesystem::path(mNewProjectPath) / mNewProjectName;
+                std::filesystem::path root_dir = std::filesystem::path((const char8_t*)mNewProjectPath.c_str())
+                                               / std::filesystem::path((const char8_t*)mNewProjectName);
                 std::filesystem::path asset_dir = root_dir / "assets";
 
                 // 1. Create the physical folders on the hard drive
@@ -703,6 +704,7 @@ namespace Weaver {
                 std::shared_ptr<Loom::Project> new_project = std::make_shared<Loom::Project>();
                 new_project->GetConfig().Name = mNewProjectName;
                 new_project->GetConfig().AssetDirectory = "assets";
+                new_project->SetProjectDirectory(root_dir);
 
                 // 3. Serialize the .loomproj file
                 std::filesystem::path proj_file_path = root_dir / (std::string(mNewProjectName) + ".loomproj");
@@ -779,7 +781,9 @@ namespace Weaver {
     }
 
     void EditorLayer::OpenSceneImpl(const std::string& filepath) {
-        if (!std::filesystem::exists(filepath)) {
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+
+        if (!std::filesystem::exists(path)) {
             LOOM_CORE_WARN("EditorLayer: scene file '{}' does not exist", filepath);
             return;
         }

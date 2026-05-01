@@ -21,7 +21,8 @@ namespace Loom {
         out << YAML::EndMap;
         out << YAML::EndMap;
 
-        std::ofstream fout(filepath);
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+        std::ofstream fout(path);
         if (!fout.is_open()) {
             LOOM_CORE_ERROR("Failed to open file for writing: {0}", filepath);
             return false;
@@ -32,9 +33,17 @@ namespace Loom {
     }
 
     bool ProjectSerializer::Deserialize(const std::string& filepath) {
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+
+        std::ifstream stream(path);
+        if (!stream.is_open()) {
+            LOOM_CORE_ERROR("Failed to open file: {0}", filepath);
+            return false;
+        }
+
         YAML::Node data;
         try {
-            data = YAML::LoadFile(filepath);
+            data = YAML::Load(stream);
         } catch (YAML::ParserException& e) {
             LOOM_CORE_ERROR("Failed to load .loomproj file '{0}': {1}", filepath, e.what());
             return false;
@@ -51,7 +60,7 @@ namespace Loom {
         config.AssetDirectory = project_node["AssetDirectory"].as<std::string>();
         config.StartScene = project_node["StartScene"].as<std::string>();
 
-        mProject->SetProjectDirectory(std::filesystem::path(filepath).parent_path());
+        mProject->SetProjectDirectory(path.parent_path());
 
         return true;
     }

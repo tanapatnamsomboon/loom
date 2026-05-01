@@ -198,7 +198,8 @@ namespace Loom {
         out << YAML::EndSeq;
         out << YAML::EndMap;
 
-        std::ofstream fout(filepath);
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+        std::ofstream fout(path);
         if (!fout.is_open()) {
             LOOM_CORE_ERROR("SceneSerializer: could not open '{}' for writing", filepath);
             return;
@@ -213,6 +214,7 @@ namespace Loom {
     }())
 
     bool SceneSerializer::Deserialize(const std::string& filepath) {
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
         YAML::Node data;
         try {
             data = YAML::LoadFile(filepath);
