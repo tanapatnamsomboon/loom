@@ -336,7 +336,6 @@ namespace Weaver {
         RenderModals();
         RenderProjectWizard();
         RenderPanels();
-        RenderToolbar();
         RenderViewport();
 
         ImGui::End();
@@ -420,27 +419,33 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderToolbar() {
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 2));
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0, 0));
+        ImVec2 content_min = ImGui::GetWindowContentRegionMin();
+        ImVec2 content_max = ImGui::GetWindowContentRegionMax();
 
-        ImGuiWindowClass window_class;
-        window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar;
-        ImGui::SetNextWindowClass(&window_class);
+        float button_width = 60.0f;
+        float button_height = 28.0f;
+        float y_offset = 10.0f;
 
-        ImGui::Begin("##Toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        float cursor_x = content_min.x + (content_max.x - content_min.x) * 0.5f - (button_width * 0.5f);
+        float cursor_y = content_min.y + y_offset;
 
-        float size = ImGui::GetWindowHeight() - 4.0f;
-        ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x * 0.5f - size * 0.5f);
+        ImGui::SetCursorPos(ImVec2(cursor_x, cursor_y));
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, button_height * 0.2f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
 
         if (mSceneState == SceneState::Edit) {
-            if (ImGui::Button("Play", ImVec2(50, size)))
+            if (ImGui::Button("Play", ImVec2(button_width, button_height)))
                 OnScenePlay();
         } else if (mSceneState == SceneState::Play) {
-            if (ImGui::Button("Stop", ImVec2(50, size)))
+            if (ImGui::Button("Stop", ImVec2(button_width, button_height)))
                 OnSceneStop();
         }
 
-        ImGui::End();
+        ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(2);
     }
 
@@ -459,6 +464,8 @@ namespace Weaver {
         ImGui::Image((void*)(intptr_t)texture_id, ImVec2{ mViewportSize.x, mViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
         RenderGizmos();
+
+        RenderToolbar();
 
         ImGui::End();
         ImGui::PopStyleVar();
