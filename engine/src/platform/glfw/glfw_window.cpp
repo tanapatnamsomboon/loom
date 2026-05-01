@@ -47,6 +47,8 @@ namespace Loom {
             sGLFWInitialized = true;
         }
 
+        glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+
         mWindow = glfwCreateWindow((int)props.Width, (int)props.Height, mData.Title.c_str(), nullptr, nullptr);
         mContext = std::make_unique<OpenGLContext>(mWindow);
         mContext->Init();
