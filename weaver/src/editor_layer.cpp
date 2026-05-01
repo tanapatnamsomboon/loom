@@ -57,6 +57,10 @@ namespace Weaver {
 
         mContentBrowserPanel.Init();
 
+        mContentBrowserPanel.SetSceneOpenCallback([this](const std::filesystem::path& path) {
+            OpenScene(path.string());
+        });
+
         ImGuiContext*     context;
         ImGuiMemAllocFunc alloc_func;
         ImGuiMemFreeFunc  free_func;

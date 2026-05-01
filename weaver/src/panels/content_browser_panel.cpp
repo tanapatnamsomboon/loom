@@ -63,11 +63,17 @@ namespace Weaver {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             ImGui::ImageButton(filename_string.c_str(), (ImTextureID)icon->GetRendererID(), { thumbnail_size, thumbnail_size }, { 0, 1 }, { 1, 0 });
             ImGui::PopStyleColor();
+
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 if (directory_entry.is_directory()) {
                     mCurrentDirectory /= path.filename();
+                } else if (path.extension() == ".loom") {
+                    if (mSceneOpenCallback) {
+                        mSceneOpenCallback(path);
+                    }
                 }
             }
+
             ImGui::TextWrapped("%s", filename_string.c_str());
             ImGui::NextColumn();
         }
