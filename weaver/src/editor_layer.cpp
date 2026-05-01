@@ -47,10 +47,7 @@ namespace Weaver {
     }
 
     void EditorLayer::OnAttach() {
-        // Initialize Active Project (Dummy for now)
-        auto dummy_project = std::make_shared<Loom::Project>();
-        dummy_project->GetConfig().AssetDirectory = "assets";
-        Loom::Project::SetActive(dummy_project);
+        mShowProjectWizard = true;
 
         std::string skybox_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
         std::string grid_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
@@ -126,8 +123,16 @@ namespace Weaver {
 
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
         HandleViewportResize();
+
+        mFramebuffer->Bind();
+        Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        Loom::RenderCommand::Clear();
+        mFramebuffer->ClearAttachment(1, -1);
+
         UpdateScene(ts);
+
         HandleMousePicking();
+
         mFramebuffer->Unbind();
     }
 
@@ -142,6 +147,10 @@ namespace Weaver {
     }
 
     void EditorLayer::UpdateScene(Loom::Timestep ts) {
+        if (!Loom::Project::GetActive()) {
+            return;
+        }
+
         if (mSceneState == SceneState::Edit) {
             if (mViewportHovered) {
                 mEditorCamera.OnUpdate(ts);
@@ -150,16 +159,10 @@ namespace Weaver {
             }
         }
 
-        mFramebuffer->Bind();
-        Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        Loom::RenderCommand::Clear();
-        mFramebuffer->ClearAttachment(1, -1);
-
         if (mSceneState == SceneState::Edit) {
             // Render Skybox
             glm::mat4 view = mEditorCamera.GetViewMatrix();
             view[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
             glm::mat4 skybox_view_projection = mEditorCamera.GetProjectionMatrix() * view;
 
             mSkyboxShader->Bind();
@@ -301,6 +304,7 @@ namespace Weaver {
 
         RenderMainMenuBar();
         RenderModals();
+        RenderProjectWizard();
         RenderPanels();
         RenderToolbar();
         RenderViewport();
@@ -482,9 +486,7 @@ namespace Weaver {
 #pragma region Project Management
 
     void EditorLayer::NewProject() {
-        Loom::Project::SetActive(std::make_shared<Loom::Project>());
-        mContentBrowserPanel.Init();
-        NewScene();
+        mShowProjectWizard = true;
     }
 
     void EditorLayer::OpenProject() {
@@ -543,6 +545,78 @@ namespace Weaver {
             serializer.Serialize(path.string());
         } else if (result == NFD_ERROR) {
             LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
+        }
+    }
+
+    void EditorLayer::RenderProjectWizard() {
+        if (mShowProjectWizard) {
+            ImGui::OpenPopup("New Project Wizard");
+            mShowProjectWizard = false;
+        }
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if (ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Create a New Loom Engine Project");
+            ImGui::Separator();
+
+            ImGui::InputText("Project Name", mNewProjectName, sizeof(mNewProjectName));
+
+            ImGui::Text("Location: %s", mNewProjectPath.empty() ? "Not Selected" : mNewProjectPath.c_str());
+            ImGui::SameLine();
+            if (ImGui::Button("Browse...")) {
+                NFD::Guard      nfd_guard;
+                NFD::UniquePath out_path;
+                nfdresult_t     result = NFD::PickFolder(out_path);
+                if (result == NFD_OKAY) {
+                    mNewProjectPath = out_path.get();
+                }
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+
+            bool can_create = !mNewProjectPath.empty() && strlen(mNewProjectName) > 0;
+            if (!can_create) ImGui::BeginDisabled();
+
+            if (ImGui::Button("Create Project", ImVec2(120, 0))) {
+                // Directory Generation
+                std::filesystem::path root_dir = std::filesystem::path(mNewProjectPath) / mNewProjectName;
+                std::filesystem::path asset_dir = root_dir / "assets";
+
+                // 1. Create the physical folders on the hard drive
+                std::filesystem::create_directories(asset_dir / "scenes");
+                std::filesystem::create_directories(asset_dir / "textures");
+                std::filesystem::create_directories(asset_dir / "scripts");
+
+                // 2. Set up the Project object in memory
+                std::shared_ptr<Loom::Project> new_project = std::make_shared<Loom::Project>();
+                new_project->GetConfig().Name = mNewProjectName;
+                new_project->GetConfig().AssetDirectory = "assets";
+
+                // 3. Serialize the .loomproj file
+                std::filesystem::path proj_file_path = root_dir / (std::string(mNewProjectName) + ".loomproj");
+                Loom::ProjectSerializer serializer(new_project);
+                serializer.Serialize(proj_file_path.string());
+
+                // 4. Set it activates and boot the editor
+                Loom::Project::SetActive(new_project);
+                mContentBrowserPanel.Init();
+                NewScene();
+
+                LOOM_CORE_INFO("Created new project at: {0}", root_dir.string());
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (!can_create) ImGui::EndDisabled();
+
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
     }
 

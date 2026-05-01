@@ -6,6 +6,12 @@
 namespace Weaver {
 
     void ContentBrowserPanel::Init() {
+        if (!Loom::Project::GetActive()) {
+            mBaseDirectory = "";
+            mCurrentDirectory = "";
+            return;
+        }
+
         mBaseDirectory = Loom::Project::GetAssetDirectory();
         mCurrentDirectory = mBaseDirectory;
 
@@ -17,12 +23,23 @@ namespace Weaver {
     }
 
     void ContentBrowserPanel::OnImGuiRender() {
-        if (mBaseDirectory.empty()) return;
-
         ImGui::Begin("Content Browser");
 
-        if (!std::filesystem::equivalent(mCurrentDirectory, mBaseDirectory)) {
-            if (ImGui::Button("<-")) {
+        if (!Loom::Project::GetActive() || mCurrentDirectory.empty()) {
+            ImGui::Text("No Project Loaded. Please create or open a project.");
+            ImGui::End();
+            return;
+        }
+
+        std::error_code ec;
+        if (!std::filesystem::exists(mCurrentDirectory, ec) || !std::filesystem::is_directory(mCurrentDirectory, ec)) {
+            ImGui::Text("Warning: The asset directory could not be found on disk.");
+            ImGui::End();
+            return;
+        }
+
+        if (!std::filesystem::equivalent(mCurrentDirectory, mBaseDirectory, ec)) {
+            if (ImGui::Button("<- Back")) {
                 mCurrentDirectory = mCurrentDirectory.parent_path();
             }
         }

@@ -55,6 +55,8 @@ namespace Weaver {
         void OpenProject(const std::string& filepath);
         void SaveProjectAs();
 
+        void RenderProjectWizard();
+
         void NewScene();
         void OpenScene();
         void OpenScene(const std::string& filepath);
@@ -101,13 +103,17 @@ namespace Weaver {
         glm::vec2                          mViewportSize = { 0.0f, 0.0f };
         glm::vec2                          mViewportBounds[2];
 
-        std::string mCurrentScenePath;
-
         int mGizmoType = -1;
+
+        std::string mCurrentScenePath;
 
         std::shared_ptr<Loom::Scene> mEditorScene;
         std::shared_ptr<Loom::Scene> mActiveScene;
         SceneState                   mSceneState = SceneState::Edit;
+
+        bool mShowProjectWizard = false;
+        char mNewProjectName[256] = "MyAwesomeGame";
+        std::string mNewProjectPath = "";
     };
 
 } // namespace Weaver

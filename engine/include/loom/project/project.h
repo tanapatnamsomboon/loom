@@ -14,11 +14,13 @@ namespace Loom {
 
     class Project {
     public:
-        static const std::filesystem::path& GetAssetDirectory() {
-            static std::filesystem::path empty_path = "";
+        const std::filesystem::path& GetProjectDirectory() const { return mProjectDirectory; }
+        void SetProjectDirectory(const std::filesystem::path& path) { mProjectDirectory = path; }
+
+        static std::filesystem::path GetAssetDirectory() {
             if (sActiveProject)
-                return sActiveProject->mConfig.AssetDirectory;
-            return empty_path;
+                return sActiveProject->GetProjectDirectory() / sActiveProject->mConfig.AssetDirectory;
+            return "";
         }
 
         static std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path) {
@@ -43,6 +45,7 @@ namespace Loom {
 
     private:
         ProjectConfig mConfig;
+        std::filesystem::path mProjectDirectory;
 
         inline static std::shared_ptr<Project> sActiveProject;
     };

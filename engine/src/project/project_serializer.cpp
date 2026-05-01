@@ -51,6 +51,8 @@ namespace Loom {
         config.AssetDirectory = project_node["AssetDirectory"].as<std::string>();
         config.StartScene = project_node["StartScene"].as<std::string>();
 
+        mProject->SetProjectDirectory(std::filesystem::path(filepath).parent_path());
+
         return true;
     }
 
