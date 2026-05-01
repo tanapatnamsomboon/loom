@@ -1,25 +1,12 @@
 Scene: Untitled
 Entities:
-  - Entity: 11190792112762867342
-    TagComponent:
-      Tag: Pink
-    TransformComponent:
-      Translation: [-0.06025529, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [2, 2, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: C:\Users\phukao\Work\loom\sandbox\assets\textures\box.png
-      TilingFactor: 1
-    NativeScriptComponent:
-      ScriptName: PlayerController
   - Entity: 5328067152027898860
     TagComponent:
       Tag: Camera
     TransformComponent:
-      Translation: [0, 0, 10]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Translation: [0, 2.5, 10]
+      Rotation: [-0.7857683, 0.00026196238, 0.0003901124]
+      Scale: [1, 0.9999999, 0.9999999]
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
@@ -30,3 +17,16 @@ Entities:
       PerspectiveNear: 0.1
       PerspectiveFar: 50
       ProjectionType: 0
+  - Entity: 11190792112762867342
+    TagComponent:
+      Tag: Pink
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [2, 2, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: C:\Users\phukao\Work\loom\sandbox\assets\textures\box.png
+      TilingFactor: 1
+    NativeScriptComponent:
+      ScriptName: PlayerController

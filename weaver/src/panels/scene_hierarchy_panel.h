@@ -4,6 +4,7 @@
 #include <loom/renderer/texture.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/scene.h>
+#include <functional>
 
 namespace Weaver {
 
@@ -21,6 +22,8 @@ namespace Weaver {
 
         void OnImGuiRender();
 
+        void SetSceneModifiedCallback(const std::function<void()>& callback) { mSceneModifiedCallback = callback; }
+
     private:
         void DrawEntityNode(Loom::Entity entity);
         void DrawComponents(Loom::Entity entity);
@@ -32,6 +35,8 @@ namespace Weaver {
         Loom::Entity                 mSelectionContext;
 
         std::shared_ptr<Loom::Texture2D> mCheckerboard;
+
+        std::function<void()> mSceneModifiedCallback;
     };
 
 } // namespace Weaver

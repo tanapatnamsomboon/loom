@@ -122,6 +122,9 @@ namespace Weaver {
         mGridShader = Loom::AssetManager::GetShader(grid_path);
 
         mSceneHierarchyPanel.Init();
+        mSceneHierarchyPanel.SetSceneModifiedCallback([this] {
+            mSceneDirty = false;
+        });
     }
 
 #pragma endregion
