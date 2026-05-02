@@ -136,6 +136,8 @@ namespace Loom {
             DrawCameraFrustum(selected_entity.GetComponent<TransformComponent>(), selected_entity.GetComponent<CameraComponent>());
         }
 
+        RenderPhysicsColliders();
+
         Renderer2D::EndScene();
     }
 
@@ -252,6 +254,8 @@ namespace Loom {
                 }
             }
 
+            RenderPhysicsColliders();
+
             Renderer2D::EndScene();
         }
     }
@@ -335,6 +339,35 @@ namespace Loom {
         Renderer2D::DrawLine(wn[1], wf[1], color, entity_id);
         Renderer2D::DrawLine(wn[2], wf[2], color, entity_id);
         Renderer2D::DrawLine(wn[3], wf[3], color, entity_id);
+    }
+
+    void Scene::RenderPhysicsColliders() {
+        if (!mShowPhysicsColliders) return;
+
+        auto view = mRegistry.view<TransformComponent, BoxCollider2DComponent>();
+        for (auto entity : view) {
+            auto [transform, bc2d] = view.get<TransformComponent, BoxCollider2DComponent>(entity);
+
+            glm::vec3 translation = transform.Translation + glm::vec3(bc2d.Offset, 0.001f);
+            glm::vec3 scale = transform.Scale * glm::vec3(bc2d.Size * 2.0f, 1.0f);
+
+            glm::mat4 transform_mat = glm::translate(glm::mat4(1.0f), translation)
+                                    * glm::rotate(glm::mat4(1.0f), transform.Rotation.z, glm::vec3(0.0f, 0.0f, 1.0f))
+                                    * glm::scale(glm::mat4(1.0f), scale);
+
+            glm::vec3 p0 = transform_mat * glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f);
+            glm::vec3 p1 = transform_mat * glm::vec4( 0.5f, -0.5f, 0.0f, 1.0f);
+            glm::vec3 p2 = transform_mat * glm::vec4( 0.5f,  0.5f, 0.0f, 1.0f);
+            glm::vec3 p3 = transform_mat * glm::vec4(-0.5f,  0.5f, 0.0f, 1.0f);
+
+            glm::vec4 color = { 0.1f, 0.9f, 0.1f, 1.0f };
+            int entity_id = (int)entt::to_entity(entity);
+
+            Renderer2D::DrawLine(p0, p1, color, entity_id);
+            Renderer2D::DrawLine(p1, p2, color, entity_id);
+            Renderer2D::DrawLine(p2, p3, color, entity_id);
+            Renderer2D::DrawLine(p3, p0, color, entity_id);
+        }
     }
 
 } // namespace Loom

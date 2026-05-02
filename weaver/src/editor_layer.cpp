@@ -564,6 +564,18 @@ namespace Weaver {
             ImGui::ColorEdit4("Minor Color", glm::value_ptr(mGridSettings.MinorColor));
             ImGui::ColorEdit4("Major Color", glm::value_ptr(mGridSettings.MajorColor));
 
+            ImGui::Spacing();
+            ImGui::TextDisabled("PHYSICS");
+            ImGui::Separator();
+
+            bool show_colliders = mActiveScene->IsShowingPhysicsColliders();
+            if (ImGui::Checkbox("Show Colliders", &show_colliders)) {
+                mEditorScene->SetShowPhysicsColliders(show_colliders);
+                if (mActiveScene != mEditorScene) {
+                    mActiveScene->SetShowPhysicsColliders(show_colliders);
+                }
+            }
+
             ImGui::EndPopup();
         }
 

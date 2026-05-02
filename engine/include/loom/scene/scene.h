@@ -40,8 +40,12 @@ namespace Loom {
             return mRegistry.view<Components...>();
         }
 
+        void SetShowPhysicsColliders(bool show) { mShowPhysicsColliders = show; }
+        bool IsShowingPhysicsColliders() const { return mShowPhysicsColliders; }
+
     private:
         void DrawCameraFrustum(const TransformComponent& transform, const CameraComponent& camera);
+        void RenderPhysicsColliders();
 
     private:
         entt::registry mRegistry;
@@ -50,6 +54,8 @@ namespace Loom {
         std::shared_ptr<Texture2D> mCameraIcon;
 
         b2WorldId mPhysicsWorld = b2_nullWorldId;
+
+        bool mShowPhysicsColliders = false;
 
         friend class Entity;
         friend class SceneHierarchyPanel;
