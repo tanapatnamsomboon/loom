@@ -857,6 +857,7 @@ namespace Weaver {
     void EditorLayer::OnScenePlay() {
         mSceneState  = SceneState::Play;
         mActiveScene = Loom::Scene::Copy(mEditorScene);
+        mActiveScene->OnRuntimeStart();
         mSceneHierarchyPanel.SetContext(mActiveScene);
     }
 

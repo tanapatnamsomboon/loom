@@ -5,6 +5,7 @@
 #include "loom/core/uuid.h"
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/texture.h"
+#include <box2d/id.h>
 #include <entt/entt.hpp>
 #include <unordered_map>
 
@@ -24,6 +25,7 @@ namespace Loom {
         void                          OnViewportResize(uint32_t width, uint32_t height);
 
         void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
+        void OnRuntimeStart();
         void OnUpdateRuntime(Timestep ts);
         void OnRuntimeStop();
 
@@ -46,6 +48,8 @@ namespace Loom {
 
         std::unordered_map<UUID, entt::entity> mEntityMap;
         std::shared_ptr<Texture2D> mCameraIcon;
+
+        b2WorldId mPhysicsWorld = b2_nullWorldId;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

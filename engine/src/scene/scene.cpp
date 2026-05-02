@@ -5,6 +5,7 @@
 #include "loom/renderer/renderer_2d.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
+#include <box2d/box2d.h>
 
 namespace Loom {
     Scene::Scene() {
@@ -53,7 +54,14 @@ namespace Loom {
             auto& src_nsc = src_registry.get<NativeScriptComponent>(entity);
             auto& dst_nsc = dst_registry.emplace_or_replace<NativeScriptComponent>(dst_entity_id, src_nsc);
             dst_nsc.Instance = nullptr;
+
+            if (!dst_nsc.ScriptName.empty()) {
+                dst_nsc.BindByName(dst_nsc.ScriptName);
+            }
         }
+
+        CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
 
         return new_scene;
     }
@@ -131,6 +139,48 @@ namespace Loom {
         Renderer2D::EndScene();
     }
 
+    void Scene::OnRuntimeStart() {
+        b2WorldDef world_def = b2DefaultWorldDef();
+        world_def.gravity = (b2Vec2){ 0.0f, -9.8f };
+        mPhysicsWorld = b2CreateWorld(&world_def);
+
+        auto view = mRegistry.view<Rigidbody2DComponent>();
+        for (auto e : view) {
+            Entity entity = { e, this };
+            auto& transform = entity.GetComponent<TransformComponent>();
+            auto& rb2d = entity.GetComponent<Rigidbody2DComponent>();
+
+            b2BodyDef body_def = b2DefaultBodyDef();
+            if (rb2d.Type == Rigidbody2DComponent::BodyType::Static) body_def.type = b2_staticBody;
+            else if (rb2d.Type == Rigidbody2DComponent::BodyType::Dynamic) body_def.type = b2_dynamicBody;
+            else body_def.type = b2_kinematicBody;
+
+            body_def.position = { transform.Translation.x, transform.Translation.y };
+            body_def.rotation = b2MakeRot(transform.Rotation.z);
+            body_def.motionLocks.angularZ = rb2d.FixedRotation;
+
+            rb2d.RuntimeBody = b2CreateBody(mPhysicsWorld, &body_def);
+
+            if (entity.HasComponent<BoxCollider2DComponent>()) {
+                auto& bc2d = entity.GetComponent<BoxCollider2DComponent>();
+
+                b2ShapeDef shape_def = b2DefaultShapeDef();
+                shape_def.density = bc2d.Density;
+                shape_def.material.friction = bc2d.Friction;
+                shape_def.material.restitution = bc2d.Restitution;
+
+                b2Polygon box = b2MakeOffsetBox(
+                    bc2d.Size.x * transform.Scale.x,
+                    bc2d.Size.y * transform.Scale.y,
+                    { bc2d.Offset.x, bc2d.Offset.y },
+                    b2MakeRot(0.0f)
+                );
+
+                bc2d.RuntimeFixture = b2CreatePolygonShape(rb2d.RuntimeBody, &shape_def, &box);
+            }
+        }
+    }
+
     void Scene::OnUpdateRuntime(Timestep ts) {
         // 1. Update Scripts
         mRegistry.view<NativeScriptComponent>().each([&](entt::entity entity_id, NativeScriptComponent& nsc) {
@@ -153,6 +203,24 @@ namespace Loom {
         });
 
         // 2. Update Physics
+        if (b2World_IsValid(mPhysicsWorld)) {
+            int32_t sub_step_count = 4;
+            b2World_Step(mPhysicsWorld, ts, sub_step_count);
+
+            auto view = mRegistry.view<Rigidbody2DComponent>();
+            for (auto e : view) {
+                Entity entity = { e, this };
+                auto& transform = entity.GetComponent<TransformComponent>();
+                auto& rb2d      = entity.GetComponent<Rigidbody2DComponent>();
+
+                b2Vec2 position = b2Body_GetPosition(rb2d.RuntimeBody);
+                b2Rot  rotation = b2Body_GetRotation(rb2d.RuntimeBody);
+
+                transform.Translation.x = position.x;
+                transform.Translation.y = position.y;
+                transform.Rotation.z = b2Rot_GetAngle(rotation);
+            }
+        }
 
         // 3. Find the primary camera
         Camera*   main_camera = nullptr;
@@ -195,6 +263,11 @@ namespace Loom {
                 nsc.DestroyScript(&nsc);
             }
         });
+
+        if (b2World_IsValid(mPhysicsWorld)) {
+            b2DestroyWorld(mPhysicsWorld);
+            mPhysicsWorld = b2_nullWorldId;
+        }
     }
 
     void Scene::DrawCameraFrustum(const TransformComponent& transform_component, const CameraComponent& camera_component) {

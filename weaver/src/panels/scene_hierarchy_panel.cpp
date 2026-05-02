@@ -135,6 +135,20 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!mSelectionContext.HasComponent<Loom::Rigidbody2DComponent>()) {
+                if (ImGui::MenuItem("Rigidbody 2D")) {
+                    mSelectionContext.AddComponent<Loom::Rigidbody2DComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            if (!mSelectionContext.HasComponent<Loom::BoxCollider2DComponent>()) {
+                if (ImGui::MenuItem("Box Collider 2D")) {
+                    mSelectionContext.AddComponent<Loom::BoxCollider2DComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
             ImGui::EndPopup();
         }
 
@@ -325,6 +339,81 @@ namespace Weaver {
 
             if (remove_component) {
                 entity.RemoveComponent<Loom::NativeScriptComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        // Rigidbody 2D Component
+        if (entity.HasComponent<Loom::Rigidbody2DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::Rigidbody2DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Rigidbody 2D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& rb2d = entity.GetComponent<Loom::Rigidbody2DComponent>();
+                bool  is_modified = false;
+
+                const char* body_type_strings[] = { "Static", "Dynamic", "Kinematic" };
+                const char* current_body_type_string = body_type_strings[(int)rb2d.Type];
+
+                if (ImGui::BeginCombo("Body Type", current_body_type_string)) {
+                    for (int i = 0; i < 3; i++) {
+                        bool is_selected = current_body_type_string == body_type_strings[i];
+                        if (ImGui::Selectable(body_type_strings[i], is_selected)) {
+                            current_body_type_string = body_type_strings[i];
+                            rb2d.Type = (Loom::Rigidbody2DComponent::BodyType)i;
+                            is_modified = true;
+                        }
+                        if (is_selected) ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                is_modified |= ImGui::Checkbox("Fixed Rotation", &rb2d.FixedRotation);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::Rigidbody2DComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        // Box Collider 2D Component
+        if (entity.HasComponent<Loom::BoxCollider2DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::BoxCollider2DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Box Collider 2D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& bc2d = entity.GetComponent<Loom::BoxCollider2DComponent>();
+                bool  is_modified = false;
+
+                is_modified |= ImGui::DragFloat2("Offset", glm::value_ptr(bc2d.Offset), 0.05f);
+                is_modified |= ImGui::DragFloat2("Size", glm::value_ptr(bc2d.Size), 0.05f);
+                is_modified |= ImGui::DragFloat("Density", &bc2d.Density, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Friction", &bc2d.Friction, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Restitution", &bc2d.Restitution, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Restitution Threshold", &bc2d.RestitutionThreshold, 0.01f, 0.0f);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::BoxCollider2DComponent>();
                 if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
         }

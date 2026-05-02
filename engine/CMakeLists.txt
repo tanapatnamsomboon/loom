@@ -61,6 +61,7 @@ target_include_directories(Loom
     include
   PRIVATE
     src
+    vendor/box2d/include
 )
 target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
 target_link_libraries(Loom
@@ -74,6 +75,7 @@ target_link_libraries(Loom
   EnTT::EnTT
   imguizmo
   yaml-cpp
+  box2d
 )
 
 if (WIN32)

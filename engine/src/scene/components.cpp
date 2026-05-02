@@ -5,6 +5,12 @@
 namespace Loom {
 
     void NativeScriptComponent::BindByName(const std::string& name) {
+        if (name.empty()) {
+            InstantiateScript = nullptr;
+            DestroyScript = nullptr;
+            return;
+        }
+
         if (!ScriptRegistry::Contains(name)) {
             LOOM_CORE_ERROR("NativeScriptComponent::BindByName: '{}' not found in registry.", name);
             return;

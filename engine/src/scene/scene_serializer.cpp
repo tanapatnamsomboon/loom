@@ -175,6 +175,30 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Rigidbody 2D Component
+        if (entity.HasComponent<Rigidbody2DComponent>()) {
+            out << YAML::Key << "Rigidbody2DComponent";
+            out << YAML::BeginMap;
+            auto& rb2d = entity.GetComponent<Rigidbody2DComponent>();
+            out << YAML::Key << "BodyType" << YAML::Value << (int)rb2d.Type;
+            out << YAML::Key << "FixedRotation" << YAML::Value << rb2d.FixedRotation;
+            out << YAML::EndMap;
+        }
+
+        // Box Collider 2D Component
+        if (entity.HasComponent<BoxCollider2DComponent>()) {
+            out << YAML::Key << "BoxCollider2DComponent";
+            out << YAML::BeginMap;
+            auto& bc2d = entity.GetComponent<BoxCollider2DComponent>();
+            out << YAML::Key << "Offset" << YAML::Value << bc2d.Offset;
+            out << YAML::Key << "Size" << YAML::Value << bc2d.Size;
+            out << YAML::Key << "Density" << YAML::Value << bc2d.Density;
+            out << YAML::Key << "Friction" << YAML::Value << bc2d.Friction;
+            out << YAML::Key << "Restitution" << YAML::Value << bc2d.Restitution;
+            out << YAML::Key << "RestitutionThreshold" << YAML::Value << bc2d.RestitutionThreshold;
+            out << YAML::EndMap;
+        }
+
         out << YAML::EndMap;
     }
 
@@ -291,7 +315,27 @@ namespace Loom {
             if (auto nsc_node = entity_node["NativeScriptComponent"]) {
                 auto& nsc         = entity.AddComponent<NativeScriptComponent>();
                 auto  script_name = YAML_GET(nsc_node["ScriptName"], std::string, "");
-                nsc.BindByName(script_name);
+                if (!script_name.empty()) {
+                    nsc.BindByName(script_name);
+                }
+            }
+
+            // Rigidbody 2D Component
+            if (auto rb2d_node = entity_node["Rigidbody2DComponent"]) {
+                auto& rb2d = entity.AddComponent<Rigidbody2DComponent>();
+                rb2d.Type = (Rigidbody2DComponent::BodyType)YAML_GET(rb2d_node["BodyType"], int, 0);
+                rb2d.FixedRotation = YAML_GET(rb2d_node["FixedRotation"], bool, false);
+            }
+
+            // Box Collider 2D Component
+            if (auto bc2d_node = entity_node["BoxCollider2DComponent"]) {
+                auto& bc2d = entity.AddComponent<BoxCollider2DComponent>();
+                bc2d.Offset = YAML_GET(bc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
+                bc2d.Size = YAML_GET(bc2d_node["Size"], glm::vec2, glm::vec2(0.5f));
+                bc2d.Density = YAML_GET(bc2d_node["Density"], float, 1.0f);
+                bc2d.Friction = YAML_GET(bc2d_node["Friction"], float, 0.5f);
+                bc2d.Restitution = YAML_GET(bc2d_node["Restitution"], float, 0.0f);
+                bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
             }
         }
 

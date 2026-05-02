@@ -4,6 +4,7 @@
 #include "loom/renderer/texture.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
+#include <box2d/id.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
@@ -81,6 +82,35 @@ namespace Loom {
 
         void BindByName(const std::string& name);
         bool IsValid() const { return InstantiateScript != nullptr; }
+    };
+
+    struct Rigidbody2DComponent {
+        enum class BodyType { Static = 0, Dynamic = 1, Kinematic = 2 };
+        BodyType Type = BodyType::Static;
+        bool FixedRotation = false;
+
+        // Storage for Box2D runtime body
+        b2BodyId RuntimeBody = b2_nullBodyId;
+
+        Rigidbody2DComponent() = default;
+        Rigidbody2DComponent(const Rigidbody2DComponent&) = default;
+    };
+
+    struct BoxCollider2DComponent {
+        glm::vec2 Offset = { 0.0f, 0.0f };
+        glm::vec2 Size   = { 0.5f, 0.5f }; // Box2D uses half-extents
+
+        // Physics Material properties
+        float Density              = 1.0f;
+        float Friction             = 0.5f;
+        float Restitution          = 0.0f; // Bounciness
+        float RestitutionThreshold = 0.5f;
+
+        // Storage for Box2D runtime fixture
+        b2ShapeId RuntimeFixture = b2_nullShapeId;
+
+        BoxCollider2DComponent() = default;
+        BoxCollider2DComponent(const BoxCollider2DComponent&) = default;
     };
 
 } // namespace Loom

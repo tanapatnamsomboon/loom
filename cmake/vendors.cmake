@@ -80,3 +80,11 @@ target_link_libraries(imguizmo PRIVATE imgui)
 # nativefiledialog-extended
 # -----------------------------------------------------------------------------
 add_subdirectory(vendor/nativefiledialog-extended)
+
+# -----------------------------------------------------------------------------
+# Box2D
+# -----------------------------------------------------------------------------
+set(BOX2D_BUILD_TESTBED OFF CACHE INTERNAL "")
+set(BOX2D_BUILD_UNIT_TESTS OFF CACHE INTERNAL "")
+set(BOX2D_BUILD_DOCS OFF CACHE INTERNAL "")
+add_subdirectory(vendor/box2d)
