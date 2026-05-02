@@ -922,16 +922,45 @@ namespace Weaver {
 
     void EditorLayer::OnScenePlay() {
         mSceneState  = SceneState::Play;
+
+        Loom::Entity selected_entity = mSceneHierarchyPanel.GetSelectedEntity();
+        bool has_selection = (bool)selected_entity;
+        uint64_t selected_uuid = 0;
+        if (has_selection) {
+            selected_uuid = (uint64_t)selected_entity.GetComponent<Loom::IDComponent>().ID;
+        }
+
         mActiveScene = Loom::Scene::Copy(mEditorScene);
         mActiveScene->OnRuntimeStart();
         mSceneHierarchyPanel.SetContext(mActiveScene);
+
+        if (has_selection) {
+            Loom::Entity runtime_entity = mActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
+            if (runtime_entity) {
+                mSceneHierarchyPanel.SetSelectedEntity(runtime_entity);
+            }
+        }
     }
 
     void EditorLayer::OnSceneStop() {
+        Loom::Entity selected_entity = mSceneHierarchyPanel.GetSelectedEntity();
+        bool has_selection = (bool)selected_entity;
+        uint64_t selected_uuid = 0;
+        if (has_selection) {
+            selected_uuid = (uint64_t)selected_entity.GetComponent<Loom::IDComponent>().ID;
+        }
+
         mActiveScene->OnRuntimeStop();
         mSceneState  = SceneState::Edit;
         mActiveScene = mEditorScene;
         mSceneHierarchyPanel.SetContext(mActiveScene);
+
+        if (has_selection) {
+            Loom::Entity editor_entity = mActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
+            if (editor_entity) {
+                mSceneHierarchyPanel.SetSelectedEntity(editor_entity);
+            }
+        }
     }
 
 #pragma endregion
