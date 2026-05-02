@@ -106,6 +106,7 @@ namespace Weaver {
         glm::vec2                          mViewportBounds[2];
 
         int mGizmoType = -1;
+        int mGizmoMode = 0; // 0 = Local, 1 = World
 
         std::string mCurrentScenePath;
 

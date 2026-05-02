@@ -15,6 +15,7 @@ namespace Loom {
         void Unbind() const override;
 
         void UploadUniformMat4(const std::string& name, const glm::mat4& matrix) override;
+        void UploadUniformFloat(const std::string& name, float value) override;
         void UploadUniformFloat4(const std::string& name, const glm::vec4& values) override;
         void UploadUniformFloat3(const std::string& name, const glm::vec3& values) override;
         void UploadUniformInt(const std::string& name, int value) override;

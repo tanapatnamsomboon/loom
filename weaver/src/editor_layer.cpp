@@ -181,13 +181,19 @@ namespace Weaver {
 
             // Render Grid
             glm::vec3 camera_pos = mEditorCamera.GetPosition();
-
             glm::mat4 grid_transform = glm::translate(glm::mat4(1.0f), { camera_pos.x, 0.0f, camera_pos.z }) * glm::scale(glm::mat4(1.0f), { 150.0f, 1.0f, 150.0f });
 
             mGridShader->Bind();
             mGridShader->UploadUniformMat4("uViewProjection", mEditorCamera.GetViewProjectionMatrix());
             mGridShader->UploadUniformMat4("uTransform", grid_transform);
             mGridShader->UploadUniformFloat3("uCameraPosition", camera_pos);
+            mGridShader->UploadUniformFloat("uMinorScale", mGridSettings.MinorScale);
+            mGridShader->UploadUniformFloat("uMajorScale", mGridSettings.MajorScale);
+            mGridShader->UploadUniformFloat("uLineThickness", mGridSettings.LineThickness);
+            mGridShader->UploadUniformFloat("uFadeStart", mGridSettings.FadeStart);
+            mGridShader->UploadUniformFloat("uFadeEnd", mGridSettings.FadeEnd);
+            mGridShader->UploadUniformFloat4("uMinorColor", mGridSettings.MinorColor);
+            mGridShader->UploadUniformFloat4("uMajorColor", mGridSettings.MajorColor);
 
             Loom::RenderCommand::DrawIndexed(mGridVAO.get(), 6);
         }
@@ -466,44 +472,104 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderToolbar() {
-        ImVec2 content_min = ImGui::GetWindowContentRegionMin();
-        ImVec2 content_max = ImGui::GetWindowContentRegionMax();
+        float viewport_width = mViewportBounds[1].x - mViewportBounds[0].x;
+        float center_x = mViewportBounds[0].x + (viewport_width * 0.5f);
+        float top_y = mViewportBounds[0].y + 15.0f;
 
-        float button_width = 60.0f;
-        float button_height = 28.0f;
-        float y_offset = 10.0f;
+        ImGui::SetNextWindowPos(ImVec2(center_x, top_y), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
 
-        float cursor_x = content_min.x + (content_max.x - content_min.x) * 0.5f - (button_width * 0.5f);
-        float cursor_y = content_min.y + y_offset;
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                                        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+                                        ImGuiWindowFlags_NoMove;
 
-        ImGui::SetCursorPos(ImVec2(cursor_x, cursor_y));
-
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, button_height * 0.2f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 0.9f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 8.0f));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.12f, 0.12f, 0.90f));
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
 
-        bool has_active_scene = Loom::Project::GetActive() != nullptr;
+        ImGui::Begin("##Toolbar", nullptr, window_flags);
 
-        if (!has_active_scene) {
-            ImGui::BeginDisabled();
-        }
+        float button_height = 28.0f;
 
         if (mSceneState == SceneState::Edit) {
-            if (ImGui::Button("Play", ImVec2(button_width, button_height)))
-                OnScenePlay();
-        } else if (mSceneState == SceneState::Play) {
-            if (ImGui::Button("Stop", ImVec2(button_width, button_height)))
-                OnSceneStop();
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
+
+            if (ImGui::RadioButton("Select", mGizmoType == -1)) mGizmoType = -1;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Move", mGizmoType == ImGuizmo::OPERATION::TRANSLATE)) mGizmoType = ImGuizmo::OPERATION::TRANSLATE;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Rotate", mGizmoType == ImGuizmo::OPERATION::ROTATE)) mGizmoType = ImGuizmo::OPERATION::ROTATE;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Scale", mGizmoType == ImGuizmo::OPERATION::SCALE)) mGizmoType = ImGuizmo::OPERATION::SCALE;
+
+            ImGui::SameLine(0, 15.0f);
+
+            const char* modes[] = { "Local", "World" };
+            if (ImGui::Button(modes[mGizmoMode], ImVec2(60.0f, button_height))) {
+                mGizmoMode = mGizmoMode == 0 ? 1 : 0;
+            }
+            ImGui::PopStyleVar();
+
+            ImGui::SameLine(0, 25.0f);
         }
 
-        if (!has_active_scene) {
-            ImGui::EndDisabled();
+        bool has_active_scene = Loom::Project::GetActive() != nullptr;
+        if (!has_active_scene) ImGui::BeginDisabled();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.5f, 0.1f, 1.0f));
+
+        float button_width = 80.0f;
+
+        if (mSceneState == SceneState::Edit) {
+            if (ImGui::Button("Play", ImVec2(button_width, button_height))) OnScenePlay();
+        } else if (mSceneState == SceneState::Play) {
+            ImGui::PopStyleColor(3);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
+
+            if (ImGui::Button("Stop", ImVec2(button_width, button_height))) OnSceneStop();
         }
 
         ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar(2);
+
+        if (!has_active_scene) ImGui::EndDisabled();
+
+        ImGui::SameLine(0, 25.0f);
+        if (ImGui::Button("Settings", ImVec2(90.0f, button_height))) {
+            ImGui::OpenPopup("EditorSettingsPopup");
+        }
+
+        ImGui::PopStyleVar();
+
+        if (ImGui::BeginPopup("EditorSettingsPopup")) {
+            ImGui::TextDisabled("CAMERA");
+            ImGui::Separator();
+            float cam_speed = mEditorCamera.GetCameraSpeed();
+            if (ImGui::DragFloat("Fly Speed", &cam_speed, 0.1f, 0.1f, 100.0f)) {
+                mEditorCamera.SetCameraSpeed(cam_speed);
+            }
+
+            ImGui::Spacing();
+            ImGui::TextDisabled("EDITOR GRID");
+            ImGui::Separator();
+            ImGui::DragFloat("Minor Scale", &mGridSettings.MinorScale, 0.1f, 0.1f, 10.0f);
+            ImGui::DragFloat("Major Scale", &mGridSettings.MajorScale, 0.1f, 1.0f, 100.0f);
+            ImGui::DragFloat("Thickness", &mGridSettings.LineThickness, 0.05f, 0.1f, 5.0f);
+            ImGui::ColorEdit4("Minor Color", glm::value_ptr(mGridSettings.MinorColor));
+            ImGui::ColorEdit4("Major Color", glm::value_ptr(mGridSettings.MajorColor));
+
+            ImGui::EndPopup();
+        }
+
+        ImGui::End();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(3);
     }
 
     void EditorLayer::RenderViewport() {
@@ -575,7 +641,7 @@ namespace Weaver {
         float snap_value     = (mGizmoType == ImGuizmo::OPERATION::ROTATE) ? 45.0f : 0.5f;
         float snap_values[3] = { snap_value, snap_value, snap_value };
 
-        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), (ImGuizmo::OPERATION)mGizmoType, ImGuizmo::LOCAL, glm::value_ptr(transform), nullptr, snap ? snap_values : nullptr);
+        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), (ImGuizmo::OPERATION)mGizmoType, (ImGuizmo::MODE)mGizmoMode, glm::value_ptr(transform), nullptr, snap ? snap_values : nullptr);
 
         if (ImGuizmo::IsUsing()) {
             mSceneDirty = true;

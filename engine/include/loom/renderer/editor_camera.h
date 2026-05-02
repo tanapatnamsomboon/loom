@@ -26,6 +26,9 @@ namespace Loom {
 
         void ResetMousePosition() { mInitialMousePosition = { Input::GetMouseX(), Input::GetMouseY() }; }
 
+        float GetCameraSpeed() const { return mCameraSpeed; }
+        void SetCameraSpeed(float speed) { mCameraSpeed = speed; }
+
     private:
         void UpdateProjection();
         void UpdateView();
