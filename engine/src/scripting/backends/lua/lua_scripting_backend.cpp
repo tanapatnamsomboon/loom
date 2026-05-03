@@ -130,13 +130,25 @@ namespace {
 
     void LuaScriptingBackend::OnRuntimeStart(Scene* scene) {
         mActiveScene = scene;
+        mFileWatcher = std::make_unique<FileWatcher>();
 
         auto view = scene->GetAllEntitiesWith<LuaScriptComponent>();
-        for (auto entity_id : view)
+        for (auto entity_id : view) {
             LoadEntityScript(entity_id, scene);
+
+            Entity entity = { entity_id, scene };
+            auto& lsc = entity.GetComponent<LuaScriptComponent>();
+            std::string full_path = Project::GetAssetFileSystemPath(lsc.ScriptPath).generic_string();
+            mFileWatcher->Watch(full_path);
+        }
     }
 
     void LuaScriptingBackend::OnRuntimeUpdate(Timestep ts, Scene* scene) {
+        if (mFileWatcher) {
+            for (const auto& path : mFileWatcher->FlushChanges())
+                OnFileChanged(path);
+        }
+
         auto view = scene->GetAllEntitiesWith<LuaScriptComponent>();
         for (auto entity_id : view) {
             auto it = mScriptInstances.find(entity_id);
@@ -158,6 +170,8 @@ namespace {
     }
 
     void LuaScriptingBackend::OnRuntimeStop() {
+        mFileWatcher.reset();
+
         for (auto& [entity_id, env] : mScriptInstances) {
             sol::protected_function on_destroy = env["OnDestroy"];
             if (on_destroy.valid()) {

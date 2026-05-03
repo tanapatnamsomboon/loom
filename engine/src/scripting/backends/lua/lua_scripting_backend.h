@@ -1,9 +1,11 @@
 #pragma once
 
 #include "scripting/backends/scripting_backend.h"
+#include "scripting/file_watcher.h"
 #include <sol/sol.hpp>
 #include <entt/entt.hpp>
 #include <unordered_map>
+#include <memory>
 
 namespace Loom {
 
@@ -26,6 +28,7 @@ namespace Loom {
         sol::state mLua;
         std::unordered_map<entt::entity, sol::environment> mScriptInstances;
         Scene* mActiveScene = nullptr;
+        std::unique_ptr<FileWatcher> mFileWatcher;
     };
 
 } // namespace Loom

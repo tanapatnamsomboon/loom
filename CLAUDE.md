@@ -136,7 +136,7 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 Keep this section current. Mark completed items with `[x]`, update priorities as the project evolves.
 
 ## Near-term
-- [ ] **Lua file watcher** — Automatically call `ScriptingEngine::OnFileChanged` when a `.lua` asset changes on disk. Background thread polling `std::filesystem::last_write_time` is the portable approach; `ReadDirectoryChangesW` for a native Windows implementation.
+- [x] **Lua file watcher** — Background thread polls `std::filesystem::last_write_time` per `.lua` script path; changes are queued thread-safely and drained on the main thread in `OnRuntimeUpdate`, then forwarded to the existing `OnFileChanged` hot-reload logic. Owned by `LuaScriptingBackend` (`engine/src/scripting/file_watcher.h/.cpp`).
 - [ ] **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`. Wire into the physics system, serializer, and inspector alongside `BoxCollider2DComponent`.
 - [ ] **Entity parent-child hierarchy** — Parent entity reference on `TransformComponent`; child transforms computed relative to parent. Required for most non-trivial scene graphs.
 
