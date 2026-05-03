@@ -5,6 +5,8 @@
 #include <nfd.hpp>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <loom/project/project.h>
+#include <loom/scripting/scripting_engine.h>
 #include <filesystem>
 
 namespace Weaver {
@@ -442,26 +444,71 @@ namespace Weaver {
                 char buffer[256] = {};
                 strncpy(buffer, ls.ScriptPath.c_str(), sizeof(buffer) - 1);
 
-                if (ImGui::InputText("Script Path", buffer, sizeof(buffer))) {
-                    ls.ScriptPath = std::string(buffer);
-                    is_modified = true;
+                // Script row: label | input (fill) | browse button
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Script");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                if (ImGui::InputText("##LuaScriptPath", buffer, sizeof(buffer))) {
+                    ls.ScriptPath = buffer;
+                    is_modified   = true;
                 }
-
                 if (ImGui::BeginDragDropTarget()) {
                     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                         std::filesystem::path dropped((const char*)payload->Data);
                         if (dropped.extension() == ".lua") {
                             ls.ScriptPath = dropped.generic_string();
-                            is_modified = true;
+                            is_modified   = true;
                         }
                     }
                     ImGui::EndDragDropTarget();
                 }
-
-                ImGui::TextDisabled("Status: %s", ls.ScriptPath.empty() ? "No Script" : "Loaded");
                 ImGui::SameLine();
-                if (ImGui::Button("Reload")) {
-                    is_modified = true;
+                if (ImGui::Button("...##LuaScriptBrowse", { browse_w, 0.0f })) {
+                    constexpr nfdfilteritem_t filters[] = {
+                        { "Lua Scripts", "lua" },
+                        { "All Files",   "*"   },
+                    };
+                    NFD::Guard      guard;
+                    NFD::UniquePath out_path;
+                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
+                        std::filesystem::path picked(out_path.get());
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        ls.ScriptPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                            ? rel.generic_string() : picked.generic_string();
+                        is_modified = true;
+                    }
+                }
+
+                // Status + actions row
+                if (ls.ScriptPath.empty()) {
+                    ImGui::TextDisabled("  Drop a .lua file or use '...' to browse");
+                } else {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 0.4f, 1.0f));
+                    ImGui::TextUnformatted("  \xe2\x97\x8f"); // UTF-8 ●
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(0.0f, 4.0f);
+                    std::string fname = std::filesystem::path(ls.ScriptPath).filename().string();
+                    ImGui::TextDisabled("%s", fname.c_str());
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("%s", ls.ScriptPath.c_str());
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("\xc3\x97##ClearScript")) { // UTF-8 ×
+                        ls.ScriptPath.clear();
+                        is_modified = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Clear script path");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Reload##LuaReload")) {
+                        auto full = Loom::Project::GetAssetFileSystemPath(ls.ScriptPath);
+                        Loom::ScriptingEngine::OnFileChanged(full.generic_string());
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Hot-reload script (only active during Play)");
                 }
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
