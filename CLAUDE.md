@@ -4,7 +4,7 @@ Before modifying or adding code, review the architecture and conventions below t
 
 # 1. Project Overview
 - **Name:** Loom Engine
-- **Language:** C++ (Standard: C++17 or later)
+- **Language:** C++ (Standard: C++20)
 - **Build System:** CMake (configured via `CMakeLists.txt` and `CMakePresets.json`)
 - **Graphics API:** OpenGL (wrapped inside a custom, abstract Renderer API)
 - **Namespace:** All engine types live in the `Loom::` namespace. All editor types live in `Weaver::`.
@@ -130,6 +130,59 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 
 # 9. Validation & Testing
 - **Validation & Testing:** Whenever you complete a feature, system, or a logical chunk of work, you MUST proactively provide a concrete way for me to test and validate those changes. This could be a short code snippet to insert into the `sandbox/` application, a specific UI action to perform in `weaver/`, or a simple debug log statement using `spdlog`. Do not leave me guessing how to verify the code.
+
+# 10. Development Roadmap
+
+Keep this section current. Mark completed items with `[x]`, update priorities as the project evolves.
+
+## Near-term
+- [ ] **Lua file watcher** — Automatically call `ScriptingEngine::OnFileChanged` when a `.lua` asset changes on disk. Background thread polling `std::filesystem::last_write_time` is the portable approach; `ReadDirectoryChangesW` for a native Windows implementation.
+- [ ] **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`. Wire into the physics system, serializer, and inspector alongside `BoxCollider2DComponent`.
+- [ ] **Entity parent-child hierarchy** — Parent entity reference on `TransformComponent`; child transforms computed relative to parent. Required for most non-trivial scene graphs.
+
+## Medium-term
+- [ ] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. No new vendor library needed.
+- [ ] **Prefab system** — Serialize a single entity (all components) to a `.lprefab` YAML file; instantiate from the editor and from Lua.
+- [ ] **Expanded Lua bindings** — Physics raycasts, entity lookup by tag, entity spawn/destroy from scripts, multi-argument `Log` functions.
+- [ ] **Audio system** — `AudioEngine` singleton + `AudioSourceComponent`. Candidate library: **miniaudio** (single-header C, no extra submodule overhead).
+
+## 3D Foundation
+The engine is structurally 3D-ready: `TransformComponent` uses `glm::vec3`, `EditorCamera` supports perspective navigation, and `SceneCamera` already has a perspective projection type. The following work brings full 3D rendering and physics online.
+
+- [ ] **Renderer3D** — New `engine/renderer/renderer_3d.h/.cpp` system (parallel to `Renderer2D`) for submitting and drawing meshes. Keeps 2D and 3D pipelines independent.
+- [ ] **Mesh loading** — Add **cgltf** submodule (`vendor/cgltf`, single C file) for GLTF/GLB import. Wrap in `engine/asset/` as `MeshLoader`. Add to vendor table below.
+- [ ] **Mesh & material components** — `MeshComponent` (path to a GLTF asset), `MeshRendererComponent` (mesh + material reference), `MaterialComponent` (albedo color/texture, roughness, metallic).
+- [ ] **Basic lighting** — `DirectionalLightComponent`, `PointLightComponent`. Phong shading pass in `Renderer3D` before moving to PBR.
+- [ ] **3D physics** — Add **Jolt Physics** submodule (`vendor/jolt`). Introduce a `PhysicsEngine3D` singleton alongside the existing Box2D 2D system. Add `Rigidbody3DComponent`, `BoxCollider3DComponent`, `SphereCollider3DComponent`.
+
+## Longer-term
+- [ ] **PBR shading** — Replace Phong with a physically-based rendering pipeline (metallic-roughness model). Requires IBL environment maps.
+- [ ] **Shadow mapping** — Directional shadow maps; cascaded shadow maps for large scenes.
+- [ ] **Asset hot-reload** — Detect texture, shader, and mesh file changes; reload through `AssetManager` without restarting the editor.
+- [ ] **Runtime game export** — Standalone executable with no editor layer; start scene loaded from project config.
+- [ ] **Tilemap support** — Tiled `.tmx` loading or a built-in tile editor panel in Weaver.
+
+## Graphics API & Platform Expansion
+
+Start this milestone only after the 3D Foundation is complete and stable. The abstract `RendererAPI` / `RenderCommand` layer is already designed for multi-backend support; platform implementations live in `platform/<api>/`. The window abstraction (`Window::Create()`, `GetNativeWindow()`) is already backend-agnostic. The main cross-cutting concern is the shader pipeline: adding a new API requires either offline compilation to that API's shader format or a cross-compilation step.
+
+Ordered by impact and implementation complexity:
+
+- [ ] **Vulkan** — First non-OpenGL backend. Cross-platform (Windows, Linux, macOS via MoltenVK). Add `platform/vulkan/` implementations. Requires: Vulkan SDK (system install, not a submodule) + **VMA** submodule (`vendor/vma`, Vulkan Memory Allocator) for buffer/image management + **vk-bootstrap** submodule (`vendor/vk-bootstrap`) to reduce init boilerplate. Shaders compiled from GLSL to SPIR-V offline via `glslang` or `shaderc`.
+- [ ] **DirectX 12** — Windows-only explicit API, pairs naturally after Vulkan since both are low-overhead and similar in design. No new submodule; uses the Windows SDK. Add `platform/directx12/`. Shaders compiled with `dxc` (HLSL → DXIL).
+- [ ] **Win32 window backend** — Native Win32 replacement for GLFW on Windows. Add `platform/win32/` window and input implementations. Removes the GLFW dependency from Windows shipping builds and enables tighter OS integration (raw input, DPI handling, etc.). Pair with DirectX 12 milestone.
+- [ ] **DirectX 11** — Compatibility tier for older Windows hardware. Simpler than DX12; consider only if legacy hardware support becomes a requirement.
+- [ ] **Metal** — macOS / iOS native API. Vulkan via MoltenVK already covers macOS, so this is low priority. Add `platform/metal/` only if MoltenVK overhead becomes measurable.
+- [ ] **Wayland native** — Linux-only. GLFW already supports Wayland via the `GLFW_PLATFORM_WAYLAND` flag; a full native Wayland backend without GLFW is very late-stage.
+
+## Candidate Vendor Libraries (not yet added)
+| Library | Submodule path | Purpose |
+|---|---|---|
+| miniaudio | `vendor/miniaudio` | Audio playback (single-header C) |
+| cgltf | `vendor/cgltf` | GLTF/GLB mesh loading (single-header C) |
+| Jolt Physics | `vendor/jolt` | 3D physics (C++17, MIT) |
+| VMA | `vendor/vma` | Vulkan Memory Allocator (required for Vulkan backend) |
+| vk-bootstrap | `vendor/vk-bootstrap` | Vulkan instance/device init boilerplate |
 
 # Your Mission
 When generating code, modifying files, or debugging:
