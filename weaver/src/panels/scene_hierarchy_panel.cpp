@@ -447,6 +447,17 @@ namespace Weaver {
                     is_modified = true;
                 }
 
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                        std::filesystem::path dropped((const char*)payload->Data);
+                        if (dropped.extension() == ".lua") {
+                            ls.ScriptPath = dropped.generic_string();
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+
                 ImGui::TextDisabled("Status: %s", ls.ScriptPath.empty() ? "No Script" : "Loaded");
                 ImGui::SameLine();
                 if (ImGui::Button("Reload")) {

@@ -64,6 +64,13 @@ namespace Weaver {
             ImGui::ImageButton(filename_string.c_str(), (ImTextureID)icon->GetRendererID(), { thumbnail_size, thumbnail_size }, { 0, 1 }, { 1, 0 });
             ImGui::PopStyleColor();
 
+            if (ImGui::BeginDragDropSource()) {
+                std::string relative_str = std::filesystem::relative(path, mBaseDirectory).generic_string();
+                ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM", relative_str.c_str(), relative_str.size() + 1);
+                ImGui::Text("%s", filename_string.c_str());
+                ImGui::EndDragDropSource();
+            }
+
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 if (directory_entry.is_directory()) {
                     mCurrentDirectory /= path.filename();

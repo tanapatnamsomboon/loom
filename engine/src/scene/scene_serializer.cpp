@@ -175,6 +175,22 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Lua Script Component
+        if (entity.HasComponent<LuaScriptComponent>()) {
+            out << YAML::Key << "LuaScriptComponent";
+            out << YAML::BeginMap;
+            auto& lsc = entity.GetComponent<LuaScriptComponent>();
+            std::string script_path = lsc.ScriptPath;
+            std::filesystem::path asset_dir = Project::GetAssetDirectory();
+            if (!asset_dir.empty() && !script_path.empty()) {
+                std::filesystem::path abs(script_path);
+                if (abs.is_absolute() && abs.string().find(asset_dir.string()) != std::string::npos)
+                    script_path = std::filesystem::relative(abs, asset_dir).generic_string();
+            }
+            out << YAML::Key << "ScriptPath" << YAML::Value << script_path;
+            out << YAML::EndMap;
+        }
+
         // Rigidbody 2D Component
         if (entity.HasComponent<Rigidbody2DComponent>()) {
             out << YAML::Key << "Rigidbody2DComponent";
@@ -318,6 +334,12 @@ namespace Loom {
                 if (!script_name.empty()) {
                     nsc.BindByName(script_name);
                 }
+            }
+
+            // Lua Script Component
+            if (auto lsc_node = entity_node["LuaScriptComponent"]) {
+                auto& lsc      = entity.AddComponent<LuaScriptComponent>();
+                lsc.ScriptPath = YAML_GET(lsc_node["ScriptPath"], std::string, "");
             }
 
             // Rigidbody 2D Component
