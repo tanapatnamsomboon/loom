@@ -241,7 +241,7 @@ namespace Loom {
         std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
         YAML::Node data;
         try {
-            data = YAML::LoadFile(filepath);
+            data = YAML::LoadFile(path.generic_string());
         } catch (const YAML::Exception& e) {
             LOOM_CORE_ERROR("SceneSerializer: failed to load '{}': '{}'", filepath, e.what());
             return false;

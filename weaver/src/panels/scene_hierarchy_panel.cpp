@@ -149,6 +149,13 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!mSelectionContext.HasComponent<Loom::LuaScriptComponent>()) {
+                if (ImGui::MenuItem("Lua Script")) {
+                    mSelectionContext.AddComponent<Loom::LuaScriptComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
             ImGui::EndPopup();
         }
 
@@ -414,6 +421,44 @@ namespace Weaver {
 
             if (remove_component) {
                 entity.RemoveComponent<Loom::BoxCollider2DComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        if (entity.HasComponent<Loom::LuaScriptComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::LuaScriptComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Lua Script");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& ls = entity.GetComponent<Loom::LuaScriptComponent>();
+                bool  is_modified = false;
+
+                char buffer[256] = {};
+                strncpy(buffer, ls.ScriptPath.c_str(), sizeof(buffer) - 1);
+
+                if (ImGui::InputText("Script Path", buffer, sizeof(buffer))) {
+                    ls.ScriptPath = std::string(buffer);
+                    is_modified = true;
+                }
+
+                ImGui::TextDisabled("Status: %s", ls.ScriptPath.empty() ? "No Script" : "Loaded");
+                ImGui::SameLine();
+                if (ImGui::Button("Reload")) {
+                    is_modified = true;
+                }
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::LuaScriptComponent>();
                 if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
         }

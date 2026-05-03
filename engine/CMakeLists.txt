@@ -45,6 +45,9 @@ set(ENGINE_SOURCES
   src/scene/scene_camera.cpp
   src/scene/scene_serializer.cpp
   src/scene/script_registry.cpp
+
+  src/scripting/scripting_engine.cpp
+  src/scripting/backends/lua/lua_scripting_backend.cpp
 )
 
 if (WIN32)

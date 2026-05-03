@@ -4,6 +4,7 @@
 #include "loom/core/log.h"
 #include "loom/renderer/renderer_2d.h"
 #include "loom/renderer/render_command.h"
+#include "loom/scripting/scripting_engine.h"
 
 namespace Loom {
 
@@ -22,9 +23,11 @@ namespace Loom {
 
         Renderer2D::Init();
         RenderCommand::Init();
+        ScriptingEngine::Init();
     }
 
     Application::~Application() {
+        ScriptingEngine::Shutdown();
         Renderer2D::Shutdown();
         AssetManager::Clear();
     }

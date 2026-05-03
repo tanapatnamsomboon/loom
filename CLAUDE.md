@@ -25,7 +25,7 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | Serialization | YAML-CPP | `yaml-cpp` |
 | File Dialogs | nativefiledialog-extended | `nfd` |
 | Scripting VM | Lua 5.4 | `lua` |
-| Lua C++ Bindings | sol2 v3.3.0 | `sol2` |
+| Lua C++ Bindings | sol2 v3.5.0 | `sol2` |
 
 # 3. Directory Structure Architecture
 
@@ -34,11 +34,30 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
 
 - `core/`: Application loop, LayerStack, Events system, Input, Window abstraction, Timestep, UUID, and core macros (`LOOM_BIND_EVENT_FN`, `LOOM_CORE_*` log macros).
 - `renderer/`: Abstract Renderer API, Shaders, Textures, Buffers, Framebuffers, VertexArray, Cameras (`OrthographicCamera`, `EditorCamera`), Renderer2D.
-- `scene/`: ECS implementation. Contains `scene.cpp`, `entity.cpp`, `components.h` (all component structs), `scene_serializer`, and `script_registry`.
+- `scene/`: ECS implementation. Contains `scene.cpp`, `entity.cpp`, `components.h` (all component structs including `LuaScriptComponent`), `scene_serializer`, and `script_registry`.
 - `asset/`: `AssetManager` — centralized loader/cache for shaders and textures.
 - `project/`: `Project` and `ProjectSerializer` — manage project config (name, asset directory, start scene).
 - `math/`: Engine math utilities (e.g., `Math::DecomposeTransform`).
 - `platform/`: Platform-specific implementations (e.g., `platform/opengl/` for OpenGL buffer/shader/texture implementations, `platform/windows/` for input and window).
+- `scripting/`: Scripting subsystem.
+  - `scripting_engine.h/.cpp` (public): Singleton facade. `Init()` creates the Lua backend; `Shutdown()` tears it down. `OnRuntimeStart/Update/Stop` are forwarded by `Scene`. Initialized automatically by `Application`.
+  - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnFileChanged`).
+  - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec3`, `Entity` (transform/tag accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
+
+### Lua Script API (for `LuaScriptComponent` scripts)
+Each script runs in an isolated `sol::environment`. The global `entity` is a handle to the owning entity.
+```lua
+function OnCreate()  end        -- called once at runtime start
+function OnUpdate(ts) end       -- called every frame; ts = delta time (seconds)
+function OnDestroy() end        -- called at runtime stop
+
+-- Available globals: entity, Input, Key, Mouse, Log, Vec3
+-- entity:GetTranslation() / SetTranslation(vec3)
+-- entity:GetRotation()    / SetRotation(vec3)
+-- entity:GetScale()       / SetScale(vec3)
+-- entity:GetTag() -> string
+-- Input.IsKeyPressed(Key.W), Input.GetMouseX(), etc.
+```
 
 ## `weaver/` — Editor Application
 Built on top of the engine. All editor code is in the `Weaver::` namespace.
@@ -101,8 +120,16 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
   - `docs:` — documentation only
 - **Message structure:** Concise subject line (imperative mood, ≤72 chars). For complex changes, add a short body explaining *what* changed and *why*.
 
-# 6. CLAUDE.md Maintenance
+# 7. Strict Context & File Access Limits
+- **VENDOR IS A BLACKBOX:** You are STRICTLY FORBIDDEN from reading, searching, or analyzing any files inside the `vendor/` directory.
+- Do not use commands like `cat`, `grep`, `rg`, or `ls` on `vendor/`.
+- Assume all third-party libraries in `vendor/` work correctly according to their standard public APIs. Do not waste context window reading their source code.
+
+# 8. CLAUDE.md Maintenance
 - **Auto-Update CLAUDE.md:** Continuously monitor the project's architectural changes, new vendor libraries, and coding conventions. Whenever a significant change occurs (e.g., integrating a new scripting language, adding a major core system, or changing architecture patterns), proactively update this `CLAUDE.md` file to reflect the current and accurate state of the Loom Engine. Do not wait to be asked.
+
+# 9. Validation & Testing
+- **Validation & Testing:** Whenever you complete a feature, system, or a logical chunk of work, you MUST proactively provide a concrete way for me to test and validate those changes. This could be a short code snippet to insert into the `sandbox/` application, a specific UI action to perform in `weaver/`, or a simple debug log statement using `spdlog`. Do not leave me guessing how to verify the code.
 
 # Your Mission
 When generating code, modifying files, or debugging:

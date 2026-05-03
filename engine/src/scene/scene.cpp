@@ -5,6 +5,7 @@
 #include "loom/renderer/renderer_2d.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
+#include "loom/scripting/scripting_engine.h"
 #include <box2d/box2d.h>
 
 namespace Loom {
@@ -60,6 +61,7 @@ namespace Loom {
             }
         }
 
+        CopyComponent<LuaScriptComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
 
@@ -142,6 +144,8 @@ namespace Loom {
     }
 
     void Scene::OnRuntimeStart() {
+        ScriptingEngine::OnRuntimeStart(this);
+
         b2WorldDef world_def = b2DefaultWorldDef();
         world_def.gravity = (b2Vec2){ 0.0f, -9.8f };
         mPhysicsWorld = b2CreateWorld(&world_def);
@@ -185,6 +189,8 @@ namespace Loom {
 
     void Scene::OnUpdateRuntime(Timestep ts) {
         // 1. Update Scripts
+        ScriptingEngine::OnRuntimeUpdate(ts, this);
+
         mRegistry.view<NativeScriptComponent>().each([&](entt::entity entity_id, NativeScriptComponent& nsc) {
             if (!nsc.IsValid())
                 return;
@@ -261,6 +267,8 @@ namespace Loom {
     }
 
     void Scene::OnRuntimeStop() {
+        ScriptingEngine::OnRuntimeStop();
+
         mRegistry.view<NativeScriptComponent>().each([](NativeScriptComponent& nsc) {
             if (nsc.Instance) {
                 nsc.Instance->OnDestroy();

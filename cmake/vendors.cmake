@@ -106,6 +106,10 @@ endif()
 
 # -----------------------------------------------------------------------------
 # sol2 v3.3.0 (header-only)
+# sol2 headers include <lua.h> directly, so lua must be an INTERFACE dependency
+# so that lua's public include directory (vendor/lua) is on the include path
+# for every target that pulls in sol2.
 # -----------------------------------------------------------------------------
 add_library(sol2 INTERFACE)
 target_include_directories(sol2 INTERFACE vendor/sol2/include)
+target_link_libraries(sol2 INTERFACE lua)

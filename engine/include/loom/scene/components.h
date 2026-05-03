@@ -96,6 +96,16 @@ namespace Loom {
         Rigidbody2DComponent(const Rigidbody2DComponent&) = default;
     };
 
+    struct LuaScriptComponent {
+        // Absolute path at runtime; relative to asset directory when serialized (like textures).
+        std::string ScriptPath;
+
+        LuaScriptComponent()                          = default;
+        LuaScriptComponent(const LuaScriptComponent&) = default;
+        LuaScriptComponent(const std::string& path)
+            : ScriptPath(path) {}
+    };
+
     struct BoxCollider2DComponent {
         glm::vec2 Offset = { 0.0f, 0.0f };
         glm::vec2 Size   = { 0.5f, 0.5f }; // Box2D uses half-extents

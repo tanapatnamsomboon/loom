@@ -1,5 +1,6 @@
 #pragma once
 
+#include "loom/core/core.h"
 #include <string>
 #include <filesystem>
 #include <memory>
@@ -12,7 +13,7 @@ namespace Loom {
         std::filesystem::path AssetDirectory;
     };
 
-    class Project {
+    class LOOM_API Project {
     public:
         const std::filesystem::path& GetProjectDirectory() const { return mProjectDirectory; }
         void SetProjectDirectory(const std::filesystem::path& path) { mProjectDirectory = path; }
