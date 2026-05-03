@@ -1,0 +1,37 @@
+# .claudeignore
+
+# 3rd Party Libraries
+vendor/
+
+# Build and Output Directories
+build/
+out/
+bin/
+bin-int/
+.vs/
+.cache/
+
+# CMake Generated Files
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+Makefile
+
+# Compiled Object Files
+*.o
+*.obj
+*.dll
+*.exe
+*.lib
+*.a
+
+# Project Files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Editor / OS Files
+.vscode/
+.idea/
+.DS_Store
