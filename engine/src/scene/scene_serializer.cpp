@@ -215,6 +215,20 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Circle Collider 2D Component
+        if (entity.HasComponent<CircleCollider2DComponent>()) {
+            out << YAML::Key << "CircleCollider2DComponent";
+            out << YAML::BeginMap;
+            auto& cc2d = entity.GetComponent<CircleCollider2DComponent>();
+            out << YAML::Key << "Offset" << YAML::Value << cc2d.Offset;
+            out << YAML::Key << "Radius" << YAML::Value << cc2d.Radius;
+            out << YAML::Key << "Density" << YAML::Value << cc2d.Density;
+            out << YAML::Key << "Friction" << YAML::Value << cc2d.Friction;
+            out << YAML::Key << "Restitution" << YAML::Value << cc2d.Restitution;
+            out << YAML::Key << "RestitutionThreshold" << YAML::Value << cc2d.RestitutionThreshold;
+            out << YAML::EndMap;
+        }
+
         out << YAML::EndMap;
     }
 
@@ -358,6 +372,17 @@ namespace Loom {
                 bc2d.Friction = YAML_GET(bc2d_node["Friction"], float, 0.5f);
                 bc2d.Restitution = YAML_GET(bc2d_node["Restitution"], float, 0.0f);
                 bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
+            }
+
+            // Circle Collider 2D Component
+            if (auto cc2d_node = entity_node["CircleCollider2DComponent"]) {
+                auto& cc2d = entity.AddComponent<CircleCollider2DComponent>();
+                cc2d.Offset = YAML_GET(cc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
+                cc2d.Radius = YAML_GET(cc2d_node["Radius"], float, 0.5f);
+                cc2d.Density = YAML_GET(cc2d_node["Density"], float, 1.0f);
+                cc2d.Friction = YAML_GET(cc2d_node["Friction"], float, 0.5f);
+                cc2d.Restitution = YAML_GET(cc2d_node["Restitution"], float, 0.0f);
+                cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
             }
         }
 

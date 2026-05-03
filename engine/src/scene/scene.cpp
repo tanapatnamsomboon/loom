@@ -64,6 +64,7 @@ namespace Loom {
         CopyComponent<LuaScriptComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
 
         return new_scene;
     }
@@ -148,6 +149,8 @@ namespace Loom {
 
         b2WorldDef world_def = b2DefaultWorldDef();
         world_def.gravity = (b2Vec2){ 0.0f, -9.8f };
+        world_def.contactHertz = 120.0f;
+        world_def.contactDampingRatio = 10.0f;
         mPhysicsWorld = b2CreateWorld(&world_def);
 
         auto view = mRegistry.view<Rigidbody2DComponent>();
@@ -184,6 +187,21 @@ namespace Loom {
 
                 bc2d.RuntimeFixture = b2CreatePolygonShape(rb2d.RuntimeBody, &shape_def, &box);
             }
+
+            if (entity.HasComponent<CircleCollider2DComponent>()) {
+                auto& cc2d = entity.GetComponent<CircleCollider2DComponent>();
+
+                b2ShapeDef shape_def = b2DefaultShapeDef();
+                shape_def.density = cc2d.Density;
+                shape_def.material.friction = cc2d.Friction;
+                shape_def.material.restitution = cc2d.Restitution;
+
+                b2Circle circle;
+                circle.center = { cc2d.Offset.x, cc2d.Offset.y };
+                circle.radius = cc2d.Radius * transform.Scale.x;
+
+                cc2d.RuntimeFixture = b2CreateCircleShape(rb2d.RuntimeBody, &shape_def, &circle);
+            }
         }
     }
 
@@ -212,7 +230,7 @@ namespace Loom {
 
         // 2. Update Physics
         if (b2World_IsValid(mPhysicsWorld)) {
-            int32_t sub_step_count = 4;
+            int32_t sub_step_count = 8;
             b2World_Step(mPhysicsWorld, ts, sub_step_count);
 
             auto view = mRegistry.view<Rigidbody2DComponent>();
@@ -352,9 +370,11 @@ namespace Loom {
     void Scene::RenderPhysicsColliders() {
         if (!mShowPhysicsColliders) return;
 
-        auto view = mRegistry.view<TransformComponent, BoxCollider2DComponent>();
-        for (auto entity : view) {
-            auto [transform, bc2d] = view.get<TransformComponent, BoxCollider2DComponent>(entity);
+        glm::vec4 collider_color = { 0.1f, 0.9f, 0.1f, 1.0f };
+
+        auto box_view = mRegistry.view<TransformComponent, BoxCollider2DComponent>();
+        for (auto entity : box_view) {
+            auto [transform, bc2d] = box_view.get<TransformComponent, BoxCollider2DComponent>(entity);
 
             glm::vec3 translation = transform.Translation + glm::vec3(bc2d.Offset, 0.001f);
             glm::vec3 scale = transform.Scale * glm::vec3(bc2d.Size * 2.0f, 1.0f);
@@ -368,13 +388,24 @@ namespace Loom {
             glm::vec3 p2 = transform_mat * glm::vec4( 0.5f,  0.5f, 0.0f, 1.0f);
             glm::vec3 p3 = transform_mat * glm::vec4(-0.5f,  0.5f, 0.0f, 1.0f);
 
-            glm::vec4 color = { 0.1f, 0.9f, 0.1f, 1.0f };
             int entity_id = (int)entt::to_entity(entity);
+            Renderer2D::DrawLine(p0, p1, collider_color, entity_id);
+            Renderer2D::DrawLine(p1, p2, collider_color, entity_id);
+            Renderer2D::DrawLine(p2, p3, collider_color, entity_id);
+            Renderer2D::DrawLine(p3, p0, collider_color, entity_id);
+        }
 
-            Renderer2D::DrawLine(p0, p1, color, entity_id);
-            Renderer2D::DrawLine(p1, p2, color, entity_id);
-            Renderer2D::DrawLine(p2, p3, color, entity_id);
-            Renderer2D::DrawLine(p3, p0, color, entity_id);
+        auto circle_view = mRegistry.view<TransformComponent, CircleCollider2DComponent>();
+        for (auto entity : circle_view) {
+            auto [transform, cc2d] = circle_view.get<TransformComponent, CircleCollider2DComponent>(entity);
+
+            glm::vec3 translation = transform.Translation + glm::vec3(cc2d.Offset, 0.001f);
+            float diameter = cc2d.Radius * transform.Scale.x * 2.0f;
+
+            glm::mat4 transform_mat = glm::translate(glm::mat4(1.0f), translation)
+                                    * glm::scale(glm::mat4(1.0f), glm::vec3(diameter));
+
+            Renderer2D::DrawCircle(transform_mat, collider_color, 0.05f, 0.005f, (int)entt::to_entity(entity));
         }
     }
 

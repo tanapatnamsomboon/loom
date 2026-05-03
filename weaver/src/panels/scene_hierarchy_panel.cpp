@@ -151,6 +151,13 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!mSelectionContext.HasComponent<Loom::CircleCollider2DComponent>()) {
+                if (ImGui::MenuItem("Circle Collider 2D")) {
+                    mSelectionContext.AddComponent<Loom::CircleCollider2DComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
             if (!mSelectionContext.HasComponent<Loom::LuaScriptComponent>()) {
                 if (ImGui::MenuItem("Lua Script")) {
                     mSelectionContext.AddComponent<Loom::LuaScriptComponent>();
@@ -417,6 +424,37 @@ namespace Weaver {
 
             if (remove_component) {
                 entity.RemoveComponent<Loom::BoxCollider2DComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        if (entity.HasComponent<Loom::CircleCollider2DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::CircleCollider2DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Circle Collider 2D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& cc2d = entity.GetComponent<Loom::CircleCollider2DComponent>();
+                bool  is_modified = false;
+
+                is_modified |= ImGui::DragFloat2("Offset", glm::value_ptr(cc2d.Offset), 0.05f);
+                is_modified |= ImGui::DragFloat("Radius", &cc2d.Radius, 0.05f, 0.001f, FLT_MAX);
+                is_modified |= ImGui::DragFloat("Density", &cc2d.Density, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Friction", &cc2d.Friction, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Restitution", &cc2d.Restitution, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Restitution Threshold", &cc2d.RestitutionThreshold, 0.01f, 0.0f);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::CircleCollider2DComponent>();
                 if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
         }

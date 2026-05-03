@@ -25,12 +25,12 @@ Entities:
     TagComponent:
       Tag: Crate
     TransformComponent:
-      Translation: [0, 5.5, 0]
+      Translation: [-7.5, 1, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
     SpriteRendererComponent:
       Color: [1, 1, 1, 1]
-      Texture: textures/box.png
+      Texture: textures/crate.png
       TilingFactor: 1
     NativeScriptComponent:
       ScriptName: ""
@@ -58,11 +58,11 @@ Entities:
       FixedAspectRatio: false
       OrthographicSize: 10
       OrthographicNear: 0.1
-      OrthographicFar: 1000
+      OrthographicFar: 50
       PerspectiveFOV: 1.0471976
       PerspectiveNear: 0.1
       PerspectiveFar: 50
-      ProjectionType: 0
+      ProjectionType: 1
   - Entity: 10465683764008343043
     TagComponent:
       Tag: Plane
@@ -80,6 +80,27 @@ Entities:
     BoxCollider2DComponent:
       Offset: [0, 0]
       Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+  - Entity: 6653178278851200421
+    TagComponent:
+      Tag: Ball
+    TransformComponent:
+      Translation: [0.5, 6, 0.5]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/ball.png
+      TilingFactor: 1
+    Rigidbody2DComponent:
+      BodyType: 1
+      FixedRotation: false
+    CircleCollider2DComponent:
+      Offset: [0, 0]
+      Radius: 0.5
       Density: 1
       Friction: 0.5
       Restitution: 0

@@ -112,14 +112,28 @@ namespace Loom {
 
         float Density              = 1.0f;
         float Friction             = 0.5f;
-        float Restitution          = 0.0f; // Bounciness
+        float Restitution          = 0.0f;
         float RestitutionThreshold = 0.5f;
 
-        // Storage for Box2D runtime fixture
         b2ShapeId RuntimeFixture = b2_nullShapeId;
 
         BoxCollider2DComponent() = default;
         BoxCollider2DComponent(const BoxCollider2DComponent&) = default;
+    };
+
+    struct CircleCollider2DComponent {
+        glm::vec2 Offset = { 0.0f, 0.0f };
+        float     Radius = 0.5f;
+
+        float Density              = 1.0f;
+        float Friction             = 0.5f;
+        float Restitution          = 0.0f;
+        float RestitutionThreshold = 0.5f;
+
+        b2ShapeId RuntimeFixture = b2_nullShapeId;
+
+        CircleCollider2DComponent() = default;
+        CircleCollider2DComponent(const CircleCollider2DComponent&) = default;
     };
 
 } // namespace Loom
