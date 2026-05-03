@@ -88,3 +88,24 @@ set(BOX2D_BUILD_TESTBED OFF CACHE INTERNAL "")
 set(BOX2D_BUILD_UNIT_TESTS OFF CACHE INTERNAL "")
 set(BOX2D_BUILD_DOCS OFF CACHE INTERNAL "")
 add_subdirectory(vendor/box2d)
+
+# -----------------------------------------------------------------------------
+# Lua 5.4
+# (The official Lua repo ships no CMakeLists.txt; compile the sources directly.
+#  Exclude: lua.c / luac.c — standalone binaries with their own main();
+#           onelua.c      — single-file amalgamation (would duplicate every TU);
+#           ltests.c      — internal test infrastructure.)
+# -----------------------------------------------------------------------------
+file(GLOB LUA_SOURCES "vendor/lua/*.c")
+list(FILTER LUA_SOURCES EXCLUDE REGEX "(lua|luac|onelua|ltests)\\.c$")
+add_library(lua STATIC ${LUA_SOURCES})
+target_include_directories(lua PUBLIC vendor/lua)
+if(MSVC)
+    target_compile_definitions(lua PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
+# -----------------------------------------------------------------------------
+# sol2 v3.3.0 (header-only)
+# -----------------------------------------------------------------------------
+add_library(sol2 INTERFACE)
+target_include_directories(sol2 INTERFACE vendor/sol2/include)

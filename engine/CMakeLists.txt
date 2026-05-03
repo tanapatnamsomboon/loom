@@ -66,16 +66,19 @@ target_include_directories(Loom
 target_compile_definitions(Loom PRIVATE LOOM_BUILD_DLL)
 target_link_libraries(Loom
   PUBLIC
-  spdlog
-  glfw
-  glad
-  imgui
-  glm::glm-header-only
-  stb
-  EnTT::EnTT
-  imguizmo
-  yaml-cpp
-  box2d
+    spdlog
+    glfw
+    glad
+    imgui
+    glm::glm-header-only
+    stb
+    EnTT::EnTT
+    imguizmo
+    yaml-cpp
+    box2d
+  PRIVATE
+    lua
+    sol2
 )
 
 if (WIN32)

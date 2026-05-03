@@ -24,6 +24,8 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | Physics (2D) | Box2D | `box2d` |
 | Serialization | YAML-CPP | `yaml-cpp` |
 | File Dialogs | nativefiledialog-extended | `nfd` |
+| Scripting VM | Lua 5.4 | `lua` |
+| Lua C++ Bindings | sol2 v3.3.0 | `sol2` |
 
 # 3. Directory Structure Architecture
 
@@ -82,7 +84,13 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 - `LOOM_CORE_TRACE/INFO/WARN/ERROR(...)` — spdlog-backed engine logging
 - `LOOM_ASSERT(cond, msg)` — debug assertion
 
-# 5. Git Workflow & Commit Guidelines
+# 5. Dependency Management (Vendor Libraries)
+- **Git Submodules Only:** We exclusively use Git Submodules for third-party libraries in the `vendor/` directory. You are STRICTLY FORBIDDEN from using CMake `FetchContent` or `ExternalProject`.
+- **Do Not Execute Submodule Commands:** If a new library is needed for a task, DO NOT attempt to run `git submodule add` yourself.
+- **User Execution:** Instead, provide the exact `git submodule add <repository_url> vendor/<library_name>` command, explain why the library is needed, and WAIT for confirmation that it has been executed.
+- **CMake Integration:** Only after confirmation that the submodule has been successfully added, proceed to update `cmake/vendors.cmake` using `add_subdirectory()` (or a manual `add_library` block if the library has no CMakeLists.txt), then update the vendor table in this file.
+
+# 6. Git Workflow & Commit Guidelines
 - **Autonomous Commit Suggestions:** You must independently decide when a logical chunk of work (refactor, feature, bug fix) is complete. Once you determine it is time to commit, DO NOT ask for permission. Immediately provide the exact `git commit` command with the appropriate Conventional Commit message for me to execute, or execute it if permitted.
 - **Conventional Commits format:**
   - `feat:` — new feature

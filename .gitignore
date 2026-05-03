@@ -24,3 +24,6 @@ compile_commands.json
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
+
+# Claude Code Local Settings
+.claude/settings.local.json
