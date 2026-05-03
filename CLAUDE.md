@@ -93,6 +93,9 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
   - `docs:` — documentation only
 - **Message structure:** Concise subject line (imperative mood, ≤72 chars). For complex changes, add a short body explaining *what* changed and *why*.
 
+# 6. CLAUDE.md Maintenance
+- **Auto-Update CLAUDE.md:** Continuously monitor the project's architectural changes, new vendor libraries, and coding conventions. Whenever a significant change occurs (e.g., integrating a new scripting language, adding a major core system, or changing architecture patterns), proactively update this `CLAUDE.md` file to reflect the current and accurate state of the Loom Engine. Do not wait to be asked.
+
 # Your Mission
 When generating code, modifying files, or debugging:
 1. **Respect separation of concerns:** Never put OpenGL-specific code in the abstract `engine/renderer/` layer — it belongs in `platform/opengl/`.
