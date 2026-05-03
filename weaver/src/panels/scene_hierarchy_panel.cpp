@@ -487,9 +487,14 @@ namespace Weaver {
                 if (ls.ScriptPath.empty()) {
                     ImGui::TextDisabled("  Drop a .lua file or use '...' to browse");
                 } else {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 0.4f, 1.0f));
-                    ImGui::TextUnformatted("  \xe2\x97\x8f"); // UTF-8 ●
-                    ImGui::PopStyleColor();
+                    // Draw status dot directly (font-independent, no glyph required)
+                    {
+                        float  lh  = ImGui::GetTextLineHeightWithSpacing();
+                        ImVec2 p   = ImGui::GetCursorScreenPos();
+                        ImGui::GetWindowDrawList()->AddCircleFilled(
+                            { p.x + 5.0f, p.y + lh * 0.5f }, 4.5f, IM_COL32(100, 230, 100, 255));
+                        ImGui::Dummy({ 12.0f, lh });
+                    }
                     ImGui::SameLine(0.0f, 4.0f);
                     std::string fname = std::filesystem::path(ls.ScriptPath).filename().string();
                     ImGui::TextDisabled("%s", fname.c_str());

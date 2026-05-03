@@ -15,12 +15,13 @@ namespace Loom {
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
 
-        float font_size = 22.0f;
+        constexpr float font_size = 22.0f;
 
-        static const ImWchar* thai_ranges = io.Fonts->GetGlyphRangesThai();
-        io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_bold.ttf", font_size, nullptr, thai_ranges);
-
-        ImFont* bold_font = io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_bold.ttf", font_size, nullptr, thai_ranges);
+        // GetGlyphRangesThai() covers: 0x0020–0x00FF (Latin + Latin-1 Supplement, includes ×),
+        // 0x2010–0x205E (punctuation), and 0x0E00–0x0E7F (Thai).
+        static const ImWchar* base_ranges = io.Fonts->GetGlyphRangesThai();
+        io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_regular.ttf", font_size, nullptr, base_ranges); // default
+        io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_bold.ttf",    font_size, nullptr, base_ranges); // Fonts[1]
 
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
