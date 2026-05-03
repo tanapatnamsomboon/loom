@@ -161,7 +161,6 @@ namespace Weaver {
             ImGui::EndPopup();
         }
 
-        // Transform Component
         if (entity.HasComponent<Loom::TransformComponent>()) {
             if (ImGui::TreeNodeEx((void*)typeid(Loom::TransformComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Transform")) {
                 auto& transform = entity.GetComponent<Loom::TransformComponent>();
@@ -183,7 +182,6 @@ namespace Weaver {
             }
         }
 
-        // Sprite Renderer Component
         if (entity.HasComponent<Loom::SpriteRendererComponent>()) {
             bool remove_component = false;
             bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::SpriteRendererComponent).hash_code(),
@@ -236,7 +234,6 @@ namespace Weaver {
             }
         }
 
-        // Camera Component
         if (entity.HasComponent<Loom::CameraComponent>()) {
             bool remove_component = false;
             bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::CameraComponent).hash_code(),
@@ -301,7 +298,6 @@ namespace Weaver {
             }
         }
 
-        // Native Script Component
         if (entity.HasComponent<Loom::NativeScriptComponent>()) {
             bool remove_component = false;
             bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::NativeScriptComponent).hash_code(),
@@ -352,7 +348,6 @@ namespace Weaver {
             }
         }
 
-        // Rigidbody 2D Component
         if (entity.HasComponent<Loom::Rigidbody2DComponent>()) {
             bool remove_component = false;
             bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::Rigidbody2DComponent).hash_code(),
@@ -395,7 +390,6 @@ namespace Weaver {
             }
         }
 
-        // Box Collider 2D Component
         if (entity.HasComponent<Loom::BoxCollider2DComponent>()) {
             bool remove_component = false;
             bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::BoxCollider2DComponent).hash_code(),
@@ -487,7 +481,7 @@ namespace Weaver {
                 if (ls.ScriptPath.empty()) {
                     ImGui::TextDisabled("  Drop a .lua file or use '...' to browse");
                 } else {
-                    // Draw status dot directly (font-independent, no glyph required)
+                    // font-independent status dot (IBM Plex Sans Thai doesn't cover Geometric Shapes)
                     {
                         float  lh  = ImGui::GetTextLineHeightWithSpacing();
                         ImVec2 p   = ImGui::GetCursorScreenPos();

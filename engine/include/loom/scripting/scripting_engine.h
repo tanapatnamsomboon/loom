@@ -10,9 +10,7 @@ namespace Loom {
     class Scene;
     class IScriptingBackend;
 
-    // Singleton facade for the scripting subsystem. Owns the active backend and
-    // routes all runtime lifecycle calls to it. Engine-internal code (e.g. Application)
-    // is responsible for calling Init() with a concrete backend before runtime starts.
+    // Singleton facade; forwards scripting lifecycle calls to the active backend.
     class LOOM_API ScriptingEngine {
     public:
         static void Init();
