@@ -187,6 +187,15 @@ namespace Weaver {
         uint32_t tex_id = mFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::Image((void*)(intptr_t)tex_id, ImVec2{ mContext.ViewportSize.x, mContext.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                std::filesystem::path dropped((const char*)payload->Data);
+                if (dropped.extension() == ".loom" && mSceneOpenCallback)
+                    mSceneOpenCallback(dropped);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         RenderGizmos();
 
         ImGui::End();

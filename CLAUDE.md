@@ -139,6 +139,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 - [x] **Lua file watcher** — Background thread polls `std::filesystem::last_write_time` per `.lua` script path; changes are queued thread-safely and drained on the main thread in `OnRuntimeUpdate`, then forwarded to the existing `OnFileChanged` hot-reload logic. Owned by `LuaScriptingBackend` (`engine/src/scripting/file_watcher.h/.cpp`).
 - [x] **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`. Wire into the physics system, serializer, and inspector alongside `BoxCollider2DComponent`.
 - [x] **Entity parent-child hierarchy** — `RelationshipComponent` (Parent + Children entt handles) on any entity. World transform computed recursively via `Scene::GetWorldTransform`. Hierarchy panel renders as a tree with drag-and-drop reparenting; relationships serialized via `ParentID` UUID. `entity.cpp` added.
+- [x] **Content browser drag & drop** — Drag `.png/.jpg/.jpeg/.bmp/.tga` onto the texture slot in the Properties panel to assign a sprite texture. Drag `.loom` onto the viewport to open that scene. Both use the existing `"CONTENT_BROWSER_ITEM"` payload.
 
 ## Medium-term
 - [ ] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. No new vendor library needed.

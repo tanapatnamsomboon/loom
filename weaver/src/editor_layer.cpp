@@ -48,6 +48,11 @@ namespace Weaver {
             mSceneManager.OpenScene(path.string());
         });
 
+        mViewportPanel.SetSceneOpenCallback([this](const std::filesystem::path& path) {
+            auto full = Loom::Project::GetAssetFileSystemPath(path);
+            mSceneManager.OpenScene(full.string());
+        });
+
         mSceneHierarchyPanel.Init();
         mSceneHierarchyPanel.SetSceneModifiedCallback([this] {
             mContext.SceneDirty = false;

@@ -41,3 +41,23 @@ Please proactively update `CLAUDE.md` to reflect this architectural change. Add 
 --- 7. Refactoring Code (Safe Approach) ---
 I want to refactor the [INSERT_FILE_OR_CLASS_NAME] to improve [INSERT_REASON_E_G_PERFORMANCE_READABILITY].
 Before writing any code, propose a clear list of what you will change and how it impacts the existing systems (like the ECS or Editor). We will do this in micro-steps. Wait for my approval on the plan.
+
+--- 8. Inserting a Quick Task (Midway / Scope Creep) ---
+Before we continue with the next task on the roadmap, I realized we need [INSERT_NEW_FEATURE_OR_FIX]. Let's quickly implement this first as a micro-step.
+Please outline the plan for this quick task, wait for my approval, and also update the roadmap in `CLAUDE.md` to reflect that we added and completed this midway.
+
+--- 9. Major Pivot / Changing the Roadmap ---
+I want to change our overall direction. Please review `CLAUDE.md` and the current Roadmap.
+We are pausing our current focus. Instead, I want to prioritize [INSERT_NEW_PRIORITY_OR_SYSTEM].
+Please update the Roadmap section in `CLAUDE.md` to reflect this new priority order. Once updated, outline the micro-steps for our new first task and wait for my approval before writing code.
+
+--- 10. Brainstorming & Architecture Design (No Code Yet) ---
+I am planning to build the [INSERT_SYSTEM_NAME] system for the engine.
+Before writing any actual code or updating the roadmap, let's discuss the architecture. Based on our existing codebase and ECS, how should this be structured?
+Please propose 2-3 design approaches with pros and cons. DO NOT write the implementation code yet; let's agree on the design first.
+
+--- 11. Rubber Ducking (Logic Bug / No Error Message) ---
+I have a logic bug in [INSERT_SYSTEM_NAME]. The code compiles fine, but it's not behaving as expected.
+- Current behavior: [DESCRIBE_WHAT_IS_HAPPENING]
+- Expected behavior: [DESCRIBE_WHAT_SHOULD_HAPPEN]
+Please analyze the logic. Ask me clarifying questions if you need more details. Do not rewrite the whole file, just pinpoint the potential logical flaw and suggest a targeted fix.

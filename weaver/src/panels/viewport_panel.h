@@ -6,6 +6,8 @@
 #include <loom/renderer/framebuffer.h>
 #include <loom/renderer/shader.h>
 #include <loom/renderer/vertex_array.h>
+#include <filesystem>
+#include <functional>
 
 namespace Weaver {
 
@@ -14,6 +16,8 @@ namespace Weaver {
         explicit ViewportPanel(EditorContext& ctx);
 
         void Init();
+
+        void SetSceneOpenCallback(const std::function<void(const std::filesystem::path&)>& callback) { mSceneOpenCallback = callback; }
 
         void BeginFrame();
         void RenderScene(Loom::Timestep ts);
@@ -29,6 +33,8 @@ namespace Weaver {
         void RenderGizmos();
 
         EditorContext& mContext;
+
+        std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
 
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
 

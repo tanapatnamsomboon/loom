@@ -279,6 +279,18 @@ namespace Weaver {
 
                 ImGui::PushID("TextureSlot1");
                 ImGui::Image(texture_to_display, ImVec2(32, 32), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                        std::filesystem::path dropped((const char*)payload->Data);
+                        auto ext = dropped.extension();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
+                            auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                            auto new_texture = Loom::AssetManager::GetTexture(full.generic_string());
+                            if (new_texture) { texture = new_texture; is_modified = true; }
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
                 ImGui::SameLine();
                 if (ImGui::Button(label_text.c_str(), ImVec2(150, 0))) {
                     auto new_texture = LoadTexture();
