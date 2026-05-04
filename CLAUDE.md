@@ -158,6 +158,21 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Lua audio API on `entity`: `PlayAudio()`, `StopAudio()`, `IsAudioPlaying()`, `SetVolume(v)`, `SetPitch(p)`
   - Lua physics API on `entity`: `SetLinearVelocity(vec2)`, `GetLinearVelocity()`, `ApplyForce(vec2)`, `ApplyImpulse(vec2)` via `Rigidbody2DComponent`
 
+- [ ] **Physics scripting — collision callbacks** *(sub-item A)*
+  - After physics step in `Scene::OnUpdateRuntime`, call `b2World_GetContactEvents()` and dispatch `OnCollisionBegin(other_entity)` / `OnCollisionEnd(other_entity)` to Lua scripts on both involved entities
+  - Enable `b2ShapeDef.enableContactEvents = true` on all shapes at creation (no new component field)
+  - Guards: entity must have `LuaScriptComponent`; skip if script env missing
+
+- [ ] **Physics scripting — sensor / trigger colliders** *(sub-item B)*
+  - Add `IsSensor` bool to `BoxCollider2DComponent` and `CircleCollider2DComponent`; inspector checkbox + YAML (default `false`)
+  - Sensors set `b2ShapeDef.isSensor = true` + `b2ShapeDef.enableSensorEvents = true`
+  - After physics step, call `b2World_GetSensorEvents()` and dispatch `OnSensorBegin(other_entity)` / `OnSensorEnd(other_entity)` to Lua scripts on both entities
+
+- [ ] **Physics scripting — spatial overlap queries** *(sub-item C)*
+  - `Physics.OverlapCircle(center_vec2, radius)` → Lua array of entities
+  - `Physics.OverlapBox(center_vec2, half_extents_vec2)` → Lua array of entities
+  - Uses Box2D world AABB/shape query API; no new components required
+
 - [ ] **Scene transitions** *(prerequisite for WeaverRuntime — games need level loading)*
   - Engine-side `SceneLoader` singleton (no editor dependency): queues a scene path to load at end of frame
   - Lua API: `Scene.Load("path/to/scene.loom")`, `Scene.Reload()`
