@@ -78,8 +78,12 @@ namespace Weaver {
                 if (directory_entry.is_directory()) {
                     mCurrentDirectory /= path.filename();
                 } else if (path.extension() == ".loom") {
-                    if (mSceneOpenCallback) {
+                    if (mSceneOpenCallback)
                         mSceneOpenCallback(path);
+                } else if (path.extension() == ".lprefab") {
+                    if (mPrefabInstantiateCallback) {
+                        auto rel = std::filesystem::relative(path, mBaseDirectory);
+                        mPrefabInstantiateCallback(rel);
                     }
                 }
             }

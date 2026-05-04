@@ -190,8 +190,11 @@ namespace Weaver {
         if (ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                 std::filesystem::path dropped((const char*)payload->Data);
-                if (dropped.extension() == ".loom" && mSceneOpenCallback)
+                if (dropped.extension() == ".loom" && mSceneOpenCallback) {
                     mSceneOpenCallback(dropped);
+                } else if (dropped.extension() == ".lprefab" && mPrefabInstantiateCallback) {
+                    mPrefabInstantiateCallback(dropped);
+                }
             }
             ImGui::EndDragDropTarget();
         }

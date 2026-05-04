@@ -2,6 +2,7 @@
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include "loom/scene/scene.h"
+#include "loom/scene/scene_serializer.h"
 #include "loom/core/input.h"
 #include "loom/core/key_codes.h"
 #include "loom/core/mouse_codes.h"
@@ -16,15 +17,26 @@ namespace Loom {
 namespace {
 
     struct LuaEntityWrapper {
-        Entity handle;
+        Entity  handle;
+        Scene*  scene = nullptr;
 
-        glm::vec3   GetTranslation()       { return handle.GetComponent<TransformComponent>().Translation; }
+        glm::vec3   GetTranslation()           { return handle.GetComponent<TransformComponent>().Translation; }
         void        SetTranslation(glm::vec3 v) { handle.GetComponent<TransformComponent>().Translation = v; }
-        glm::vec3   GetRotation()          { return handle.GetComponent<TransformComponent>().Rotation; }
+        glm::vec3   GetRotation()              { return handle.GetComponent<TransformComponent>().Rotation; }
         void        SetRotation(glm::vec3 v)    { handle.GetComponent<TransformComponent>().Rotation = v; }
-        glm::vec3   GetScale()             { return handle.GetComponent<TransformComponent>().Scale; }
+        glm::vec3   GetScale()                 { return handle.GetComponent<TransformComponent>().Scale; }
         void        SetScale(glm::vec3 v)       { handle.GetComponent<TransformComponent>().Scale = v; }
-        std::string GetTag()               { return handle.GetComponent<TagComponent>().Tag; }
+        std::string GetTag()                   { return handle.GetComponent<TagComponent>().Tag; }
+
+        LuaEntityWrapper Instantiate(const std::string& prefab_path) {
+            if (!scene) {
+                LOOM_CORE_ERROR("[Lua] Instantiate: no active scene");
+                return {};
+            }
+            auto full = Project::GetAssetFileSystemPath(prefab_path).generic_string();
+            Entity spawned = SceneSerializer::DeserializePrefabInto(full, scene);
+            return LuaEntityWrapper{ spawned, scene };
+        }
     };
 
 } // anonymous namespace
@@ -68,7 +80,8 @@ namespace {
             "SetRotation",    &LuaEntityWrapper::SetRotation,
             "GetScale",       &LuaEntityWrapper::GetScale,
             "SetScale",       &LuaEntityWrapper::SetScale,
-            "GetTag",         &LuaEntityWrapper::GetTag
+            "GetTag",         &LuaEntityWrapper::GetTag,
+            "Instantiate",    &LuaEntityWrapper::Instantiate
         );
 
         sol::table input = mLua.create_named_table("Input");
@@ -215,7 +228,7 @@ namespace {
         LOOM_CORE_INFO("Loading Lua script '{}' -> '{}'", lsc.ScriptPath, full_path);
 
         sol::environment env(mLua, sol::create, mLua.globals());
-        env["entity"] = LuaEntityWrapper{ entity };
+        env["entity"] = LuaEntityWrapper{ entity, scene };
 
         auto result = mLua.safe_script_file(full_path, env, sol::script_pass_on_error);
         if (!result.valid()) {

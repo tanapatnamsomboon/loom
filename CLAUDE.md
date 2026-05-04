@@ -137,7 +137,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Active — Next Up
 
-- [ ] **Prefab system**
+- [x] **Prefab system**
   - Design `.lprefab` YAML schema (entity + all components, UUID as root key)
   - `SceneSerializer`: serialize/deserialize a single entity to/from `.lprefab`
   - Editor: right-click entity in hierarchy → "Save as Prefab…" (NFD save dialog)

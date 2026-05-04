@@ -13,6 +13,7 @@ namespace Weaver {
         void OnImGuiRender();
 
         void SetSceneOpenCallback(const std::function<void(const std::filesystem::path&)>& callback) { mSceneOpenCallback = callback; }
+        void SetPrefabInstantiateCallback(const std::function<void(const std::filesystem::path&)>& callback) { mPrefabInstantiateCallback = callback; }
 
     private:
         std::filesystem::path mBaseDirectory;
@@ -22,6 +23,7 @@ namespace Weaver {
         std::shared_ptr<Loom::Texture2D> mFileIcon;
 
         std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
+        std::function<void(const std::filesystem::path&)> mPrefabInstantiateCallback;
     };
 
 } // namespace Weaver

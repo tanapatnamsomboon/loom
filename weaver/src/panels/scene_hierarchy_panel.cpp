@@ -1,6 +1,7 @@
 #include "scene_hierarchy_panel.h"
 #include <loom/asset/asset_manager.h>
 #include <loom/scene/components.h>
+#include <loom/scene/scene_serializer.h>
 #include <loom/scene/script_registry.h>
 #include <nfd.hpp>
 #include <imgui.h>
@@ -125,6 +126,18 @@ namespace Weaver {
                 if (ImGui::MenuItem("Detach from Parent")) {
                     mContext->RemoveParent(entity);
                     if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
+            }
+            if (ImGui::MenuItem("Save as Prefab...")) {
+                constexpr nfdfilteritem_t filters[] = { { "Loom Prefab", "lprefab" } };
+                NFD::Guard      guard;
+                NFD::UniquePath out_path;
+                if (NFD::SaveDialog(out_path, filters, 1, nullptr,
+                        entity.GetComponent<Loom::TagComponent>().Tag.c_str()) == NFD_OKAY) {
+                    std::string path = out_path.get();
+                    if (std::filesystem::path(path).extension() != ".lprefab")
+                        path += ".lprefab";
+                    Loom::SceneSerializer(mContext).SerializePrefab(path, entity);
                 }
             }
             ImGui::Separator();

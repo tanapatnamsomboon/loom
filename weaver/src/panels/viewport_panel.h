@@ -18,6 +18,7 @@ namespace Weaver {
         void Init();
 
         void SetSceneOpenCallback(const std::function<void(const std::filesystem::path&)>& callback) { mSceneOpenCallback = callback; }
+        void SetPrefabInstantiateCallback(const std::function<void(const std::filesystem::path&)>& callback) { mPrefabInstantiateCallback = callback; }
 
         void BeginFrame();
         void RenderScene(Loom::Timestep ts);
@@ -35,6 +36,7 @@ namespace Weaver {
         EditorContext& mContext;
 
         std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
+        std::function<void(const std::filesystem::path&)> mPrefabInstantiateCallback;
 
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
 

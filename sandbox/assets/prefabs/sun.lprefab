@@ -1,0 +1,14 @@
+Entity: 9047455008060296161
+TagComponent:
+  Tag: Sun
+TransformComponent:
+  Translation: [0, 1.75, 0]
+  Rotation: [0, 0, 0]
+  Scale: [1, 1, 1]
+SpriteRendererComponent:
+  Color: [1, 1, 1, 1]
+  Texture: C:/Users/phukao/Work/loom/sandbox/assets/textures/sun.png
+  TilingFactor: 1
+  FilterMode: 0
+  WrapMode: 0
+  GenerateMips: true

@@ -7,6 +7,7 @@
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/project/project.h>
+#include <loom/scene/scene_serializer.h>
 #include <filesystem>
 
 namespace Weaver {
@@ -52,6 +53,14 @@ namespace Weaver {
             auto full = Loom::Project::GetAssetFileSystemPath(path);
             mSceneManager.OpenScene(full.string());
         });
+
+        auto prefab_callback = [this](const std::filesystem::path& rel_path) {
+            auto full = Loom::Project::GetAssetFileSystemPath(rel_path);
+            Loom::SceneSerializer::DeserializePrefabInto(full.string(), mContext.ActiveScene.get());
+            mContext.SceneDirty = true;
+        };
+        mViewportPanel.SetPrefabInstantiateCallback(prefab_callback);
+        mContentBrowserPanel.SetPrefabInstantiateCallback(prefab_callback);
 
         mSceneHierarchyPanel.Init();
         mSceneHierarchyPanel.SetSceneModifiedCallback([this] {

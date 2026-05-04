@@ -18,11 +18,11 @@ namespace Weaver {
     struct GridSettings {
         float MinorScale     = 1.0f;
         float MajorScale     = 10.0f;
-        float LineThickness  = 1.5f;
+        float LineThickness  = 1.0f;
         float FadeStart      = 20.0f;
         float FadeEnd        = 80.0f;
-        glm::vec4 MinorColor = { 0.3f, 0.3f, 0.3f, 0.3f };
-        glm::vec4 MajorColor = { 0.5f, 0.5f, 0.5f, 0.6f };
+        glm::vec4 MinorColor = { 0.5f, 0.5f, 0.5f, 0.5f };
+        glm::vec4 MajorColor = { 0.7f, 0.7f, 0.7f, 0.7f };
     };
 
     // Shared mutable state passed by reference to all editor subsystems.

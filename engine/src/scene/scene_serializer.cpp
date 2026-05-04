@@ -447,4 +447,135 @@ namespace Loom {
         return true;
     }
 
+    void SceneSerializer::SerializePrefab(const std::string& filepath, Entity entity) {
+        YAML::Emitter out;
+        SerializeEntity(out, entity);
+
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+        std::ofstream fout(path);
+        if (!fout.is_open()) {
+            LOOM_CORE_ERROR("SceneSerializer: could not open '{}' for writing", filepath);
+            return;
+        }
+        fout << out.c_str();
+        LOOM_CORE_INFO("SceneSerializer: saved prefab to '{}'", filepath);
+    }
+
+    Entity SceneSerializer::DeserializePrefab(const std::string& filepath) {
+        return DeserializePrefabInto(filepath, mScene.get());
+    }
+
+    Entity SceneSerializer::DeserializePrefabInto(const std::string& filepath, Scene* scene) {
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+        YAML::Node data;
+        try {
+            data = YAML::LoadFile(path.generic_string());
+        } catch (const YAML::Exception& e) {
+            LOOM_CORE_ERROR("SceneSerializer: failed to load prefab '{}': '{}'", filepath, e.what());
+            return {};
+        }
+
+        if (!data["Entity"]) {
+            LOOM_CORE_ERROR("SceneSerializer: '{}' is not a valid prefab file", filepath);
+            return {};
+        }
+
+        std::string name = "Entity";
+        if (auto tag_node = data["TagComponent"])
+            name = YAML_GET(tag_node["Tag"], std::string, "Entity");
+
+        // Always mint a fresh UUID — prefabs are templates, not identity-preserving
+        Entity entity = scene->CreateEntityWithUUID(UUID(), name);
+
+        if (auto tc_node = data["TransformComponent"]) {
+            auto& tc       = entity.GetComponent<TransformComponent>();
+            tc.Translation = YAML_GET(tc_node["Translation"], glm::vec3, glm::vec3(0.0f));
+            tc.Rotation    = YAML_GET(tc_node["Rotation"],    glm::vec3, glm::vec3(0.0f));
+            tc.Scale       = YAML_GET(tc_node["Scale"],       glm::vec3, glm::vec3(1.0f));
+        }
+
+        if (auto cc_node = data["CameraComponent"]) {
+            auto& cc            = entity.AddComponent<CameraComponent>();
+            cc.Primary          = YAML_GET(cc_node["Primary"], bool, false);
+            cc.FixedAspectRatio = YAML_GET(cc_node["FixedAspectRatio"], bool, true);
+
+            cc.Camera.SetOrthographic(
+                YAML_GET(cc_node["OrthographicSize"], float, 10.0f),
+                YAML_GET(cc_node["OrthographicNear"], float, 0.1f),
+                YAML_GET(cc_node["OrthographicFar"],  float, 1000.0f));
+            cc.Camera.SetPerspective(
+                YAML_GET(cc_node["PerspectiveFOV"],  float, 60.0f),
+                YAML_GET(cc_node["PerspectiveNear"], float, 0.1f),
+                YAML_GET(cc_node["PerspectiveFar"],  float, 100.0f));
+            cc.Camera.SetProjectionType(
+                (SceneCamera::ProjectionType)YAML_GET(cc_node["ProjectionType"], int, 0));
+        }
+
+        if (auto src_node = data["SpriteRendererComponent"]) {
+            auto& src          = entity.AddComponent<SpriteRendererComponent>();
+            auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
+            src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
+            src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
+            src.TexSpec.Filter       = (FilterMode)YAML_GET(src_node["FilterMode"],   int,  0);
+            src.TexSpec.Wrap         = (WrapMode)YAML_GET(src_node["WrapMode"],       int,  0);
+            src.TexSpec.GenerateMips = YAML_GET(src_node["GenerateMips"],             bool, true);
+            if (!texture_path.empty()) {
+                std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
+                src.Texture = AssetManager::GetTexture(physical_path.string(), src.TexSpec);
+            }
+        }
+
+        if (auto nsc_node = data["NativeScriptComponent"]) {
+            auto& nsc         = entity.AddComponent<NativeScriptComponent>();
+            auto  script_name = YAML_GET(nsc_node["ScriptName"], std::string, "");
+            if (!script_name.empty())
+                nsc.BindByName(script_name);
+        }
+
+        if (auto lsc_node = data["LuaScriptComponent"]) {
+            auto& lsc      = entity.AddComponent<LuaScriptComponent>();
+            lsc.ScriptPath = YAML_GET(lsc_node["ScriptPath"], std::string, "");
+        }
+
+        if (auto rb2d_node = data["Rigidbody2DComponent"]) {
+            auto& rb2d = entity.AddComponent<Rigidbody2DComponent>();
+            rb2d.Type          = (Rigidbody2DComponent::BodyType)YAML_GET(rb2d_node["BodyType"], int, 0);
+            rb2d.FixedRotation = YAML_GET(rb2d_node["FixedRotation"], bool, false);
+        }
+
+        if (auto bc2d_node = data["BoxCollider2DComponent"]) {
+            auto& bc2d = entity.AddComponent<BoxCollider2DComponent>();
+            bc2d.Offset               = YAML_GET(bc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
+            bc2d.Size                 = YAML_GET(bc2d_node["Size"],   glm::vec2, glm::vec2(0.5f));
+            bc2d.Density              = YAML_GET(bc2d_node["Density"],              float, 1.0f);
+            bc2d.Friction             = YAML_GET(bc2d_node["Friction"],             float, 0.5f);
+            bc2d.Restitution          = YAML_GET(bc2d_node["Restitution"],          float, 0.0f);
+            bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
+        }
+
+        if (auto cc2d_node = data["CircleCollider2DComponent"]) {
+            auto& cc2d = entity.AddComponent<CircleCollider2DComponent>();
+            cc2d.Offset               = YAML_GET(cc2d_node["Offset"],  glm::vec2, glm::vec2(0.0f));
+            cc2d.Radius               = YAML_GET(cc2d_node["Radius"],  float, 0.5f);
+            cc2d.Density              = YAML_GET(cc2d_node["Density"],              float, 1.0f);
+            cc2d.Friction             = YAML_GET(cc2d_node["Friction"],             float, 0.5f);
+            cc2d.Restitution          = YAML_GET(cc2d_node["Restitution"],          float, 0.0f);
+            cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
+        }
+
+        if (auto anim_node = data["AnimationComponent"]) {
+            auto& anim        = entity.AddComponent<AnimationComponent>();
+            anim.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
+            anim.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
+            anim.IsPlaying     = YAML_GET(anim_node["IsPlaying"],     bool,  true);
+            if (auto frames_node = anim_node["Frames"]) {
+                for (auto frame_node : frames_node)
+                    anim.Frames.push_back(frame_node.as<glm::vec4>());
+            }
+        }
+
+        LOOM_CORE_INFO("SceneSerializer: instantiated prefab '{}' as '{}'", filepath, name);
+        return entity;
+    }
+
 } // namespace Loom

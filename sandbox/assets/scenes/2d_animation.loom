@@ -1,32 +1,15 @@
 Scene: Untitled
 Entities:
-  - Entity: 11268422857169728154
+  - Entity: 9047455008060296161
     TagComponent:
-      Tag: Camera
+      Tag: Sun
     TransformComponent:
-      Translation: [0, 0, 0.5]
+      Translation: [0, 1.75, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    CameraComponent:
-      Primary: true
-      FixedAspectRatio: false
-      OrthographicSize: 1
-      OrthographicNear: -1
-      OrthographicFar: 1
-      PerspectiveFOV: 0.785398
-      PerspectiveNear: 0.01
-      PerspectiveFar: 1000
-      ProjectionType: 1
-  - Entity: 12422624765810591396
-    TagComponent:
-      Tag: Platform
-    TransformComponent:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [2, 0.1, 1]
     SpriteRendererComponent:
-      Color: [0.44224423, 0.18390355, 0, 1]
-      Texture: ""
+      Color: [1, 1, 1, 1]
+      Texture: C:/Users/phukao/Work/loom/sandbox/assets/textures/sun.png
       TilingFactor: 1
       FilterMode: 0
       WrapMode: 0
@@ -55,3 +38,34 @@ Entities:
         - [0.2, 0.857143, 0.3, 1]
         - [0.3, 0.857143, 0.4, 1]
         - [0.4, 0.857143, 0.5, 1]
+  - Entity: 12422624765810591396
+    TagComponent:
+      Tag: Platform
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [2, 0.1, 1]
+    SpriteRendererComponent:
+      Color: [0.44224423, 0.18390355, 0, 1]
+      Texture: ""
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+  - Entity: 11268422857169728154
+    TagComponent:
+      Tag: Camera
+    TransformComponent:
+      Translation: [0, 1, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 3
+      OrthographicNear: -1
+      OrthographicFar: 10
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1
