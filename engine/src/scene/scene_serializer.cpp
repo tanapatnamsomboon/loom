@@ -77,6 +77,19 @@ namespace YAML {
 
 namespace Loom {
 
+    // Converts an absolute asset path to a path relative to the project asset directory.
+    // Falls back to a generic absolute path if the file is outside the asset directory.
+    static std::string ToRelativeAssetPath(const std::string& abs_path) {
+        if (abs_path.empty()) return {};
+        std::filesystem::path asset_dir = Project::GetAssetDirectory();
+        if (asset_dir.empty()) return std::filesystem::path(abs_path).generic_string();
+        std::error_code ec;
+        auto rel = std::filesystem::relative(std::filesystem::path(abs_path), asset_dir, ec);
+        if (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+            return rel.generic_string();
+        return std::filesystem::path(abs_path).generic_string();
+    }
+
     YAML::Emitter& operator<<(YAML::Emitter& out, const glm::vec2& v) {
         out << YAML::Flow << YAML::BeginSeq << v.x << v.y << YAML::EndSeq;
         return out;
@@ -149,17 +162,7 @@ namespace Loom {
             auto& src = entity.GetComponent<SpriteRendererComponent>();
             out << YAML::Key << "Color" << YAML::Value << src.Color;
 
-            std::string texture_path = "";
-            if (src.Texture) {
-                std::filesystem::path abs_path = src.Texture->GetPath();
-                std::filesystem::path project_dir = Project::GetAssetDirectory();
-
-                if (!project_dir.empty() && abs_path.string().find(project_dir.string()) != std::string::npos) {
-                    texture_path = std::filesystem::relative(abs_path, project_dir).generic_string();
-                } else {
-                    texture_path = abs_path.string();
-                }
-            }
+            std::string texture_path = src.Texture ? ToRelativeAssetPath(src.Texture->GetPath()) : "";
 
             out << YAML::Key << "Texture"       << YAML::Value << texture_path;
             out << YAML::Key << "TilingFactor"  << YAML::Value << src.TilingFactor;
@@ -183,14 +186,7 @@ namespace Loom {
             out << YAML::Key << "LuaScriptComponent";
             out << YAML::BeginMap;
             auto& lsc = entity.GetComponent<LuaScriptComponent>();
-            std::string script_path = lsc.ScriptPath;
-            std::filesystem::path asset_dir = Project::GetAssetDirectory();
-            if (!asset_dir.empty() && !script_path.empty()) {
-                std::filesystem::path abs(script_path);
-                if (abs.is_absolute() && abs.string().find(asset_dir.string()) != std::string::npos)
-                    script_path = std::filesystem::relative(abs, asset_dir).generic_string();
-            }
-            out << YAML::Key << "ScriptPath" << YAML::Value << script_path;
+            out << YAML::Key << "ScriptPath" << YAML::Value << ToRelativeAssetPath(lsc.ScriptPath);
             out << YAML::EndMap;
         }
 
@@ -252,14 +248,7 @@ namespace Loom {
             out << YAML::Key << "AudioSourceComponent";
             out << YAML::BeginMap;
             auto& asc = entity.GetComponent<AudioSourceComponent>();
-            std::string audio_path = asc.AssetPath;
-            std::filesystem::path asset_dir = Project::GetAssetDirectory();
-            if (!asset_dir.empty() && !audio_path.empty()) {
-                std::filesystem::path abs(audio_path);
-                if (abs.is_absolute() && abs.string().find(asset_dir.string()) != std::string::npos)
-                    audio_path = std::filesystem::relative(abs, asset_dir).generic_string();
-            }
-            out << YAML::Key << "AssetPath" << YAML::Value << audio_path;
+            out << YAML::Key << "AssetPath" << YAML::Value << ToRelativeAssetPath(asc.AssetPath);
             out << YAML::Key << "Volume"    << YAML::Value << asc.Volume;
             out << YAML::Key << "Loop"      << YAML::Value << asc.Loop;
             out << YAML::Key << "AutoPlay"  << YAML::Value << asc.AutoPlay;
