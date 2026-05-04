@@ -88,7 +88,9 @@ namespace Weaver {
     }
 
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
-        if (event.GetMouseButton() == 0 && mContext.ViewportHovered && !ImGuizmo::IsOver())
+        Loom::Entity selected   = mContext.HierarchyPanel->GetSelectedEntity();
+        bool         gizmo_active = selected && mContext.GizmoType != -1 && ImGuizmo::IsOver();
+        if (event.GetMouseButton() == 0 && mContext.ViewportHovered && !gizmo_active)
             mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
         return false;
     }

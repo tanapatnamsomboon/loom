@@ -140,6 +140,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 - [x] **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`. Wire into the physics system, serializer, and inspector alongside `BoxCollider2DComponent`.
 - [x] **Entity parent-child hierarchy** — `RelationshipComponent` (Parent + Children entt handles) on any entity. World transform computed recursively via `Scene::GetWorldTransform`. Hierarchy panel renders as a tree with drag-and-drop reparenting; relationships serialized via `ParentID` UUID. `entity.cpp` added.
 - [x] **Content browser drag & drop** — Drag `.png/.jpg/.jpeg/.bmp/.tga` onto the texture slot in the Properties panel to assign a sprite texture. Drag `.loom` onto the viewport to open that scene. Both use the existing `"CONTENT_BROWSER_ITEM"` payload.
+- [x] **Viewport mouse-picking fix** — `ImGuizmo::IsOver()` returned stale `true` from the previous frame when no entity was selected and `Manipulate()` was not called. Fixed in `OnMouseButtonPressed`: only consult `IsOver()` when an entity is selected and the gizmo type is active.
 
 ## Medium-term
 - [ ] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. No new vendor library needed.
