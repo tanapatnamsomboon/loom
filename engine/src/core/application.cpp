@@ -1,5 +1,6 @@
 #include "loom/core/application.h"
 #include "loom/asset/asset_manager.h"
+#include "loom/audio/audio_engine.h"
 #include "loom/core/input.h"
 #include "loom/core/log.h"
 #include "loom/renderer/renderer_2d.h"
@@ -24,9 +25,11 @@ namespace Loom {
         Renderer2D::Init();
         RenderCommand::Init();
         ScriptingEngine::Init();
+        AudioEngine::Init();
     }
 
     Application::~Application() {
+        AudioEngine::Shutdown();
         ScriptingEngine::Shutdown();
         Renderer2D::Shutdown();
         AssetManager::Clear();

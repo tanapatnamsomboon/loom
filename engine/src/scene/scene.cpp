@@ -1,5 +1,6 @@
 #include "loom/scene/scene.h"
 #include "loom/asset/asset_manager.h"
+#include "loom/audio/audio_engine.h"
 #include "loom/core/uuid.h"
 #include "loom/project/project.h"
 #include "loom/renderer/renderer_2d.h"
@@ -64,6 +65,7 @@ namespace Loom {
         }
 
         CopyComponent<LuaScriptComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<AudioSourceComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
@@ -268,6 +270,17 @@ namespace Loom {
 
         ScriptingEngine::OnRuntimeStart(this);
 
+        // Autoplay audio sources
+        auto audio_view = mRegistry.view<AudioSourceComponent>();
+        for (auto e : audio_view) {
+            Entity entity = { e, this };
+            auto& asc = entity.GetComponent<AudioSourceComponent>();
+            if (asc.AutoPlay && !asc.AssetPath.empty()) {
+                std::string full = Project::GetAssetFileSystemPath(asc.AssetPath).generic_string();
+                AudioEngine::PlaySource(asc, full);
+            }
+        }
+
         b2WorldDef world_def = b2DefaultWorldDef();
         world_def.gravity = (b2Vec2){ 0.0f, -9.8f };
         world_def.contactHertz = 120.0f;
@@ -425,6 +438,11 @@ namespace Loom {
         });
 
         ScriptingEngine::OnRuntimeStop();
+
+        // Stop all audio sources
+        mRegistry.view<AudioSourceComponent>().each([](AudioSourceComponent& asc) {
+            AudioEngine::StopSource(asc);
+        });
 
         mRegistry.view<NativeScriptComponent>().each([](NativeScriptComponent& nsc) {
             if (nsc.Instance) {

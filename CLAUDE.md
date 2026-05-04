@@ -155,11 +155,11 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `Physics.Raycast(origin, dir, distance)` — 2D physics raycasts
   - Multi-argument `Log.Info(...)`, `Log.Warn(...)`, `Log.Error(...)`
 
-- [ ] **Audio system**
+- [x] **Audio system**
   - Add **miniaudio** submodule (`vendor/miniaudio`, single-header C)
-  - `AudioEngine` singleton: `Init`, `Shutdown`, `Play`, `Stop`
-  - `AudioSourceComponent`: asset path, volume, loop, autoplay flag
-  - Scene integration: `OnRuntimeStart`/`OnRuntimeStop` trigger autoplay; `OnRuntimeUpdate` for future spatial audio
+  - `AudioEngine` singleton: `Init`, `Shutdown`, `PlaySource`, `StopSource`
+  - `AudioSourceComponent`: asset path, volume, loop, autoplay flag, `void* RuntimeSound`
+  - Scene integration: `OnRuntimeStart` autoplays, `OnRuntimeStop` stops all sources
   - Inspector UI + YAML serialization for `AudioSourceComponent`
 
 - [ ] **Asset hot-reload** — Detect texture and shader file changes via filesystem polling; reload through `AssetManager` without restarting the editor. Directly improves the daily iteration loop at no 3D cost.
@@ -212,13 +212,14 @@ Start this milestone only after the 3D Foundation is complete and stable. The ab
 ## Candidate Vendor Libraries (not yet added)
 | Library | Submodule path | Purpose |
 |---|---|---|
-| miniaudio | `vendor/miniaudio` | Audio playback (single-header C) |
+| ~~miniaudio~~ | ~~`vendor/miniaudio`~~ | ~~Audio playback~~ — **integrated** |
 | cgltf | `vendor/cgltf` | GLTF/GLB mesh loading (single-header C) |
 | Jolt Physics | `vendor/jolt` | 3D physics (C++17, MIT) |
 | VMA | `vendor/vma` | Vulkan Memory Allocator (required for Vulkan backend) |
 | vk-bootstrap | `vendor/vk-bootstrap` | Vulkan instance/device init boilerplate |
 
 ## Completed
+- **Audio system** — `AudioEngine` singleton (miniaudio backend); `AudioSourceComponent` with path, volume, loop, autoplay; scene autoplay on `OnRuntimeStart`; inspector UI + YAML serialization.
 - **Lua file watcher** — Background thread polls `last_write_time`; hot-reloads `.lua` scripts via `OnFileChanged`.
 - **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; wired into physics, serializer, and inspector.
 - **Entity parent-child hierarchy** — `RelationshipComponent`; world transform via `Scene::GetWorldTransform`; drag-and-drop reparenting in hierarchy panel.

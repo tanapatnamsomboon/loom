@@ -160,4 +160,18 @@ namespace Loom {
         AnimationComponent(const AnimationComponent&) = default;
     };
 
+    struct AudioSourceComponent {
+        std::string AssetPath;
+        float Volume   = 1.0f;
+        bool  Loop     = false;
+        bool  AutoPlay = false;
+
+        void* RuntimeSound = nullptr; // ma_sound* — owned and managed by AudioEngine
+
+        AudioSourceComponent()                                = default;
+        AudioSourceComponent(const AudioSourceComponent& o)
+            : AssetPath(o.AssetPath), Volume(o.Volume), Loop(o.Loop), AutoPlay(o.AutoPlay)
+            , RuntimeSound(nullptr) {} // never alias runtime handles on copy
+    };
+
 } // namespace Loom

@@ -113,3 +113,13 @@ endif()
 add_library(sol2 INTERFACE)
 target_include_directories(sol2 INTERFACE vendor/sol2/include)
 target_link_libraries(sol2 INTERFACE lua)
+
+# -----------------------------------------------------------------------------
+# miniaudio (single-header C audio library)
+# MINIAUDIO_IMPLEMENTATION must be defined in exactly one .cpp (audio_engine.cpp)
+# -----------------------------------------------------------------------------
+add_library(miniaudio INTERFACE)
+target_include_directories(miniaudio INTERFACE vendor/miniaudio)
+if(WIN32)
+    target_link_libraries(miniaudio INTERFACE ole32 advapi32)
+endif()

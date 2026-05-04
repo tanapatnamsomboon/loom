@@ -247,6 +247,25 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Audio Source Component
+        if (entity.HasComponent<AudioSourceComponent>()) {
+            out << YAML::Key << "AudioSourceComponent";
+            out << YAML::BeginMap;
+            auto& asc = entity.GetComponent<AudioSourceComponent>();
+            std::string audio_path = asc.AssetPath;
+            std::filesystem::path asset_dir = Project::GetAssetDirectory();
+            if (!asset_dir.empty() && !audio_path.empty()) {
+                std::filesystem::path abs(audio_path);
+                if (abs.is_absolute() && abs.string().find(asset_dir.string()) != std::string::npos)
+                    audio_path = std::filesystem::relative(abs, asset_dir).generic_string();
+            }
+            out << YAML::Key << "AssetPath" << YAML::Value << audio_path;
+            out << YAML::Key << "Volume"    << YAML::Value << asc.Volume;
+            out << YAML::Key << "Loop"      << YAML::Value << asc.Loop;
+            out << YAML::Key << "AutoPlay"  << YAML::Value << asc.AutoPlay;
+            out << YAML::EndMap;
+        }
+
         // Relationship Component — only serialize the parent UUID; children are implied
         if (entity.HasComponent<RelationshipComponent>()) {
             Entity parent = entity.GetParent();
@@ -425,6 +444,15 @@ namespace Loom {
                 cc2d.Restitution = YAML_GET(cc2d_node["Restitution"], float, 0.0f);
                 cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
             }
+
+            // Audio Source Component
+            if (auto asc_node = entity_node["AudioSourceComponent"]) {
+                auto& asc    = entity.AddComponent<AudioSourceComponent>();
+                asc.AssetPath = YAML_GET(asc_node["AssetPath"], std::string, "");
+                asc.Volume    = YAML_GET(asc_node["Volume"],    float,       1.0f);
+                asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
+                asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
+            }
         }
 
         // Second pass: wire up parent-child relationships
@@ -572,6 +600,14 @@ namespace Loom {
                 for (auto frame_node : frames_node)
                     anim.Frames.push_back(frame_node.as<glm::vec4>());
             }
+        }
+
+        if (auto asc_node = data["AudioSourceComponent"]) {
+            auto& asc     = entity.AddComponent<AudioSourceComponent>();
+            asc.AssetPath = YAML_GET(asc_node["AssetPath"], std::string, "");
+            asc.Volume    = YAML_GET(asc_node["Volume"],    float,       1.0f);
+            asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
+            asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
         }
 
         LOOM_CORE_INFO("SceneSerializer: instantiated prefab '{}' as '{}'", filepath, name);

@@ -47,6 +47,8 @@ set(ENGINE_SOURCES
   src/scene/scene_serializer.cpp
   src/scene/script_registry.cpp
 
+  src/audio/audio_engine.cpp
+
   src/scripting/file_watcher.cpp
   src/scripting/scripting_engine.cpp
   src/scripting/backends/lua/lua_scripting_backend.cpp
@@ -84,6 +86,7 @@ target_link_libraries(Loom
   PRIVATE
     lua
     sol2
+    miniaudio
 )
 
 if (WIN32)

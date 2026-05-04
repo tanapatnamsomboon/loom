@@ -1,32 +1,34 @@
 Scene: Untitled
 Entities:
-  - Entity: 11268422857169728154
+  - Entity: 15708114778933537143
     TagComponent:
-      Tag: Camera
+      Tag: Background
     TransformComponent:
-      Translation: [0, 1, 2]
+      Translation: [0, 0.8, -0.5]
+      Rotation: [0, 0, 0]
+      Scale: [7.5, 3.75, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: C:/Users/phukao/Work/loom/sandbox/assets/textures/background.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    AudioSourceComponent:
+      AssetPath: sounds/ambience.wav
+      Volume: 0.15
+      Loop: true
+      AutoPlay: true
+  - Entity: 9047455008060296161
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 1.75, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    CameraComponent:
-      Primary: true
-      FixedAspectRatio: false
-      OrthographicSize: 3
-      OrthographicNear: -1
-      OrthographicFar: 10
-      PerspectiveFOV: 0.785398
-      PerspectiveNear: 0.01
-      PerspectiveFar: 1000
-      ProjectionType: 1
-  - Entity: 12422624765810591396
-    TagComponent:
-      Tag: Platform
-    TransformComponent:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [2, 0.1, 1]
     SpriteRendererComponent:
-      Color: [0.44224423, 0.18390355, 0, 1]
-      Texture: ""
+      Color: [1, 1, 1, 1]
+      Texture: C:/Users/phukao/Work/loom/sandbox/assets/textures/sun.png
       TilingFactor: 1
       FilterMode: 0
       WrapMode: 0
@@ -47,6 +49,16 @@ Entities:
       GenerateMips: false
     LuaScriptComponent:
       ScriptPath: scripts/test_script.lua
+    Rigidbody2DComponent:
+      BodyType: 1
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
     AnimationComponent:
       FrameDuration: 0.1
       Loop: true
@@ -57,17 +69,44 @@ Entities:
         - [0.2, 0.857143, 0.3, 1]
         - [0.3, 0.857143, 0.4, 1]
         - [0.4, 0.857143, 0.5, 1]
-  - Entity: 9047455008060296161
+  - Entity: 12422624765810591396
     TagComponent:
-      Tag: Sun
+      Tag: Platform
     TransformComponent:
-      Translation: [0, 1.75, 0]
+      Translation: [-9.313226e-10, -0.3, -2.3283064e-10]
       Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Scale: [4, 0.4, 1]
     SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: C:/Users/phukao/Work/loom/sandbox/assets/textures/sun.png
+      Color: [0.44224423, 0.18390355, 0, 1]
+      Texture: ""
       TilingFactor: 1
       FilterMode: 0
       WrapMode: 0
       GenerateMips: true
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+  - Entity: 11268422857169728154
+    TagComponent:
+      Tag: Camera
+    TransformComponent:
+      Translation: [0, 1, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 3
+      OrthographicNear: -1
+      OrthographicFar: 10
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1

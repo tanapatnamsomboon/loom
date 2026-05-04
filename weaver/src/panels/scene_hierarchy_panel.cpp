@@ -255,6 +255,13 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!mSelectionContext.HasComponent<Loom::AudioSourceComponent>()) {
+                if (ImGui::MenuItem("Audio Source")) {
+                    mSelectionContext.AddComponent<Loom::AudioSourceComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
             ImGui::EndPopup();
         }
 
@@ -799,6 +806,78 @@ namespace Weaver {
 
             if (remove_component) {
                 entity.RemoveComponent<Loom::AnimationComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        if (entity.HasComponent<Loom::AudioSourceComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::AudioSourceComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Audio Source");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& asc         = entity.GetComponent<Loom::AudioSourceComponent>();
+                bool  is_modified = false;
+
+                // Asset path row: label | input (fill) | browse button
+                char buffer[512] = {};
+                strncpy(buffer, asc.AssetPath.c_str(), sizeof(buffer) - 1);
+
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Audio Clip");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                if (ImGui::InputText("##AudioPath", buffer, sizeof(buffer))) {
+                    asc.AssetPath = buffer;
+                    is_modified   = true;
+                }
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                        std::filesystem::path dropped((const char*)payload->Data);
+                        auto ext = dropped.extension();
+                        if (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac") {
+                            asc.AssetPath = dropped.generic_string();
+                            is_modified   = true;
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("...##AudioBrowse", { browse_w, 0.0f })) {
+                    constexpr nfdfilteritem_t filters[] = {
+                        { "Audio Files", "wav,mp3,ogg,flac" },
+                        { "All Files",   "*"                },
+                    };
+                    NFD::Guard      guard;
+                    NFD::UniquePath out_path;
+                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
+                        std::filesystem::path picked(out_path.get());
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        asc.AssetPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                            ? rel.generic_string() : picked.generic_string();
+                        is_modified = true;
+                    }
+                }
+
+                is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
+                is_modified |= ImGui::Checkbox("Loop", &asc.Loop);
+                ImGui::SameLine();
+                is_modified |= ImGui::Checkbox("Auto Play", &asc.AutoPlay);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::AudioSourceComponent>();
                 if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
         }
