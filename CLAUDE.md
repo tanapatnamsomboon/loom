@@ -292,6 +292,11 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ---
 
+## Documentation Protocol
+- **README Maintenance:** Upon completing a major roadmap milestone (e.g., implementing a new core system like Audio, Physics, or WeaverRuntime), you must automatically review and propose updates to `README.md`.
+- Ensure the "Features", "Current State", and "Dependencies" sections are always aligned with our actual codebase.
+- Do NOT update `README.md` for minor bug fixes, UI tweaks, or micro-steps.
+
 ## Completed
 
 - **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
