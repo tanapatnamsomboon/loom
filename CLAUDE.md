@@ -143,7 +143,9 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 - [x] **Viewport mouse-picking fix** — `ImGuizmo::IsOver()` returned stale `true` from the previous frame when no entity was selected and `Manipulate()` was not called. Fixed in `OnMouseButtonPressed`: only consult `IsOver()` when an entity is selected and the gizmo type is active.
 
 ## Medium-term
-- [ ] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. No new vendor library needed.
+- [x] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. System in `Scene::OnUpdateRuntime`; editor renders current frame without advancing. Serialized via YAML. Inspector allows per-frame UV editing with add/remove buttons.
+- [ ] **Spritesheet helper** — "Generate from spritesheet" section in the `AnimationComponent` inspector. Input sheet size (px), cell size (px), start row/col, and frame count; one button auto-fills `Frames` with correct normalized UV rects. Eliminates manual UV calculation.
+- [ ] **TextureSpecification** — Per-texture `FilterMode` (Nearest/Linear), `WrapMode`, and `GenerateMips` flag. Passed into `Texture2D::Create()` so UI/icon textures stay `GL_LINEAR` while sprite sheets use `GL_NEAREST`. Replaces the current hardcoded filter in `OpenGLTexture2D`.
 - [ ] **Prefab system** — Serialize a single entity (all components) to a `.lprefab` YAML file; instantiate from the editor and from Lua.
 - [ ] **Expanded Lua bindings** — Physics raycasts, entity lookup by tag, entity spawn/destroy from scripts, multi-argument `Log` functions.
 - [ ] **Audio system** — `AudioEngine` singleton + `AudioSourceComponent`. Candidate library: **miniaudio** (single-header C, no extra submodule overhead).
@@ -193,3 +195,4 @@ When generating code, modifying files, or debugging:
 3. **Editor UI:** Always use `ImGui` for new Weaver panels and windows.
 4. **Build system:** Register every new `.cpp` file in the appropriate `CMakeLists.txt`.
 5. **Patterns:** Follow existing naming conventions, include order, and member variable style before introducing new patterns.
+6. **Never build the project yourself.** Do NOT run `cmake --build`, `ninja`, `make`, or any compiler invocation. After writing code, provide the user with the exact build command to run themselves and wait for them to report errors back.

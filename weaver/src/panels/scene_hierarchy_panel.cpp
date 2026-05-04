@@ -235,6 +235,13 @@ namespace Weaver {
                     ImGui::CloseCurrentPopup();
                 }
             }
+            if (!mSelectionContext.HasComponent<Loom::AnimationComponent>()) {
+                if (ImGui::MenuItem("Sprite Animator")) {
+                    mSelectionContext.AddComponent<Loom::AnimationComponent>();
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
             ImGui::EndPopup();
         }
 
@@ -636,6 +643,61 @@ namespace Weaver {
 
             if (remove_component) {
                 entity.RemoveComponent<Loom::LuaScriptComponent>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        }
+
+        if (entity.HasComponent<Loom::AnimationComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::AnimationComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Sprite Animator");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& anim        = entity.GetComponent<Loom::AnimationComponent>();
+                bool  is_modified = false;
+
+                is_modified |= ImGui::DragFloat("Frame Duration", &anim.FrameDuration, 0.01f, 0.001f, 60.0f);
+                is_modified |= ImGui::Checkbox("Loop",       &anim.Loop);
+                ImGui::SameLine();
+                is_modified |= ImGui::Checkbox("Playing",    &anim.IsPlaying);
+
+                ImGui::Text("Frames (%d)", (int)anim.Frames.size());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("+##AddFrame")) {
+                    anim.Frames.push_back({ 0.0f, 0.0f, 1.0f, 1.0f });
+                    is_modified = true;
+                }
+
+                for (int i = 0; i < (int)anim.Frames.size(); i++) {
+                    ImGui::PushID(i);
+                    auto& frame = anim.Frames[i];
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 24.0f);
+                    char label[16];
+                    snprintf(label, sizeof(label), "[%d]", i);
+                    is_modified |= ImGui::DragFloat4(label, &frame.x, 0.01f, 0.0f, 1.0f);
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("x##RemoveFrame")) {
+                        anim.Frames.erase(anim.Frames.begin() + i);
+                        if (anim.CurrentFrame >= (int)anim.Frames.size())
+                            anim.CurrentFrame = (int)anim.Frames.size() - 1;
+                        is_modified = true;
+                        ImGui::PopID();
+                        break;
+                    }
+                    ImGui::PopID();
+                }
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) {
+                entity.RemoveComponent<Loom::AnimationComponent>();
                 if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
         }

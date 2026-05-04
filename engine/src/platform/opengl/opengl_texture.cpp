@@ -33,8 +33,8 @@ namespace Loom {
         glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
         glTextureStorage2D(mRendererID, levels, mInternalFormat, mWidth, mHeight);
 
-        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
         float max_anisotropy;
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_anisotropy);

@@ -47,6 +47,7 @@ namespace Loom {
 
         CopyComponent<TransformComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<SpriteRendererComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<AnimationComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CameraComponent>(dst_registry, src_registry, entt_map);
 
         auto nsc_view = src_registry.view<NativeScriptComponent>();
@@ -199,6 +200,25 @@ namespace Loom {
         return {};
     }
 
+    static void DrawSprite(entt::registry& registry, entt::entity e, const glm::mat4& world, const SpriteRendererComponent& sprite) {
+        if (registry.all_of<AnimationComponent>(e)) {
+            const auto& anim = registry.get<AnimationComponent>(e);
+            if (!anim.Frames.empty() && sprite.Texture) {
+                int frame_idx = std::clamp(anim.CurrentFrame, 0, (int)anim.Frames.size() - 1);
+                const auto& uv = anim.Frames[frame_idx];
+                const glm::vec2 tex_coords[4] = {
+                    { uv.x, uv.y }, { uv.z, uv.y }, { uv.z, uv.w }, { uv.x, uv.w }
+                };
+                Renderer2D::DrawQuad(world, sprite.Texture, tex_coords, sprite.Color, (int)entt::to_entity(e));
+                return;
+            }
+        }
+        if (sprite.Texture)
+            Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(e));
+        else
+            Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(e));
+    }
+
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
         Renderer2D::BeginScene(camera);
 
@@ -209,11 +229,7 @@ namespace Loom {
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
             glm::mat4 world = GetWorldTransform({ entity, this });
-            if (sprite.Texture) {
-                Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
-            } else {
-                Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(entity));
-            }
+            DrawSprite(mRegistry, entity, world, sprite);
         }
 
         auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
@@ -236,6 +252,11 @@ namespace Loom {
     }
 
     void Scene::OnRuntimeStart() {
+        mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
+            anim.CurrentFrame = 0;
+            anim.ElapsedTime  = 0.0f;
+        });
+
         ScriptingEngine::OnRuntimeStart(this);
 
         b2WorldDef world_def = b2DefaultWorldDef();
@@ -339,7 +360,21 @@ namespace Loom {
             }
         }
 
-        // 3. Find the primary camera
+        // 3. Advance sprite animations
+        mRegistry.view<AnimationComponent>().each([&](AnimationComponent& anim) {
+            if (!anim.IsPlaying || anim.Frames.empty()) return;
+            anim.ElapsedTime += ts;
+            while (anim.ElapsedTime >= anim.FrameDuration) {
+                anim.ElapsedTime -= anim.FrameDuration;
+                anim.CurrentFrame++;
+                if (anim.CurrentFrame >= (int)anim.Frames.size()) {
+                    if (anim.Loop) anim.CurrentFrame = 0;
+                    else { anim.CurrentFrame = (int)anim.Frames.size() - 1; anim.IsPlaying = false; }
+                }
+            }
+        });
+
+        // 4. Find the primary camera
         Camera*   main_camera = nullptr;
         glm::mat4 camera_transform;
 
@@ -363,11 +398,7 @@ namespace Loom {
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
                 glm::mat4 world = GetWorldTransform({ entity, this });
-                if (sprite.Texture) {
-                    Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
-                } else {
-                    Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(entity));
-                }
+                DrawSprite(mRegistry, entity, world, sprite);
             }
 
             RenderPhysicsColliders();
@@ -377,6 +408,12 @@ namespace Loom {
     }
 
     void Scene::OnRuntimeStop() {
+        mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
+            anim.CurrentFrame = 0;
+            anim.ElapsedTime  = 0.0f;
+            anim.IsPlaying    = true;
+        });
+
         ScriptingEngine::OnRuntimeStop();
 
         mRegistry.view<NativeScriptComponent>().each([](NativeScriptComponent& nsc) {

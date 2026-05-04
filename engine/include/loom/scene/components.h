@@ -146,4 +146,17 @@ namespace Loom {
         RelationshipComponent(const RelationshipComponent&) = default;
     };
 
+    struct AnimationComponent {
+        // Each frame: (u_min, v_min, u_max, v_max) in normalized [0,1] UV space
+        std::vector<glm::vec4> Frames;
+        float FrameDuration = 0.1f;
+        int   CurrentFrame  = 0;
+        float ElapsedTime   = 0.0f;
+        bool  IsPlaying     = true;
+        bool  Loop          = true;
+
+        AnimationComponent()                          = default;
+        AnimationComponent(const AnimationComponent&) = default;
+    };
+
 } // namespace Loom

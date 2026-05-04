@@ -229,6 +229,21 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Animation Component
+        if (entity.HasComponent<AnimationComponent>()) {
+            out << YAML::Key << "AnimationComponent";
+            out << YAML::BeginMap;
+            auto& anim = entity.GetComponent<AnimationComponent>();
+            out << YAML::Key << "FrameDuration" << YAML::Value << anim.FrameDuration;
+            out << YAML::Key << "Loop"          << YAML::Value << anim.Loop;
+            out << YAML::Key << "IsPlaying"     << YAML::Value << anim.IsPlaying;
+            out << YAML::Key << "Frames"        << YAML::Value << YAML::BeginSeq;
+            for (const auto& frame : anim.Frames)
+                out << frame;
+            out << YAML::EndSeq;
+            out << YAML::EndMap;
+        }
+
         // Relationship Component — only serialize the parent UUID; children are implied
         if (entity.HasComponent<RelationshipComponent>()) {
             Entity parent = entity.GetParent();
@@ -380,6 +395,18 @@ namespace Loom {
                 bc2d.Friction = YAML_GET(bc2d_node["Friction"], float, 0.5f);
                 bc2d.Restitution = YAML_GET(bc2d_node["Restitution"], float, 0.0f);
                 bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
+            }
+
+            // Animation Component
+            if (auto anim_node = entity_node["AnimationComponent"]) {
+                auto& anim        = entity.AddComponent<AnimationComponent>();
+                anim.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
+                anim.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
+                anim.IsPlaying     = YAML_GET(anim_node["IsPlaying"],     bool,  true);
+                if (auto frames_node = anim_node["Frames"]) {
+                    for (auto frame_node : frames_node)
+                        anim.Frames.push_back(frame_node.as<glm::vec4>());
+                }
             }
 
             // Circle Collider 2D Component
