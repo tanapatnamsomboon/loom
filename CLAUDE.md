@@ -135,49 +135,74 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 
 Keep this section current. Mark completed items with `[x]`, update priorities as the project evolves.
 
-## Near-term
-- [x] **Lua file watcher** — Background thread polls `std::filesystem::last_write_time` per `.lua` script path; changes are queued thread-safely and drained on the main thread in `OnRuntimeUpdate`, then forwarded to the existing `OnFileChanged` hot-reload logic. Owned by `LuaScriptingBackend` (`engine/src/scripting/file_watcher.h/.cpp`).
-- [x] **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`. Wire into the physics system, serializer, and inspector alongside `BoxCollider2DComponent`.
-- [x] **Entity parent-child hierarchy** — `RelationshipComponent` (Parent + Children entt handles) on any entity. World transform computed recursively via `Scene::GetWorldTransform`. Hierarchy panel renders as a tree with drag-and-drop reparenting; relationships serialized via `ParentID` UUID. `entity.cpp` added.
-- [x] **Content browser drag & drop** — Drag `.png/.jpg/.jpeg/.bmp/.tga` onto the texture slot in the Properties panel to assign a sprite texture. Drag `.loom` onto the viewport to open that scene. Both use the existing `"CONTENT_BROWSER_ITEM"` payload.
-- [x] **Viewport mouse-picking fix** — `ImGuizmo::IsOver()` returned stale `true` from the previous frame when no entity was selected and `Manipulate()` was not called. Fixed in `OnMouseButtonPressed`: only consult `IsOver()` when an entity is selected and the gizmo type is active.
+## Active — Next Up
 
-## Medium-term
-- [x] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. System in `Scene::OnUpdateRuntime`; editor renders current frame without advancing. Serialized via YAML. Inspector allows per-frame UV editing with add/remove buttons.
-- [x] **Spritesheet helper** — "Generate from spritesheet" section in the `AnimationComponent` inspector. Input sheet size (px), cell size (px), start row/col, and frame count; one button auto-fills `Frames` with correct normalized UV rects. Eliminates manual UV calculation.
-- [x] **TextureSpecification** — Per-texture `FilterMode` (Nearest/Linear), `WrapMode`, and `GenerateMips` flag. Passed into `Texture2D::Create()` so UI/icon textures stay `GL_LINEAR` while sprite sheets use `GL_NEAREST`. Replaces the current hardcoded filter in `OpenGLTexture2D`.
-- [ ] **Prefab system** — Serialize a single entity (all components) to a `.lprefab` YAML file; instantiate from the editor and from Lua.
-- [ ] **Expanded Lua bindings** — Physics raycasts, entity lookup by tag, entity spawn/destroy from scripts, multi-argument `Log` functions.
-- [ ] **Audio system** — `AudioEngine` singleton + `AudioSourceComponent`. Candidate library: **miniaudio** (single-header C, no extra submodule overhead).
+- [ ] **Prefab system**
+  - Design `.lprefab` YAML schema (entity + all components, UUID as root key)
+  - `SceneSerializer`: serialize/deserialize a single entity to/from `.lprefab`
+  - Editor: right-click entity in hierarchy → "Save as Prefab…" (NFD save dialog)
+  - Content browser: drag `.lprefab` into viewport to instantiate
+  - Lua: `entity.Instantiate(path)` binding
+
+- [ ] **Expanded Lua bindings**
+  - `entity.FindByTag(tag)` — entity lookup by tag name
+  - `entity.Spawn()` / `entity.Destroy()` — entity lifecycle from scripts
+  - `Physics.Raycast(origin, dir, distance)` — 2D physics raycasts
+  - Multi-argument `Log.Info(...)`, `Log.Warn(...)`, `Log.Error(...)`
+
+- [ ] **Audio system**
+  - Add **miniaudio** submodule (`vendor/miniaudio`, single-header C)
+  - `AudioEngine` singleton: `Init`, `Shutdown`, `Play`, `Stop`
+  - `AudioSourceComponent`: asset path, volume, loop, autoplay flag
+  - Scene integration: `OnRuntimeStart`/`OnRuntimeStop` trigger autoplay; `OnRuntimeUpdate` for future spatial audio
+  - Inspector UI + YAML serialization for `AudioSourceComponent`
+
+- [ ] **Asset hot-reload** — Detect texture and shader file changes via filesystem polling; reload through `AssetManager` without restarting the editor. Directly improves the daily iteration loop at no 3D cost.
+
+## Standalone Game Export — WeaverRuntime
+*Placed here as the capstone of 2D feature completeness. Once Prefabs, Lua, and Audio are in the engine, the runtime inherits them automatically. This milestone also becomes the deployment vehicle for all future 3D content.*
+
+- [ ] **`weaver_runtime/` CMake target** — New directory alongside `weaver/`, with a minimal `RuntimeApplication` class inheriting `Loom::Application` and its own `main.cpp`. Added via `add_subdirectory(weaver_runtime)` in the root `CMakeLists.txt`. The target links only `Loom` + GLFW — ImGui and ImGuizmo are **explicitly excluded** to enforce the clean separation at the build system level.
+
+- [ ] **`RuntimeLayer`** — Thin `Loom::Layer` subclass with no editor dependencies:
+  - `OnAttach`: reads project path from `argv[1]` → `ProjectSerializer::Deserialize()` → `SceneSerializer::Deserialize(StartScene)` → `Scene::OnRuntimeStart()`
+  - `OnUpdate(ts)`: calls `Scene::OnRuntimeUpdate(ts)`; rendered to the full window using the active `SceneCamera` entity (no `EditorCamera`, no gizmos, no grid)
+  - `OnDetach`: calls `Scene::OnRuntimeStop()`
+
+- [ ] **Build & packaging validation** — Verify a project saved from Weaver loads and runs correctly in `WeaverRuntime` standalone. Add optional project config fields for window title and initial resolution.
+
+## Short-term Polish
+
+- [ ] **Tilemap support** — Tiled `.tmx` loading or a built-in tile editor panel in Weaver.
 
 ## 3D Foundation
 The engine is structurally 3D-ready: `TransformComponent` uses `glm::vec3`, `EditorCamera` supports perspective navigation, and `SceneCamera` already has a perspective projection type. The following work brings full 3D rendering and physics online.
 
-- [ ] **Renderer3D** — New `engine/renderer/renderer_3d.h/.cpp` system (parallel to `Renderer2D`) for submitting and drawing meshes. Keeps 2D and 3D pipelines independent.
-- [ ] **Mesh loading** — Add **cgltf** submodule (`vendor/cgltf`, single C file) for GLTF/GLB import. Wrap in `engine/asset/` as `MeshLoader`. Add to vendor table below.
+- [ ] **Renderer3D**
+  - `Mesh` asset type: VAO/VBO for position, normal, UV, index data
+  - `Renderer3D::Submit(mesh, material, transform)` draw call (parallel to `Renderer2D`, independent pipeline)
+  - Camera integration: reuse `EditorCamera` perspective projection
+  - `AssetManager::LoadMesh()` integration
+
+- [ ] **Mesh loading** — Add **cgltf** submodule (`vendor/cgltf`, single C file) for GLTF/GLB import. Wrap in `engine/asset/` as `MeshLoader`.
+
 - [ ] **Mesh & material components** — `MeshComponent` (path to a GLTF asset), `MeshRendererComponent` (mesh + material reference), `MaterialComponent` (albedo color/texture, roughness, metallic).
+
 - [ ] **Basic lighting** — `DirectionalLightComponent`, `PointLightComponent`. Phong shading pass in `Renderer3D` before moving to PBR.
-- [ ] **3D physics** — Add **Jolt Physics** submodule (`vendor/jolt`). Introduce a `PhysicsEngine3D` singleton alongside the existing Box2D 2D system. Add `Rigidbody3DComponent`, `BoxCollider3DComponent`, `SphereCollider3DComponent`.
+
+- [ ] **3D physics** — Add **Jolt Physics** submodule (`vendor/jolt`). Introduce a `PhysicsEngine3D` singleton alongside the existing Box2D system. Add `Rigidbody3DComponent`, `BoxCollider3DComponent`, `SphereCollider3DComponent`. Scene: `OnPhysicsStart3D` / `OnPhysicsStop3D`.
 
 ## Longer-term
+
 - [ ] **PBR shading** — Replace Phong with a physically-based rendering pipeline (metallic-roughness model). Requires IBL environment maps.
 - [ ] **Shadow mapping** — Directional shadow maps; cascaded shadow maps for large scenes.
-- [ ] **Asset hot-reload** — Detect texture, shader, and mesh file changes; reload through `AssetManager` without restarting the editor.
-- [ ] **Runtime game export** — Standalone executable with no editor layer; start scene loaded from project config.
-- [ ] **Tilemap support** — Tiled `.tmx` loading or a built-in tile editor panel in Weaver.
 
 ## Graphics API & Platform Expansion
+Start this milestone only after the 3D Foundation is complete and stable. The abstract `RendererAPI` / `RenderCommand` layer is already designed for multi-backend support; platform implementations live in `platform/<api>/`.
 
-Start this milestone only after the 3D Foundation is complete and stable. The abstract `RendererAPI` / `RenderCommand` layer is already designed for multi-backend support; platform implementations live in `platform/<api>/`. The window abstraction (`Window::Create()`, `GetNativeWindow()`) is already backend-agnostic. The main cross-cutting concern is the shader pipeline: adding a new API requires either offline compilation to that API's shader format or a cross-compilation step.
-
-Ordered by impact and implementation complexity:
-
-- [ ] **Vulkan** — First non-OpenGL backend. Cross-platform (Windows, Linux, macOS via MoltenVK). Add `platform/vulkan/` implementations. Requires: Vulkan SDK (system install, not a submodule) + **VMA** submodule (`vendor/vma`, Vulkan Memory Allocator) for buffer/image management + **vk-bootstrap** submodule (`vendor/vk-bootstrap`) to reduce init boilerplate. Shaders compiled from GLSL to SPIR-V offline via `glslang` or `shaderc`.
-- [ ] **DirectX 12** — Windows-only explicit API, pairs naturally after Vulkan since both are low-overhead and similar in design. No new submodule; uses the Windows SDK. Add `platform/directx12/`. Shaders compiled with `dxc` (HLSL → DXIL).
-- [ ] **Win32 window backend** — Native Win32 replacement for GLFW on Windows. Add `platform/win32/` window and input implementations. Removes the GLFW dependency from Windows shipping builds and enables tighter OS integration (raw input, DPI handling, etc.). Pair with DirectX 12 milestone.
-- [ ] **DirectX 11** — Compatibility tier for older Windows hardware. Simpler than DX12; consider only if legacy hardware support becomes a requirement.
-- [ ] **Metal** — macOS / iOS native API. Vulkan via MoltenVK already covers macOS, so this is low priority. Add `platform/metal/` only if MoltenVK overhead becomes measurable.
-- [ ] **Wayland native** — Linux-only. GLFW already supports Wayland via the `GLFW_PLATFORM_WAYLAND` flag; a full native Wayland backend without GLFW is very late-stage.
+- [ ] **Vulkan** — First non-OpenGL backend. Cross-platform (Windows, Linux, macOS via MoltenVK). Add `platform/vulkan/`. Requires: Vulkan SDK (system install) + **VMA** submodule (`vendor/vma`) + **vk-bootstrap** submodule (`vendor/vk-bootstrap`). Shaders: GLSL → SPIR-V via `glslang`/`shaderc`.
+- [ ] **DirectX 12** — Windows-only. No new submodule; uses the Windows SDK. Add `platform/directx12/`. Shaders: HLSL → DXIL via `dxc`.
+- [ ] **Metal** — Stretch goal. Vulkan via MoltenVK already covers macOS; add `platform/metal/` only if MoltenVK overhead becomes measurable.
 
 ## Candidate Vendor Libraries (not yet added)
 | Library | Submodule path | Purpose |
@@ -187,6 +212,16 @@ Ordered by impact and implementation complexity:
 | Jolt Physics | `vendor/jolt` | 3D physics (C++17, MIT) |
 | VMA | `vendor/vma` | Vulkan Memory Allocator (required for Vulkan backend) |
 | vk-bootstrap | `vendor/vk-bootstrap` | Vulkan instance/device init boilerplate |
+
+## Completed
+- **Lua file watcher** — Background thread polls `last_write_time`; hot-reloads `.lua` scripts via `OnFileChanged`.
+- **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; wired into physics, serializer, and inspector.
+- **Entity parent-child hierarchy** — `RelationshipComponent`; world transform via `Scene::GetWorldTransform`; drag-and-drop reparenting in hierarchy panel.
+- **Content browser drag & drop** — Drag images onto texture slot; drag `.loom` onto viewport to open scene.
+- **Viewport mouse-picking fix** — Guard `ImGuizmo::IsOver()` behind entity-selected + gizmo-active check to eliminate stale-frame false positives.
+- **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions at configurable FPS; serialized via YAML.
+- **Spritesheet helper** — Auto-fills animation frames from sheet size, cell size, start row/col, and frame count.
+- **TextureSpecification** — Per-texture `FilterMode`, `WrapMode`, `GenerateMips`; passed into `Texture2D::Create()`.
 
 # Your Mission
 When generating code, modifying files, or debugging:
