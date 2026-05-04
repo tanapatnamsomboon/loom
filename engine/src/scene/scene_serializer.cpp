@@ -250,6 +250,8 @@ namespace Loom {
             auto& asc = entity.GetComponent<AudioSourceComponent>();
             out << YAML::Key << "AssetPath" << YAML::Value << ToRelativeAssetPath(asc.AssetPath);
             out << YAML::Key << "Volume"    << YAML::Value << asc.Volume;
+            out << YAML::Key << "Pitch"     << YAML::Value << asc.Pitch;
+            out << YAML::Key << "Pan"       << YAML::Value << asc.Pan;
             out << YAML::Key << "Loop"      << YAML::Value << asc.Loop;
             out << YAML::Key << "AutoPlay"  << YAML::Value << asc.AutoPlay;
             out << YAML::EndMap;
@@ -439,6 +441,8 @@ namespace Loom {
                 auto& asc    = entity.AddComponent<AudioSourceComponent>();
                 asc.AssetPath = YAML_GET(asc_node["AssetPath"], std::string, "");
                 asc.Volume    = YAML_GET(asc_node["Volume"],    float,       1.0f);
+                asc.Pitch     = YAML_GET(asc_node["Pitch"],     float,       1.0f);
+                asc.Pan       = YAML_GET(asc_node["Pan"],       float,       0.0f);
                 asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
                 asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
             }
@@ -595,6 +599,8 @@ namespace Loom {
             auto& asc     = entity.AddComponent<AudioSourceComponent>();
             asc.AssetPath = YAML_GET(asc_node["AssetPath"], std::string, "");
             asc.Volume    = YAML_GET(asc_node["Volume"],    float,       1.0f);
+            asc.Pitch     = YAML_GET(asc_node["Pitch"],     float,       1.0f);
+            asc.Pan       = YAML_GET(asc_node["Pan"],       float,       0.0f);
             asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
             asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
         }

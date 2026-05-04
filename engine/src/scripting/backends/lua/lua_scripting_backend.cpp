@@ -1,4 +1,5 @@
 #include "scripting/backends/lua/lua_scripting_backend.h"
+#include "loom/audio/audio_engine.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include "loom/scene/scene.h"
@@ -8,6 +9,7 @@
 #include "loom/core/mouse_codes.h"
 #include "loom/core/log.h"
 #include "loom/project/project.h"
+#include <box2d/box2d.h>
 #include <glm/glm.hpp>
 #include <filesystem>
 
@@ -53,6 +55,67 @@ namespace {
             Entity spawned = SceneSerializer::DeserializePrefabInto(full, scene);
             return LuaEntityWrapper{ spawned, scene };
         }
+
+        // --- Audio API ---
+
+        void PlayAudio() {
+            if (!handle.HasComponent<AudioSourceComponent>()) return;
+            auto& asc = handle.GetComponent<AudioSourceComponent>();
+            if (asc.AssetPath.empty()) return;
+            auto full = Project::GetAssetFileSystemPath(asc.AssetPath).generic_string();
+            AudioEngine::PlaySource(asc, full);
+        }
+
+        void StopAudio() {
+            if (!handle.HasComponent<AudioSourceComponent>()) return;
+            AudioEngine::StopSource(handle.GetComponent<AudioSourceComponent>());
+        }
+
+        bool IsAudioPlaying() {
+            if (!handle.HasComponent<AudioSourceComponent>()) return false;
+            return AudioEngine::IsPlaying(handle.GetComponent<AudioSourceComponent>());
+        }
+
+        void SetVolume(float v) {
+            if (!handle.HasComponent<AudioSourceComponent>()) return;
+            AudioEngine::SetVolume(handle.GetComponent<AudioSourceComponent>(), v);
+        }
+
+        void SetPitch(float p) {
+            if (!handle.HasComponent<AudioSourceComponent>()) return;
+            AudioEngine::SetPitch(handle.GetComponent<AudioSourceComponent>(), p);
+        }
+
+        // --- Physics API ---
+
+        void SetLinearVelocity(glm::vec2 v) {
+            if (!handle.HasComponent<Rigidbody2DComponent>()) return;
+            auto& rb = handle.GetComponent<Rigidbody2DComponent>();
+            if (!b2Body_IsValid(rb.RuntimeBody)) return;
+            b2Body_SetLinearVelocity(rb.RuntimeBody, { v.x, v.y });
+        }
+
+        glm::vec2 GetLinearVelocity() {
+            if (!handle.HasComponent<Rigidbody2DComponent>()) return {};
+            auto& rb = handle.GetComponent<Rigidbody2DComponent>();
+            if (!b2Body_IsValid(rb.RuntimeBody)) return {};
+            b2Vec2 vel = b2Body_GetLinearVelocity(rb.RuntimeBody);
+            return { vel.x, vel.y };
+        }
+
+        void ApplyForce(glm::vec2 v) {
+            if (!handle.HasComponent<Rigidbody2DComponent>()) return;
+            auto& rb = handle.GetComponent<Rigidbody2DComponent>();
+            if (!b2Body_IsValid(rb.RuntimeBody)) return;
+            b2Body_ApplyForceToCenter(rb.RuntimeBody, { v.x, v.y }, true);
+        }
+
+        void ApplyImpulse(glm::vec2 v) {
+            if (!handle.HasComponent<Rigidbody2DComponent>()) return;
+            auto& rb = handle.GetComponent<Rigidbody2DComponent>();
+            if (!b2Body_IsValid(rb.RuntimeBody)) return;
+            b2Body_ApplyLinearImpulseToCenter(rb.RuntimeBody, { v.x, v.y }, true);
+        }
     };
 
 } // anonymous namespace
@@ -68,6 +131,25 @@ namespace {
     }
 
     void LuaScriptingBackend::BindLuaAPI() {
+        mLua.new_usertype<glm::vec2>("Vec2",
+            sol::call_constructor,
+            sol::constructors<glm::vec2(), glm::vec2(float, float)>(),
+            "x", &glm::vec2::x,
+            "y", &glm::vec2::y,
+            sol::meta_function::addition,
+                [](const glm::vec2& a, const glm::vec2& b) { return a + b; },
+            sol::meta_function::subtraction,
+                [](const glm::vec2& a, const glm::vec2& b) { return a - b; },
+            sol::meta_function::multiplication, sol::overload(
+                [](const glm::vec2& v, float s) { return v * s; },
+                [](float s, const glm::vec2& v) { return s * v; }
+            ),
+            sol::meta_function::to_string,
+                [](const glm::vec2& v) {
+                    return "Vec2(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ")";
+                }
+        );
+
         mLua.new_usertype<glm::vec3>("Vec3",
             sol::call_constructor,
             sol::constructors<glm::vec3(), glm::vec3(float, float, float)>(),
@@ -91,17 +173,28 @@ namespace {
         );
 
         mLua.new_usertype<LuaEntityWrapper>("Entity",
-            "GetTranslation", &LuaEntityWrapper::GetTranslation,
-            "SetTranslation", &LuaEntityWrapper::SetTranslation,
-            "GetRotation",    &LuaEntityWrapper::GetRotation,
-            "SetRotation",    &LuaEntityWrapper::SetRotation,
-            "GetScale",       &LuaEntityWrapper::GetScale,
-            "SetScale",       &LuaEntityWrapper::SetScale,
-            "GetTag",         &LuaEntityWrapper::GetTag,
-            "FindByTag",      &LuaEntityWrapper::FindByTag,
-            "Spawn",          &LuaEntityWrapper::Spawn,
-            "Destroy",        &LuaEntityWrapper::Destroy,
-            "Instantiate",    &LuaEntityWrapper::Instantiate
+            "GetTranslation",     &LuaEntityWrapper::GetTranslation,
+            "SetTranslation",     &LuaEntityWrapper::SetTranslation,
+            "GetRotation",        &LuaEntityWrapper::GetRotation,
+            "SetRotation",        &LuaEntityWrapper::SetRotation,
+            "GetScale",           &LuaEntityWrapper::GetScale,
+            "SetScale",           &LuaEntityWrapper::SetScale,
+            "GetTag",             &LuaEntityWrapper::GetTag,
+            "FindByTag",          &LuaEntityWrapper::FindByTag,
+            "Spawn",              &LuaEntityWrapper::Spawn,
+            "Destroy",            &LuaEntityWrapper::Destroy,
+            "Instantiate",        &LuaEntityWrapper::Instantiate,
+            // Audio
+            "PlayAudio",          &LuaEntityWrapper::PlayAudio,
+            "StopAudio",          &LuaEntityWrapper::StopAudio,
+            "IsAudioPlaying",     &LuaEntityWrapper::IsAudioPlaying,
+            "SetVolume",          &LuaEntityWrapper::SetVolume,
+            "SetPitch",           &LuaEntityWrapper::SetPitch,
+            // Physics
+            "SetLinearVelocity",  &LuaEntityWrapper::SetLinearVelocity,
+            "GetLinearVelocity",  &LuaEntityWrapper::GetLinearVelocity,
+            "ApplyForce",         &LuaEntityWrapper::ApplyForce,
+            "ApplyImpulse",       &LuaEntityWrapper::ApplyImpulse
         );
 
         sol::table input = mLua.create_named_table("Input");

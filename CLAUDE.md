@@ -42,7 +42,7 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
 - `scripting/`: Scripting subsystem.
   - `scripting_engine.h/.cpp` (public): Singleton facade. `Init()` creates the Lua backend; `Shutdown()` tears it down. `OnRuntimeStart/Update/Stop` are forwarded by `Scene`. Initialized automatically by `Application`.
   - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnFileChanged`).
-  - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec3`, `Entity` (transform/tag accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
+  - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec2`, `Vec3`, `Entity` (transform/tag/audio/physics accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
 
 ### Lua Script API (for `LuaScriptComponent` scripts)
 Each script runs in an isolated `sol::environment`. The global `entity` is a handle to the owning entity.
@@ -51,7 +51,7 @@ function OnCreate()  end        -- called once at runtime start
 function OnUpdate(ts) end       -- called every frame; ts = delta time (seconds)
 function OnDestroy() end        -- called at runtime stop
 
--- Available globals: entity, Input, Key, Mouse, Log, Vec3
+-- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3
 -- entity:GetTranslation() / SetTranslation(vec3)
 -- entity:GetRotation()    / SetRotation(vec3)
 -- entity:GetScale()       / SetScale(vec3)
@@ -62,6 +62,13 @@ function OnDestroy() end        -- called at runtime stop
 -- entity:Instantiate(path) -> entity (instantiates a .lprefab file)
 -- Input.IsKeyPressed(Key.W), Input.GetMouseX(), etc.
 -- Physics.Raycast(origin_vec3, dir_vec3, distance) -> { hit, point, normal, entity }
+-- Audio (requires AudioSourceComponent):
+--   entity:PlayAudio()              entity:StopAudio()
+--   entity:IsAudioPlaying() -> bool
+--   entity:SetVolume(v)             entity:SetPitch(p)
+-- Physics body (requires Rigidbody2DComponent):
+--   entity:SetLinearVelocity(vec2)  entity:GetLinearVelocity() -> vec2
+--   entity:ApplyForce(vec2)         entity:ApplyImpulse(vec2)
 ```
 
 ## `weaver/` — Editor Application
@@ -146,7 +153,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *Goal: everything a 2D game needs before shipping via WeaverRuntime.*
 
-- [ ] **Audio extensions + Lua component bindings**
+- [x] **Audio extensions + Lua component bindings**
   - `AudioSourceComponent`: add `Pitch` (float, `ma_sound_set_pitch`) and `Pan` (float -1..1, `ma_sound_set_pan`); inspector + YAML
   - Lua audio API on `entity`: `PlayAudio()`, `StopAudio()`, `IsAudioPlaying()`, `SetVolume(v)`, `SetPitch(p)`
   - Lua physics API on `entity`: `SetLinearVelocity(vec2)`, `GetLinearVelocity()`, `ApplyForce(vec2)`, `ApplyImpulse(vec2)` via `Rigidbody2DComponent`
@@ -272,6 +279,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
 - **Asset path normalization** — `ToRelativeAssetPath()` helper in serializer; all component paths (texture, Lua, audio) serialized relative to asset dir using `std::filesystem::relative()`.
 - **Asset hot-reload** — `FileWatcher` embedded in `AssetManager`; `Reload()` on `Texture2D`/`Shader` updates GPU resources in-place; polled each frame from `EditorLayer::OnUpdate`.
 - **Audio system** — `AudioEngine` singleton (miniaudio backend); `AudioSourceComponent` with path, volume, loop, autoplay; scene autoplay on `OnRuntimeStart`; inspector UI + YAML serialization.

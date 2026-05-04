@@ -163,6 +163,8 @@ namespace Loom {
     struct AudioSourceComponent {
         std::string AssetPath;
         float Volume   = 1.0f;
+        float Pitch    = 1.0f;
+        float Pan      = 0.0f;
         bool  Loop     = false;
         bool  AutoPlay = false;
 
@@ -170,7 +172,8 @@ namespace Loom {
 
         AudioSourceComponent()                                = default;
         AudioSourceComponent(const AudioSourceComponent& o)
-            : AssetPath(o.AssetPath), Volume(o.Volume), Loop(o.Loop), AutoPlay(o.AutoPlay)
+            : AssetPath(o.AssetPath), Volume(o.Volume), Pitch(o.Pitch), Pan(o.Pan)
+            , Loop(o.Loop), AutoPlay(o.AutoPlay)
             , RuntimeSound(nullptr) {} // never alias runtime handles on copy
     };
 

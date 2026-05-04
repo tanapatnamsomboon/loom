@@ -17,6 +17,11 @@ namespace Loom {
 
         // Stops and releases the runtime sound owned by a source component.
         static void StopSource(AudioSourceComponent& src);
+
+        // Runtime property setters — update both the component field and the live sound if playing.
+        static void SetVolume(AudioSourceComponent& src, float volume);
+        static void SetPitch(AudioSourceComponent& src, float pitch);
+        static bool IsPlaying(AudioSourceComponent& src);
     };
 
 } // namespace Loom

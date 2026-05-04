@@ -38,6 +38,8 @@ namespace Loom {
 
         ma_sound_set_looping(sound, src.Loop ? MA_TRUE : MA_FALSE);
         ma_sound_set_volume(sound, src.Volume);
+        ma_sound_set_pitch(sound, src.Pitch);
+        ma_sound_set_pan(sound, src.Pan);
         ma_sound_start(sound);
         src.RuntimeSound = sound;
     }
@@ -50,6 +52,24 @@ namespace Loom {
         ma_sound_uninit(sound);
         delete sound;
         src.RuntimeSound = nullptr;
+    }
+
+    void AudioEngine::SetVolume(AudioSourceComponent& src, float volume) {
+        src.Volume = volume;
+        if (src.RuntimeSound)
+            ma_sound_set_volume(static_cast<ma_sound*>(src.RuntimeSound), volume);
+    }
+
+    void AudioEngine::SetPitch(AudioSourceComponent& src, float pitch) {
+        src.Pitch = pitch;
+        if (src.RuntimeSound)
+            ma_sound_set_pitch(static_cast<ma_sound*>(src.RuntimeSound), pitch);
+    }
+
+    bool AudioEngine::IsPlaying(AudioSourceComponent& src) {
+        if (!src.RuntimeSound)
+            return false;
+        return ma_sound_is_playing(static_cast<ma_sound*>(src.RuntimeSound)) == MA_TRUE;
     }
 
 } // namespace Loom

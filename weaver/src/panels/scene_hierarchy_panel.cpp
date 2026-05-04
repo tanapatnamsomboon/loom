@@ -868,6 +868,8 @@ namespace Weaver {
                 }
 
                 is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
+                is_modified |= ImGui::SliderFloat("Pitch",  &asc.Pitch,  0.1f, 4.0f);
+                is_modified |= ImGui::SliderFloat("Pan",    &asc.Pan,   -1.0f, 1.0f);
                 is_modified |= ImGui::Checkbox("Loop", &asc.Loop);
                 ImGui::SameLine();
                 is_modified |= ImGui::Checkbox("Auto Play", &asc.AutoPlay);
