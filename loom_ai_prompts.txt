@@ -69,4 +69,5 @@ Please analyze the current list of tasks and do the following:
 2. Expand: Check if any upcoming tasks are too broad. Break them down into smaller, manageable micro-steps. Add any missing logical dependencies.
 3. Reduce: Suggest removing or postponing tasks that are no longer relevant, redundant, or causing unnecessary scope creep.
 4. Reprioritize: Ensure the order of tasks makes architectural sense (e.g., core engine systems before Editor UI, clearly separating Loom Editor goals from WeaverRuntime goals).
+5. Suggest Additions: Propose any new engine features, core systems, or architectural improvements that you think are currently missing but would highly benefit Loom Engine. Clearly mark them as "Suggestions" so I can review them.
 Please present the proposed new Roadmap structure here in the chat. Wait for my approval before modifying `CLAUDE.md`.
