@@ -3,10 +3,11 @@
 #include "loom/core/log.h"
 #include "loom/scene/scene.h"
 #include <entt/entt.hpp>
+#include <vector>
 
 namespace Loom {
 
-    class Entity {
+    class LOOM_API Entity {
     public:
         Entity() = default;
         Entity(entt::entity handle, Scene* scene)
@@ -21,14 +22,14 @@ namespace Loom {
         }
 
         template<typename T>
-        T& GetComponent() {
+        T& GetComponent() const {
             if (!HasComponent<T>())
                 LOOM_CORE_FATAL("Entity does not have component!");
             return mScene->mRegistry.get<T>(mEntityHandle);
         }
 
         template<typename T>
-        bool HasComponent() {
+        bool HasComponent() const {
             return mScene->mRegistry.all_of<T>(mEntityHandle);
         }
 
@@ -50,6 +51,11 @@ namespace Loom {
         bool operator!=(const Entity& other) const {
             return !(*this == other);
         }
+
+        void                SetParent(Entity parent);
+        void                RemoveParent();
+        Entity              GetParent() const;
+        std::vector<Entity> GetChildren() const;
 
     private:
         entt::entity mEntityHandle{ entt::null };

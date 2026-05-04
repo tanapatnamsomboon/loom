@@ -6,6 +6,7 @@
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include "loom/scripting/scripting_engine.h"
+#include <algorithm>
 #include <box2d/box2d.h>
 
 namespace Loom {
@@ -66,6 +67,25 @@ namespace Loom {
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
 
+        // Copy relationship structure, remapping entt handles through the UUID map
+        auto rel_view = src_registry.view<RelationshipComponent>();
+        for (auto src_entity : rel_view) {
+            UUID         uuid          = src_registry.get<IDComponent>(src_entity).ID;
+            entt::entity dst_entity_id = entt_map.at(uuid);
+            auto&        src_rel       = src_registry.get<RelationshipComponent>(src_entity);
+
+            RelationshipComponent dst_rel;
+            if (src_rel.Parent != entt::null) {
+                UUID parent_uuid  = src_registry.get<IDComponent>(src_rel.Parent).ID;
+                dst_rel.Parent    = entt_map.at(parent_uuid);
+            }
+            for (auto child : src_rel.Children) {
+                UUID child_uuid = src_registry.get<IDComponent>(child).ID;
+                dst_rel.Children.push_back(entt_map.at(child_uuid));
+            }
+            dst_registry.emplace_or_replace<RelationshipComponent>(dst_entity_id, dst_rel);
+        }
+
         return new_scene;
     }
 
@@ -98,8 +118,78 @@ namespace Loom {
     }
 
     void Scene::DestroyEntity(Entity entity) {
+        // Recursively destroy children first (copy list — destroying modifies it)
+        if (entity.HasComponent<RelationshipComponent>()) {
+            auto& rel          = entity.GetComponent<RelationshipComponent>();
+            auto  children_copy = rel.Children;
+            for (auto child_handle : children_copy) {
+                Entity child = { child_handle, this };
+                if (child)
+                    DestroyEntity(child);
+            }
+            // Unlink from parent
+            if (rel.Parent != entt::null) {
+                Entity parent_entity = { rel.Parent, this };
+                if (parent_entity && parent_entity.HasComponent<RelationshipComponent>()) {
+                    auto& parent_rel = parent_entity.GetComponent<RelationshipComponent>();
+                    auto  it         = std::find(parent_rel.Children.begin(), parent_rel.Children.end(), (entt::entity)entity);
+                    if (it != parent_rel.Children.end())
+                        parent_rel.Children.erase(it);
+                    if (parent_rel.Children.empty() && parent_rel.Parent == entt::null)
+                        parent_entity.RemoveComponent<RelationshipComponent>();
+                }
+            }
+        }
+
         mEntityMap.erase(entity.GetComponent<IDComponent>().ID);
         mRegistry.destroy(entity);
+    }
+
+    glm::mat4 Scene::GetWorldTransform(Entity entity) {
+        glm::mat4 local = entity.GetComponent<TransformComponent>().GetTransform();
+        if (!entity.HasComponent<RelationshipComponent>())
+            return local;
+        entt::entity parent_handle = entity.GetComponent<RelationshipComponent>().Parent;
+        if (parent_handle == entt::null)
+            return local;
+        Entity parent = { parent_handle, this };
+        if (!parent)
+            return local;
+        return GetWorldTransform(parent) * local;
+    }
+
+    void Scene::SetParent(Entity child, Entity parent) {
+        RemoveParent(child);
+
+        if (!child.HasComponent<RelationshipComponent>())
+            child.AddComponent<RelationshipComponent>();
+        child.GetComponent<RelationshipComponent>().Parent = (entt::entity)parent;
+
+        if (!parent.HasComponent<RelationshipComponent>())
+            parent.AddComponent<RelationshipComponent>();
+        parent.GetComponent<RelationshipComponent>().Children.push_back((entt::entity)child);
+    }
+
+    void Scene::RemoveParent(Entity child) {
+        if (!child.HasComponent<RelationshipComponent>())
+            return;
+        auto& child_rel = child.GetComponent<RelationshipComponent>();
+        if (child_rel.Parent == entt::null)
+            return;
+
+        Entity parent_entity = { child_rel.Parent, this };
+        if (parent_entity && parent_entity.HasComponent<RelationshipComponent>()) {
+            auto& parent_rel = parent_entity.GetComponent<RelationshipComponent>();
+            auto  it         = std::find(parent_rel.Children.begin(), parent_rel.Children.end(), (entt::entity)child);
+            if (it != parent_rel.Children.end())
+                parent_rel.Children.erase(it);
+            if (parent_rel.Children.empty() && parent_rel.Parent == entt::null)
+                parent_entity.RemoveComponent<RelationshipComponent>();
+        }
+
+        child_rel.Parent = entt::null;
+        if (child_rel.Children.empty())
+            child.RemoveComponent<RelationshipComponent>();
     }
 
     Entity Scene::GetEntityByUUID(UUID uuid) {
@@ -118,25 +208,26 @@ namespace Loom {
         });
         for (auto entity : group) {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
+            glm::mat4 world = GetWorldTransform({ entity, this });
             if (sprite.Texture) {
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
+                Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
             } else {
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+                Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(entity));
             }
         }
 
         auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
         for (auto entity : camera_view) {
-            auto&     transform       = camera_view.get<TransformComponent>(entity);
+            glm::vec3 world_pos     = glm::vec3(GetWorldTransform({ entity, this })[3]);
             glm::mat4 camera_rotation = glm::mat4(glm::mat3(glm::transpose(camera.GetViewMatrix())));
-            glm::mat4 billboard       = glm::translate(glm::mat4(1.0f), transform.Translation)
+            glm::mat4 billboard       = glm::translate(glm::mat4(1.0f), world_pos)
                                       * camera_rotation
                                       * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
             Renderer2D::DrawQuad(billboard, mCameraIcon, glm::vec4(1.0f), 1.0f, (int)entt::to_entity(entity));
         }
 
         if (selected_entity && selected_entity.HasComponent<CameraComponent>()) {
-            DrawCameraFrustum(selected_entity.GetComponent<TransformComponent>(), selected_entity.GetComponent<CameraComponent>());
+            DrawCameraFrustum(GetWorldTransform(selected_entity), selected_entity.GetComponent<CameraComponent>());
         }
 
         RenderPhysicsColliders();
@@ -254,10 +345,10 @@ namespace Loom {
 
         auto view = mRegistry.view<TransformComponent, CameraComponent>();
         for (auto entity : view) {
-            auto [transform, camera] = view.get<TransformComponent, CameraComponent>(entity);
+            auto& camera = view.get<CameraComponent>(entity);
             if (camera.Primary) {
                 main_camera      = &camera.Camera;
-                camera_transform = transform.GetTransform();
+                camera_transform = GetWorldTransform({ entity, this });
                 break;
             }
         }
@@ -271,10 +362,11 @@ namespace Loom {
             });
             for (auto entity : group) {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
+                glm::mat4 world = GetWorldTransform({ entity, this });
                 if (sprite.Texture) {
-                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
+                    Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(entity));
                 } else {
-                    Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entt::to_entity(entity));
+                    Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(entity));
                 }
             }
 
@@ -300,9 +392,8 @@ namespace Loom {
         }
     }
 
-    void Scene::DrawCameraFrustum(const TransformComponent& transform_component, const CameraComponent& camera_component) {
+    void Scene::DrawCameraFrustum(const glm::mat4& world, const CameraComponent& camera_component) {
         const SceneCamera& camera    = camera_component.Camera;
-        const glm::mat4&   world     = transform_component.GetTransform();
         const glm::vec4    color     = { 0.9f, 0.9f, 0.2f, 1.0f };
         const int          entity_id = -1;
 

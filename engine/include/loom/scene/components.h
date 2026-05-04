@@ -5,9 +5,11 @@
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
 #include <box2d/id.h>
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
+#include <vector>
 
 namespace Loom {
 
@@ -134,6 +136,14 @@ namespace Loom {
 
         CircleCollider2DComponent() = default;
         CircleCollider2DComponent(const CircleCollider2DComponent&) = default;
+    };
+
+    struct RelationshipComponent {
+        entt::entity              Parent   = entt::null;
+        std::vector<entt::entity> Children;
+
+        RelationshipComponent()                             = default;
+        RelationshipComponent(const RelationshipComponent&) = default;
     };
 
 } // namespace Loom

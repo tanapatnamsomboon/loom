@@ -7,6 +7,7 @@
 #include "loom/renderer/texture.h"
 #include <box2d/id.h>
 #include <entt/entt.hpp>
+#include <glm/glm.hpp>
 #include <unordered_map>
 
 namespace Loom {
@@ -33,7 +34,10 @@ namespace Loom {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void   DestroyEntity(Entity entity);
 
-        Entity GetEntityByUUID(UUID uuid);
+        Entity    GetEntityByUUID(UUID uuid);
+        glm::mat4 GetWorldTransform(Entity entity);
+        void      SetParent(Entity child, Entity parent);
+        void      RemoveParent(Entity child);
 
         template<typename... Components>
         auto GetAllEntitiesWith() {
@@ -44,7 +48,7 @@ namespace Loom {
         bool IsShowingPhysicsColliders() const { return mShowPhysicsColliders; }
 
     private:
-        void DrawCameraFrustum(const TransformComponent& transform, const CameraComponent& camera);
+        void DrawCameraFrustum(const glm::mat4& world_transform, const CameraComponent& camera);
         void RenderPhysicsColliders();
 
     private:

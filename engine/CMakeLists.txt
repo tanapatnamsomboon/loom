@@ -41,6 +41,7 @@ set(ENGINE_SOURCES
   src/platform/opengl/opengl_vertex_array.cpp
 
   src/scene/components.cpp
+  src/scene/entity.cpp
   src/scene/scene.cpp
   src/scene/scene_camera.cpp
   src/scene/scene_serializer.cpp

@@ -226,7 +226,9 @@ namespace Weaver {
         const glm::mat4& proj      = mContext.EditorCamera.GetProjectionMatrix();
         glm::mat4        view      = mContext.EditorCamera.GetViewMatrix();
         auto&            tc        = selected.GetComponent<Loom::TransformComponent>();
-        glm::mat4        transform = tc.GetTransform();
+
+        // Gizmo operates in world space
+        glm::mat4 world_transform = mContext.ActiveScene->GetWorldTransform(selected);
 
         bool  snap           = Loom::Input::IsKeyPressed(Loom::Key::LeftControl);
         float snap_value     = (mContext.GizmoType == ImGuizmo::OPERATION::ROTATE) ? 45.0f : 0.5f;
@@ -235,14 +237,21 @@ namespace Weaver {
         ImGuizmo::Manipulate(
             glm::value_ptr(view), glm::value_ptr(proj),
             (ImGuizmo::OPERATION)mContext.GizmoType, (ImGuizmo::MODE)mContext.GizmoMode,
-            glm::value_ptr(transform), nullptr, snap ? snap_values : nullptr
+            glm::value_ptr(world_transform), nullptr, snap ? snap_values : nullptr
         );
 
         if (ImGuizmo::IsUsing()) {
             mContext.SceneDirty = true;
 
+            // Convert world result back to local space if entity has a parent
+            Loom::Entity parent = selected.GetParent();
+            if (parent) {
+                glm::mat4 parent_world = mContext.ActiveScene->GetWorldTransform(parent);
+                world_transform        = glm::inverse(parent_world) * world_transform;
+            }
+
             glm::vec3 translation, rotation, scale;
-            Loom::Math::DecomposeTransform(transform, translation, rotation, scale);
+            Loom::Math::DecomposeTransform(world_transform, translation, rotation, scale);
 
             glm::vec3 delta_rotation = rotation - tc.Rotation;
             tc.Translation           = translation;

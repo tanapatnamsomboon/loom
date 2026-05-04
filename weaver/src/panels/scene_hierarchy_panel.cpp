@@ -28,14 +28,35 @@ namespace Weaver {
     void SceneHierarchyPanel::OnImGuiRender() {
         ImGui::Begin("Scene Hierarchy");
 
+        // Only draw root entities; children are drawn recursively
         auto view = mContext->GetAllEntitiesWith<Loom::TagComponent>();
         for (auto entity_id : view) {
             Loom::Entity entity{ entity_id, mContext.get() };
+            if (entity.HasComponent<Loom::RelationshipComponent>() &&
+                entity.GetComponent<Loom::RelationshipComponent>().Parent != entt::null)
+                continue;
             DrawEntityNode(entity);
         }
 
         if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
             mSelectionContext = {};
+
+        // Invisible fill — drop here to detach from parent (move to root)
+        ImVec2 remaining = ImGui::GetContentRegionAvail();
+        if (remaining.y > 0.0f) {
+            ImGui::Dummy(remaining);
+            if (ImGui::BeginDragDropTarget()) {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_ID")) {
+                    uint32_t     dragged_id     = *(const uint32_t*)payload->Data;
+                    Loom::Entity dragged_entity { (entt::entity)dragged_id, mContext.get() };
+                    if (dragged_entity) {
+                        mContext->RemoveParent(dragged_entity);
+                        if (mSceneModifiedCallback) mSceneModifiedCallback();
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+        }
 
         if (ImGui::BeginPopupContextWindow("HierarchyContextWindow", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
             if (ImGui::MenuItem("Create Empty Entity")) {
@@ -57,34 +78,83 @@ namespace Weaver {
     void SceneHierarchyPanel::DrawEntityNode(Loom::Entity entity) {
         auto& tag = entity.GetComponent<Loom::TagComponent>().Tag;
 
-        ImGuiTreeNodeFlags flags = ((mSelectionContext == entity) ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow;
-        flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
+        bool has_children = entity.HasComponent<Loom::RelationshipComponent>() &&
+                            !entity.GetComponent<Loom::RelationshipComponent>().Children.empty();
+        bool has_parent   = entity.HasComponent<Loom::RelationshipComponent>() &&
+                            entity.GetComponent<Loom::RelationshipComponent>().Parent != entt::null;
+
+        ImGuiTreeNodeFlags flags = ((mSelectionContext == entity) ? ImGuiTreeNodeFlags_Selected : 0) |
+                                    ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+        if (!has_children)
+            flags |= ImGuiTreeNodeFlags_Leaf;
 
         bool opened = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, "%s", tag.c_str());
 
-        if (ImGui::IsItemClicked()) {
+        if (ImGui::IsItemClicked())
             mSelectionContext = entity;
+
+        // Drag source — payload is the raw uint32 entity handle
+        if (ImGui::BeginDragDropSource()) {
+            uint32_t entity_id = (uint32_t)entity;
+            ImGui::SetDragDropPayload("ENTITY_ID", &entity_id, sizeof(uint32_t));
+            ImGui::TextUnformatted(tag.c_str());
+            ImGui::EndDragDropSource();
+        }
+
+        // Drop target — reparent dragged entity onto this one
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_ID")) {
+                uint32_t     dragged_id     = *(const uint32_t*)payload->Data;
+                Loom::Entity dragged_entity { (entt::entity)dragged_id, mContext.get() };
+                if (dragged_entity && dragged_entity != entity) {
+                    mContext->SetParent(dragged_entity, entity);
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
+            }
+            ImGui::EndDragDropTarget();
         }
 
         bool entity_deleted = false;
         if (ImGui::BeginPopupContextItem()) {
-            if (ImGui::MenuItem("Delete Entity")) {
-                entity_deleted = true;
+            if (ImGui::MenuItem("Create Child Entity")) {
+                Loom::Entity child = mContext->CreateEntity("Child Entity");
+                mContext->SetParent(child, entity);
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
             }
+            if (has_parent) {
+                if (ImGui::MenuItem("Detach from Parent")) {
+                    mContext->RemoveParent(entity);
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Delete Entity"))
+                entity_deleted = true;
             ImGui::EndPopup();
         }
 
         if (opened) {
+            if (has_children) {
+                for (auto child : entity.GetChildren())
+                    DrawEntityNode(child);
+            }
             ImGui::TreePop();
         }
 
         if (entity_deleted) {
-            mContext->DestroyEntity(entity);
-
-            if (mSelectionContext == entity) {
-                mSelectionContext = {};
+            // Walk selection's ancestor chain to detect if it lives under the deleted entity
+            bool clear_selection = (mSelectionContext == entity);
+            if (!clear_selection && mSelectionContext) {
+                Loom::Entity check = mSelectionContext;
+                while (check.HasComponent<Loom::RelationshipComponent>()) {
+                    Loom::Entity parent = check.GetParent();
+                    if (!parent) break;
+                    if (parent == entity) { clear_selection = true; break; }
+                    check = parent;
+                }
             }
-
+            mContext->DestroyEntity(entity);
+            if (clear_selection) mSelectionContext = {};
             if (mSceneModifiedCallback) mSceneModifiedCallback();
         }
     }

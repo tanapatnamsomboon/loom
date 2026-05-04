@@ -1,0 +1,43 @@
+=========================================================
+      LOOM ENGINE - AI ASSISTANT PROMPT CHEAT SHEET
+=========================================================
+
+--- 1. Starting a New Session (Roadmap-based) ---
+Please carefully review `CLAUDE.md`. Pay special attention to the rule: YOU MUST NEVER READ OR SEARCH INSIDE THE `vendor/` DIRECTORY.
+Context: We are starting a fresh session. Please check the Roadmap section in `CLAUDE.md` and identify the next pending task.
+Before writing any code:
+1. Tell me exactly which task we are picking up.
+2. Outline a high-level, micro-step plan to implement it.
+3. Proactively provide a validation/test method.
+Wait for my approval before proceeding.
+
+--- 2. Resuming Work After `/compact` (Clearing Context) ---
+I just ran `/compact` to save context because we successfully completed and committed the previous step.
+Please review `CLAUDE.md` to refresh your memory. CRITICAL REMINDER: Do not access `vendor/`.
+Check our previous micro-step, tell me what the exact next step is, and provide the code. Wait for my confirmation that it compiles before moving to the next file.
+
+--- 3. Resuming Work After Hitting Session Limit (New Session) ---
+Please carefully review `CLAUDE.md` first. REMINDER: Do not read `vendor/` files.
+Context: In our previous session, we hit a usage limit while implementing [INSERT_FEATURE_NAME].
+We were in the middle of [BRIEFLY_DESCRIBE_CURRENT_STATE_OR_FILE].
+Do not read vendor files to guess the context. Please continue exactly from where we left off and provide the remaining code to finish this specific micro-step.
+
+--- 4. Adding a New Dependency (Git Submodule) ---
+I need to add a new library for [INSERT_PURPOSE_E_G_AUDIO_SCRIPTING].
+Please follow our Git Submodules rule:
+1. Give me the `git submodule add` command to bring this into `vendor/`. Wait for me to run it.
+2. After I confirm, provide the exact CMake code needed in `engine/CMakeLists.txt` to link it properly. DO NOT use FetchContent.
+
+--- 5. Handling Compilation or Runtime Errors ---
+I got this error during [compilation/runtime]:
+`[PASTE_ERROR_MESSAGE_HERE]`
+Context: I just modified [INSERT_MODIFIED_FILE_NAME].
+Please analyze the error based on our engine's architecture. Give me a step-by-step fix. If it involves modifying a file, output only the necessary code changes.
+
+--- 6. Updating CLAUDE.md (Upon Completing a Major System) ---
+We have successfully implemented and committed the [INSERT_SYSTEM_NAME] system.
+Please proactively update `CLAUDE.md` to reflect this architectural change. Add any new core classes, design patterns, or testing rules we established during this process. Also, mark this task as completed in the Roadmap.
+
+--- 7. Refactoring Code (Safe Approach) ---
+I want to refactor the [INSERT_FILE_OR_CLASS_NAME] to improve [INSERT_REASON_E_G_PERFORMANCE_READABILITY].
+Before writing any code, propose a clear list of what you will change and how it impacts the existing systems (like the ECS or Editor). We will do this in micro-steps. Wait for my approval on the plan.

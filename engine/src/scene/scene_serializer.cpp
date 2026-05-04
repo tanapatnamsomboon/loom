@@ -229,6 +229,14 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Relationship Component — only serialize the parent UUID; children are implied
+        if (entity.HasComponent<RelationshipComponent>()) {
+            Entity parent = entity.GetParent();
+            if (parent) {
+                out << YAML::Key << "ParentID" << YAML::Value << (uint64_t)parent.GetComponent<IDComponent>().ID;
+            }
+        }
+
         out << YAML::EndMap;
     }
 
@@ -384,6 +392,22 @@ namespace Loom {
                 cc2d.Restitution = YAML_GET(cc2d_node["Restitution"], float, 0.0f);
                 cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
             }
+        }
+
+        // Second pass: wire up parent-child relationships
+        for (auto entity_node : entities_node) {
+            auto parent_id_node = entity_node["ParentID"];
+            if (!parent_id_node)
+                continue;
+
+            uint64_t child_uuid  = entity_node["Entity"].as<uint64_t>();
+            uint64_t parent_uuid = parent_id_node.as<uint64_t>();
+
+            Entity child_entity  = mScene->GetEntityByUUID(UUID(child_uuid));
+            Entity parent_entity = mScene->GetEntityByUUID(UUID(parent_uuid));
+
+            if (child_entity && parent_entity)
+                mScene->SetParent(child_entity, parent_entity);
         }
 
         LOOM_CORE_INFO("SceneSerializer: loaded scene from '{}'", filepath);
