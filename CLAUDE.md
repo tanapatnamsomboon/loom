@@ -56,7 +56,12 @@ function OnDestroy() end        -- called at runtime stop
 -- entity:GetRotation()    / SetRotation(vec3)
 -- entity:GetScale()       / SetScale(vec3)
 -- entity:GetTag() -> string
+-- entity:FindByTag(tag) -> entity
+-- entity:Spawn() -> entity          (creates a new blank entity in the same scene)
+-- entity:Destroy()                  (destroys this entity)
+-- entity:Instantiate(path) -> entity (instantiates a .lprefab file)
 -- Input.IsKeyPressed(Key.W), Input.GetMouseX(), etc.
+-- Physics.Raycast(origin_vec3, dir_vec3, distance) -> { hit, point, normal, entity }
 ```
 
 ## `weaver/` — Editor Application
@@ -144,7 +149,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Content browser: drag `.lprefab` into viewport to instantiate
   - Lua: `entity.Instantiate(path)` binding
 
-- [ ] **Expanded Lua bindings**
+- [x] **Expanded Lua bindings**
   - `entity.FindByTag(tag)` — entity lookup by tag name
   - `entity.Spawn()` / `entity.Destroy()` — entity lifecycle from scripts
   - `Physics.Raycast(origin, dir, distance)` — 2D physics raycasts

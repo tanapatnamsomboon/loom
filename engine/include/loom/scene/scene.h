@@ -35,9 +35,18 @@ namespace Loom {
         void   DestroyEntity(Entity entity);
 
         Entity    GetEntityByUUID(UUID uuid);
+        Entity    GetEntityByTag(const std::string& tag);
         glm::mat4 GetWorldTransform(Entity entity);
         void      SetParent(Entity child, Entity parent);
         void      RemoveParent(Entity child);
+
+        struct RaycastHit2D {
+            bool         hit          = false;
+            glm::vec2    point        = {};
+            glm::vec2    normal       = {};
+            entt::entity entityHandle = entt::null;
+        };
+        RaycastHit2D Raycast2D(glm::vec2 origin, glm::vec2 direction, float distance);
 
         template<typename... Components>
         auto GetAllEntitiesWith() {

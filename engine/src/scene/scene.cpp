@@ -200,6 +200,15 @@ namespace Loom {
         return {};
     }
 
+    Entity Scene::GetEntityByTag(const std::string& tag) {
+        auto view = mRegistry.view<TagComponent>();
+        for (auto e : view) {
+            if (view.get<TagComponent>(e).Tag == tag)
+                return { e, this };
+        }
+        return {};
+    }
+
     static void DrawSprite(entt::registry& registry, entt::entity e, const glm::mat4& world, const SpriteRendererComponent& sprite) {
         if (registry.all_of<AnimationComponent>(e)) {
             const auto& anim = registry.get<AnimationComponent>(e);
@@ -279,6 +288,7 @@ namespace Loom {
             body_def.position = { transform.Translation.x, transform.Translation.y };
             body_def.rotation = b2MakeRot(transform.Rotation.z);
             body_def.motionLocks.angularZ = rb2d.FixedRotation;
+            body_def.userData = reinterpret_cast<void*>(static_cast<uintptr_t>(entt::to_integral(e)));
 
             rb2d.RuntimeBody = b2CreateBody(mPhysicsWorld, &body_def);
 
@@ -535,6 +545,31 @@ namespace Loom {
 
             Renderer2D::DrawCircle(transform_mat, collider_color, 0.05f, 0.005f, (int)entt::to_entity(entity));
         }
+    }
+
+    Scene::RaycastHit2D Scene::Raycast2D(glm::vec2 origin, glm::vec2 direction, float distance) {
+        RaycastHit2D result;
+        if (!b2World_IsValid(mPhysicsWorld))
+            return result;
+
+        glm::vec2 translation = glm::normalize(direction) * distance;
+        b2Vec2 b2_origin      = { origin.x, origin.y };
+        b2Vec2 b2_translation = { translation.x, translation.y };
+
+        b2QueryFilter filter  = b2DefaultQueryFilter();
+        b2RayResult   ray     = b2World_CastRayClosest(mPhysicsWorld, b2_origin, b2_translation, filter);
+        if (!ray.hit)
+            return result;
+
+        result.hit    = true;
+        result.point  = { ray.point.x,  ray.point.y  };
+        result.normal = { ray.normal.x, ray.normal.y };
+
+        b2BodyId body_id      = b2Shape_GetBody(ray.shapeId);
+        void*    userdata     = b2Body_GetUserData(body_id);
+        auto     raw          = static_cast<entt::id_type>(reinterpret_cast<uintptr_t>(userdata));
+        result.entityHandle   = static_cast<entt::entity>(raw);
+        return result;
     }
 
 } // namespace Loom

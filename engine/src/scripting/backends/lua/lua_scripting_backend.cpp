@@ -20,13 +20,29 @@ namespace {
         Entity  handle;
         Scene*  scene = nullptr;
 
-        glm::vec3   GetTranslation()           { return handle.GetComponent<TransformComponent>().Translation; }
+        glm::vec3   GetTranslation()            { return handle.GetComponent<TransformComponent>().Translation; }
         void        SetTranslation(glm::vec3 v) { handle.GetComponent<TransformComponent>().Translation = v; }
-        glm::vec3   GetRotation()              { return handle.GetComponent<TransformComponent>().Rotation; }
+        glm::vec3   GetRotation()               { return handle.GetComponent<TransformComponent>().Rotation; }
         void        SetRotation(glm::vec3 v)    { handle.GetComponent<TransformComponent>().Rotation = v; }
-        glm::vec3   GetScale()                 { return handle.GetComponent<TransformComponent>().Scale; }
+        glm::vec3   GetScale()                  { return handle.GetComponent<TransformComponent>().Scale; }
         void        SetScale(glm::vec3 v)       { handle.GetComponent<TransformComponent>().Scale = v; }
-        std::string GetTag()                   { return handle.GetComponent<TagComponent>().Tag; }
+        std::string GetTag()                    { return handle.GetComponent<TagComponent>().Tag; }
+
+        LuaEntityWrapper FindByTag(const std::string& tag) {
+            if (!scene) return {};
+            return LuaEntityWrapper{ scene->GetEntityByTag(tag), scene };
+        }
+
+        LuaEntityWrapper Spawn() {
+            if (!scene) return {};
+            return LuaEntityWrapper{ scene->CreateEntity("New Entity"), scene };
+        }
+
+        void Destroy() {
+            if (scene && handle) scene->DestroyEntity(handle);
+            handle = {};
+            scene  = nullptr;
+        }
 
         LuaEntityWrapper Instantiate(const std::string& prefab_path) {
             if (!scene) {
@@ -53,6 +69,7 @@ namespace {
 
     void LuaScriptingBackend::BindLuaAPI() {
         mLua.new_usertype<glm::vec3>("Vec3",
+            sol::call_constructor,
             sol::constructors<glm::vec3(), glm::vec3(float, float, float)>(),
             "x", &glm::vec3::x,
             "y", &glm::vec3::y,
@@ -81,6 +98,9 @@ namespace {
             "GetScale",       &LuaEntityWrapper::GetScale,
             "SetScale",       &LuaEntityWrapper::SetScale,
             "GetTag",         &LuaEntityWrapper::GetTag,
+            "FindByTag",      &LuaEntityWrapper::FindByTag,
+            "Spawn",          &LuaEntityWrapper::Spawn,
+            "Destroy",        &LuaEntityWrapper::Destroy,
             "Instantiate",    &LuaEntityWrapper::Instantiate
         );
 
@@ -134,11 +154,48 @@ namespace {
         mouse["Button1"] = (int)Mouse::Button1;
         mouse["Button2"] = (int)Mouse::Button2;
 
+        auto lua_args_to_string = [](sol::variadic_args args) -> std::string {
+            std::string out;
+            for (size_t i = 0; i < args.size(); ++i) {
+                if (i > 0) out += '\t';
+                const sol::object& v = args[i];
+                switch (v.get_type()) {
+                    case sol::type::string:  out += v.as<std::string>(); break;
+                    case sol::type::number:  {
+                        double d = v.as<double>();
+                        out += (d == std::floor(d))
+                            ? std::to_string(static_cast<long long>(d))
+                            : std::to_string(d);
+                        break;
+                    }
+                    case sol::type::boolean: out += v.as<bool>() ? "true" : "false"; break;
+                    case sol::type::nil:     out += "nil"; break;
+                    default:                 out += "(object)"; break;
+                }
+            }
+            return out;
+        };
+
         sol::table log = mLua.create_named_table("Log");
-        log.set_function("Trace", [](const std::string& msg) { LOOM_CORE_TRACE("[Lua] {}", msg); });
-        log.set_function("Info",  [](const std::string& msg) { LOOM_CORE_INFO("[Lua] {}",  msg); });
-        log.set_function("Warn",  [](const std::string& msg) { LOOM_CORE_WARN("[Lua] {}",  msg); });
-        log.set_function("Error", [](const std::string& msg) { LOOM_CORE_ERROR("[Lua] {}", msg); });
+        log.set_function("Trace", [lua_args_to_string](sol::variadic_args args) { LOOM_CORE_TRACE("[Lua] {}", lua_args_to_string(args)); });
+        log.set_function("Info",  [lua_args_to_string](sol::variadic_args args) { LOOM_CORE_INFO("[Lua] {}",  lua_args_to_string(args)); });
+        log.set_function("Warn",  [lua_args_to_string](sol::variadic_args args) { LOOM_CORE_WARN("[Lua] {}",  lua_args_to_string(args)); });
+        log.set_function("Error", [lua_args_to_string](sol::variadic_args args) { LOOM_CORE_ERROR("[Lua] {}", lua_args_to_string(args)); });
+
+        sol::table physics = mLua.create_named_table("Physics");
+        physics.set_function("Raycast", [this](glm::vec3 origin, glm::vec3 direction, float distance) -> sol::table {
+            sol::table result = mLua.create_table();
+            result["hit"] = false;
+            if (!mActiveScene) return result;
+
+            auto hit = mActiveScene->Raycast2D({ origin.x, origin.y }, { direction.x, direction.y }, distance);
+            result["hit"]    = hit.hit;
+            result["point"]  = glm::vec3(hit.point,  0.0f);
+            result["normal"] = glm::vec3(hit.normal, 0.0f);
+            if (hit.hit && hit.entityHandle != entt::null)
+                result["entity"] = LuaEntityWrapper{ Entity{ hit.entityHandle, mActiveScene }, mActiveScene };
+            return result;
+        });
     }
 
     void LuaScriptingBackend::OnRuntimeStart(Scene* scene) {
