@@ -692,6 +692,68 @@ namespace Weaver {
                     ImGui::PopID();
                 }
 
+                ImGui::Separator();
+                if (ImGui::CollapsingHeader("Generate from Spritesheet")) {
+                    static int ss_sheet_w     = 512;
+                    static int ss_sheet_h     = 512;
+                    static int ss_cell_w      = 64;
+                    static int ss_cell_h      = 64;
+                    static int ss_start_col   = 0;
+                    static int ss_start_row   = 0;
+                    static int ss_frame_count = 8;
+
+                    ImGui::InputInt("Sheet Width (px)",  &ss_sheet_w);
+                    ImGui::InputInt("Sheet Height (px)", &ss_sheet_h);
+                    ImGui::InputInt("Cell Width (px)",   &ss_cell_w);
+                    ImGui::InputInt("Cell Height (px)",  &ss_cell_h);
+                    ImGui::InputInt("Start Column",      &ss_start_col);
+                    ImGui::InputInt("Start Row",         &ss_start_row);
+                    ImGui::InputInt("Frame Count",       &ss_frame_count);
+
+                    ss_sheet_w     = std::max(1, ss_sheet_w);
+                    ss_sheet_h     = std::max(1, ss_sheet_h);
+                    ss_cell_w      = std::max(1, ss_cell_w);
+                    ss_cell_h      = std::max(1, ss_cell_h);
+                    ss_start_col   = std::max(0, ss_start_col);
+                    ss_start_row   = std::max(0, ss_start_row);
+                    ss_frame_count = std::max(1, ss_frame_count);
+
+                    int cols_per_row = ss_sheet_w / ss_cell_w;
+                    int rows_total   = ss_sheet_h / ss_cell_h;
+                    bool valid = cols_per_row > 0 && rows_total > 0;
+
+                    if (!valid)
+                        ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f }, "Cell size exceeds sheet size.");
+
+                    ImGui::BeginDisabled(!valid);
+                    if (ImGui::Button("Generate")) {
+                        anim.Frames.clear();
+                        float inv_w = 1.0f / (float)ss_sheet_w;
+                        float inv_h = 1.0f / (float)ss_sheet_h;
+                        for (int i = 0; i < ss_frame_count; i++) {
+                            int linear = ss_start_col + ss_start_row * cols_per_row + i;
+                            int col    = linear % cols_per_row;
+                            int row    = linear / cols_per_row;
+                            float u0 = (float)(col * ss_cell_w)       * inv_w;
+                            float u1 = (float)((col + 1) * ss_cell_w) * inv_w;
+                            // V is flipped: stbi loads with flip, so V=0 is bottom of image;
+                            // spritesheet row 0 is at the top (high V).
+                            float v0 = 1.0f - (float)((row + 1) * ss_cell_h) * inv_h;
+                            float v1 = 1.0f - (float)(row * ss_cell_h)       * inv_h;
+                            anim.Frames.push_back({ u0, v0, u1, v1 });
+                        }
+                        anim.CurrentFrame = 0;
+                        is_modified = true;
+                    }
+                    ImGui::EndDisabled();
+
+                    if (valid) {
+                        int last_linear = ss_start_col + ss_start_row * cols_per_row + ss_frame_count - 1;
+                        if (last_linear / cols_per_row >= rows_total)
+                            ImGui::TextColored({ 1.0f, 0.8f, 0.2f, 1.0f }, "Warning: some frames exceed sheet bounds.");
+                    }
+                }
+
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
                 ImGui::TreePop();
             }
