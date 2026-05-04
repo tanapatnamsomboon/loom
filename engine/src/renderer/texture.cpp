@@ -3,9 +3,10 @@
 #include "platform/opengl/opengl_texture.h"
 
 namespace Loom {
-    std::shared_ptr<Texture2D> Texture2D::Create(const std::string& path) {
+    std::shared_ptr<Texture2D> Texture2D::Create(const std::string& path,
+                                                  const TextureSpecification& spec) {
         switch (RendererAPI::GetAPI()) {
-            case RendererAPI::API::OpenGL:  return std::make_shared<OpenGLTexture2D>(path);
+            case RendererAPI::API::OpenGL:  return std::make_shared<OpenGLTexture2D>(path, spec);
             default: return nullptr;
         }
     }

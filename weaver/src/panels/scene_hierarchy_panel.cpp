@@ -292,7 +292,7 @@ namespace Weaver {
                         auto ext = dropped.extension();
                         if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
                             auto full = Loom::Project::GetAssetFileSystemPath(dropped);
-                            auto new_texture = Loom::AssetManager::GetTexture(full.generic_string());
+                            auto new_texture = Loom::AssetManager::GetTexture(full.generic_string(), src.TexSpec);
                             if (new_texture) { texture = new_texture; is_modified = true; }
                         }
                     }
@@ -300,7 +300,7 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button(label_text.c_str(), ImVec2(150, 0))) {
-                    auto new_texture = LoadTexture();
+                    auto new_texture = LoadTexture(src.TexSpec);
                     if (new_texture) {
                         texture = new_texture;
                         is_modified = true;
@@ -318,6 +318,32 @@ namespace Weaver {
 
                 is_modified |= ImGui::ColorEdit4("Color", glm::value_ptr(src.Color));
                 is_modified |= ImGui::DragFloat("Tiling Factor", &src.TilingFactor, 0.1f, 0.1f, 100.0f);
+
+                static const char* k_filter_labels[] = { "Nearest", "Linear" };
+                int filter_idx = (int)src.TexSpec.Filter;
+                if (ImGui::Combo("Filter Mode", &filter_idx, k_filter_labels, 2)) {
+                    src.TexSpec.Filter = (Loom::FilterMode)filter_idx;
+                    if (src.Texture)
+                        src.Texture = Loom::AssetManager::GetTexture(src.Texture->GetPath(), src.TexSpec);
+                    is_modified = true;
+                }
+
+                static const char* k_wrap_labels[] = { "Repeat", "Clamp" };
+                int wrap_idx = (int)src.TexSpec.Wrap;
+                if (ImGui::Combo("Wrap Mode", &wrap_idx, k_wrap_labels, 2)) {
+                    src.TexSpec.Wrap = (Loom::WrapMode)wrap_idx;
+                    if (src.Texture)
+                        src.Texture = Loom::AssetManager::GetTexture(src.Texture->GetPath(), src.TexSpec);
+                    is_modified = true;
+                }
+
+                bool gen_mips = src.TexSpec.GenerateMips;
+                if (ImGui::Checkbox("Generate Mipmaps", &gen_mips)) {
+                    src.TexSpec.GenerateMips = gen_mips;
+                    if (src.Texture)
+                        src.Texture = Loom::AssetManager::GetTexture(src.Texture->GetPath(), src.TexSpec);
+                    is_modified = true;
+                }
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
 
@@ -765,7 +791,7 @@ namespace Weaver {
         }
     }
 
-    std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture() {
+    std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture(const Loom::TextureSpecification& spec) {
         constexpr nfdfilteritem_t filters[] = {
             { "Images", "png,jpg,jpeg,bmp,tga" },
             { "All Files", "*" },
@@ -776,7 +802,7 @@ namespace Weaver {
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
 
         if (result == NFD_OKAY) {
-            return Loom::AssetManager::GetTexture(out_path.get());
+            return Loom::AssetManager::GetTexture(out_path.get(), spec);
         } else if (result == NFD_ERROR) {
             LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
         }

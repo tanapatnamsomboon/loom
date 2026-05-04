@@ -49,6 +49,7 @@ namespace Loom {
         glm::vec4                  Color{ 1.0f, 1.0f, 1.0f, 1.0f };
         std::shared_ptr<Texture2D> Texture      = nullptr;
         float                      TilingFactor = 1.0f;
+        TextureSpecification       TexSpec;
 
         SpriteRendererComponent()                               = default;
         SpriteRendererComponent(const SpriteRendererComponent&) = default;

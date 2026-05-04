@@ -11,7 +11,8 @@
 namespace Loom {
     class LOOM_API AssetManager {
     public:
-        static std::shared_ptr<Texture2D> GetTexture(const std::string& path);
+        static std::shared_ptr<Texture2D> GetTexture(const std::string& path,
+                                                      const TextureSpecification& spec = {});
         static std::shared_ptr<Shader> GetShader(const std::string& path);
 
         static void Trim();

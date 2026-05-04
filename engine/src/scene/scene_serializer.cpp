@@ -161,8 +161,11 @@ namespace Loom {
                 }
             }
 
-            out << YAML::Key << "Texture" << YAML::Value << texture_path;
-            out << YAML::Key << "TilingFactor" << YAML::Value << src.TilingFactor;
+            out << YAML::Key << "Texture"       << YAML::Value << texture_path;
+            out << YAML::Key << "TilingFactor"  << YAML::Value << src.TilingFactor;
+            out << YAML::Key << "FilterMode"    << YAML::Value << (int)src.TexSpec.Filter;
+            out << YAML::Key << "WrapMode"      << YAML::Value << (int)src.TexSpec.Wrap;
+            out << YAML::Key << "GenerateMips"  << YAML::Value << src.TexSpec.GenerateMips;
             out << YAML::EndMap;
         }
 
@@ -353,15 +356,18 @@ namespace Loom {
                 auto& src          = entity.AddComponent<SpriteRendererComponent>();
                 auto  texture_path = YAML_GET(src_node["Texture"], std::string, "");
                 src.Color          = YAML_GET(src_node["Color"], glm::vec4, glm::vec4(1.0f));
+                src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
+
+                src.TexSpec.Filter       = (FilterMode)YAML_GET(src_node["FilterMode"],   int,  0);
+                src.TexSpec.Wrap         = (WrapMode)YAML_GET(src_node["WrapMode"],       int,  0);
+                src.TexSpec.GenerateMips = YAML_GET(src_node["GenerateMips"],             bool, true);
 
                 if (!texture_path.empty()) {
                     std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
-                    src.Texture = AssetManager::GetTexture(physical_path.string());
+                    src.Texture = AssetManager::GetTexture(physical_path.string(), src.TexSpec);
                 } else {
                     src.Texture = nullptr;
                 }
-
-                src.TilingFactor   = YAML_GET(src_node["TilingFactor"], float, 1.0f);
             }
 
             // Native Script Component

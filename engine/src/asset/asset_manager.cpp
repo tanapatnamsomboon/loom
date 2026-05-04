@@ -8,18 +8,24 @@ namespace Loom {
     std::unordered_map<std::string, std::weak_ptr<Texture2D>> AssetManager::sTextureCache;
     std::unordered_map<std::string, std::weak_ptr<Shader>>    AssetManager::sShaderCache;
 
-    std::shared_ptr<Texture2D> AssetManager::GetTexture(const std::string& path) {
+    std::shared_ptr<Texture2D> AssetManager::GetTexture(const std::string& path,
+                                                          const TextureSpecification& spec) {
         std::lock_guard<std::mutex> lock(sMutex);
 
-        auto it = sTextureCache.find(path);
+        std::string key = path + ":"
+            + std::to_string((int)spec.Filter) + ":"
+            + std::to_string((int)spec.Wrap)   + ":"
+            + std::to_string(spec.GenerateMips ? 1 : 0);
+
+        auto it = sTextureCache.find(key);
         if (it != sTextureCache.end()) {
             if (auto asset = it->second.lock())
                 return asset;
         }
 
         LOOM_CORE_TRACE("AssetManager: loading texture '{}'", path);
-        auto asset = Texture2D::Create(path);
-        sTextureCache[path] = asset;
+        auto asset = Texture2D::Create(path, spec);
+        sTextureCache[key] = asset;
         return asset;
     }
 

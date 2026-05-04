@@ -4,7 +4,7 @@
 
 namespace Loom {
 
-    OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
+    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, const TextureSpecification& spec)
         : mPath(path) {
         int width, height, channels;
         stbi_set_flip_vertically_on_load(1);
@@ -28,20 +28,37 @@ namespace Loom {
             mDataFormat     = GL_RGB;
         }
 
-        uint32_t levels = static_cast<uint32_t>(std::floor(std::log2(std::max(mWidth, mHeight)))) + 1;
+        uint32_t levels = spec.GenerateMips
+            ? static_cast<uint32_t>(std::floor(std::log2(std::max(mWidth, mHeight)))) + 1
+            : 1;
 
         glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
         glTextureStorage2D(mRendererID, levels, mInternalFormat, mWidth, mHeight);
 
-        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        GLenum min_filter;
+        if (spec.GenerateMips) {
+            min_filter = (spec.Filter == FilterMode::Linear)
+                ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST;
+        } else {
+            min_filter = (spec.Filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
+        }
+        GLenum mag_filter = (spec.Filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
+        GLenum wrap       = (spec.Wrap == WrapMode::Clamp) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
 
-        float max_anisotropy;
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_anisotropy);
-        glTextureParameterf(mRendererID, GL_TEXTURE_MAX_ANISOTROPY, max_anisotropy);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, min_filter);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, mag_filter);
+        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_S, wrap);
+        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_T, wrap);
+
+        if (spec.GenerateMips && spec.Filter == FilterMode::Linear) {
+            float max_anisotropy;
+            glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_anisotropy);
+            glTextureParameterf(mRendererID, GL_TEXTURE_MAX_ANISOTROPY, max_anisotropy);
+        }
 
         glTextureSubImage2D(mRendererID, 0, 0, 0, mWidth, mHeight, mDataFormat, GL_UNSIGNED_BYTE, data);
-        glGenerateTextureMipmap(mRendererID);
+        if (spec.GenerateMips)
+            glGenerateTextureMipmap(mRendererID);
 
         stbi_image_free(data);
     }

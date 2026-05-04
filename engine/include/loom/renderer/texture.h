@@ -7,6 +7,15 @@
 
 namespace Loom {
 
+    enum class FilterMode { Nearest, Linear };
+    enum class WrapMode   { Repeat,  Clamp  };
+
+    struct TextureSpecification {
+        FilterMode Filter       = FilterMode::Nearest;
+        WrapMode   Wrap         = WrapMode::Repeat;
+        bool       GenerateMips = true;
+    };
+
     class LOOM_API Texture {
     public:
         virtual ~Texture() = default;
@@ -24,7 +33,8 @@ namespace Loom {
 
     class LOOM_API Texture2D : public Texture {
     public:
-        static std::shared_ptr<Texture2D> Create(const std::string& path);
+        static std::shared_ptr<Texture2D> Create(const std::string& path,
+                                                  const TextureSpecification& spec = {});
         static std::shared_ptr<Texture2D> Create(uint32_t width, uint32_t height);
     };
 

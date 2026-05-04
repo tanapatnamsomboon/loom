@@ -18,8 +18,11 @@ namespace Weaver {
         std::string dir_icon_path = Loom::Project::GetEngineAssetFileSystemPath("icons/directory_icon.png").generic_string();
         std::string file_icon_path = Loom::Project::GetEngineAssetFileSystemPath("icons/file_icon.png").generic_string();
 
-        mDirectoryIcon = Loom::AssetManager::GetTexture(dir_icon_path);
-        mFileIcon      = Loom::AssetManager::GetTexture(file_icon_path);
+        Loom::TextureSpecification icon_spec;
+        icon_spec.Filter       = Loom::FilterMode::Linear;
+        icon_spec.GenerateMips = false;
+        mDirectoryIcon = Loom::AssetManager::GetTexture(dir_icon_path, icon_spec);
+        mFileIcon      = Loom::AssetManager::GetTexture(file_icon_path, icon_spec);
     }
 
     void ContentBrowserPanel::OnImGuiRender() {

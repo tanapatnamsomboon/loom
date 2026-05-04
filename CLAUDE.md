@@ -145,7 +145,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 ## Medium-term
 - [x] **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions on `SpriteRendererComponent` at a configurable FPS. System in `Scene::OnUpdateRuntime`; editor renders current frame without advancing. Serialized via YAML. Inspector allows per-frame UV editing with add/remove buttons.
 - [x] **Spritesheet helper** — "Generate from spritesheet" section in the `AnimationComponent` inspector. Input sheet size (px), cell size (px), start row/col, and frame count; one button auto-fills `Frames` with correct normalized UV rects. Eliminates manual UV calculation.
-- [ ] **TextureSpecification** — Per-texture `FilterMode` (Nearest/Linear), `WrapMode`, and `GenerateMips` flag. Passed into `Texture2D::Create()` so UI/icon textures stay `GL_LINEAR` while sprite sheets use `GL_NEAREST`. Replaces the current hardcoded filter in `OpenGLTexture2D`.
+- [x] **TextureSpecification** — Per-texture `FilterMode` (Nearest/Linear), `WrapMode`, and `GenerateMips` flag. Passed into `Texture2D::Create()` so UI/icon textures stay `GL_LINEAR` while sprite sheets use `GL_NEAREST`. Replaces the current hardcoded filter in `OpenGLTexture2D`.
 - [ ] **Prefab system** — Serialize a single entity (all components) to a `.lprefab` YAML file; instantiate from the editor and from Lua.
 - [ ] **Expanded Lua bindings** — Physics raycasts, entity lookup by tag, entity spawn/destroy from scripts, multi-argument `Log` functions.
 - [ ] **Audio system** — `AudioEngine` singleton + `AudioSourceComponent`. Candidate library: **miniaudio** (single-header C, no extra submodule overhead).
