@@ -21,11 +21,17 @@ namespace Loom {
 
         void Bind(uint32_t slot = 0) const override;
 
+        void Reload() override;
+
     private:
-        std::string mPath;
-        uint32_t    mWidth, mHeight;
-        uint32_t    mRendererID;
-        GLenum      mInternalFormat, mDataFormat;
+        void Load(const std::string& path, const TextureSpecification& spec);
+
+    private:
+        std::string          mPath;
+        TextureSpecification mSpec;
+        uint32_t             mWidth = 0, mHeight = 0;
+        uint32_t             mRendererID = 0;
+        GLenum               mInternalFormat = 0, mDataFormat = 0;
     };
 
 } // namespace Loom

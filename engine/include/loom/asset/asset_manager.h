@@ -18,6 +18,10 @@ namespace Loom {
         static void Trim();
         static void Clear();
 
+        // Poll the file watcher and reload any textures or shaders whose source files changed.
+        // Call once per frame from the editor update loop.
+        static void ReloadChanged();
+
     private:
         static std::mutex sMutex;
 

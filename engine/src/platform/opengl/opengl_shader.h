@@ -21,12 +21,15 @@ namespace Loom {
         void UploadUniformInt(const std::string& name, int value) override;
         void UploadUniformIntArray(const std::string& name, int* values, uint32_t count) override;
 
+        void Reload() override;
+
     private:
         std::string ReadFile(const std::string& filepath);
         void Compile(const std::string& vertex_src, const std::string& fragment_src);
 
     private:
-        uint32_t mRendererID;
+        uint32_t    mRendererID = 0;
+        std::string mFilePath;   // base path (no extension); empty for src-string shaders
     };
 
 } // namespace Loom

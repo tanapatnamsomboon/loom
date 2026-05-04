@@ -162,7 +162,12 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Scene integration: `OnRuntimeStart` autoplays, `OnRuntimeStop` stops all sources
   - Inspector UI + YAML serialization for `AudioSourceComponent`
 
-- [ ] **Asset hot-reload** — Detect texture and shader file changes via filesystem polling; reload through `AssetManager` without restarting the editor. Directly improves the daily iteration loop at no 3D cost.
+- [x] **Asset hot-reload** — Detect texture and shader file changes via filesystem polling; reload through `AssetManager` without restarting the editor. Directly improves the daily iteration loop at no 3D cost.
+
+- [ ] **Audio extensions + Lua component bindings**
+  - `AudioSourceComponent`: add `Pitch` (float, `ma_sound_set_pitch`) and `Pan` (float -1..1, `ma_sound_set_pan`) fields; expose in inspector + YAML
+  - Lua `entity` audio API: `PlayAudio()`, `StopAudio()`, `IsAudioPlaying()`, `SetVolume(v)`, `SetPitch(p)`
+  - Lua `entity` physics API: `SetLinearVelocity(vec2)`, `GetLinearVelocity()`, `ApplyForce(vec2)`, `ApplyImpulse(vec2)` via `Rigidbody2DComponent`
 
 ## Standalone Game Export — WeaverRuntime
 *Placed here as the capstone of 2D feature completeness. Once Prefabs, Lua, and Audio are in the engine, the runtime inherits them automatically. This milestone also becomes the deployment vehicle for all future 3D content.*
@@ -219,6 +224,7 @@ Start this milestone only after the 3D Foundation is complete and stable. The ab
 | vk-bootstrap | `vendor/vk-bootstrap` | Vulkan instance/device init boilerplate |
 
 ## Completed
+- **Asset hot-reload** — `FileWatcher` embedded in `AssetManager`; `Reload()` on `Texture2D`/`Shader` updates GPU resources in-place; polled each frame from `EditorLayer::OnUpdate`.
 - **Audio system** — `AudioEngine` singleton (miniaudio backend); `AudioSourceComponent` with path, volume, loop, autoplay; scene autoplay on `OnRuntimeStart`; inspector UI + YAML serialization.
 - **Lua file watcher** — Background thread polls `last_write_time`; hot-reloads `.lua` scripts via `OnFileChanged`.
 - **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; wired into physics, serializer, and inspector.

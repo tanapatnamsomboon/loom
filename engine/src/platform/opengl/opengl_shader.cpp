@@ -11,7 +11,8 @@ namespace Loom {
         Compile(vertex_src, fragment_src);
     }
 
-    OpenGLShader::OpenGLShader(const std::string& filepath) {
+    OpenGLShader::OpenGLShader(const std::string& filepath)
+        : mFilePath(filepath) {
         std::string vertex_path = filepath + ".vert";
         std::string fragment_path = filepath + ".frag";
 
@@ -66,6 +67,19 @@ namespace Loom {
     void OpenGLShader::UploadUniformIntArray(const std::string& name, int* values, uint32_t count) {
         GLint location = glGetUniformLocation(mRendererID, name.c_str());
         glUniform1iv(location, count, values);
+    }
+
+    void OpenGLShader::Reload() {
+        if (mFilePath.empty()) return;
+        std::string vertex_src   = ReadFile(mFilePath + ".vert");
+        std::string fragment_src = ReadFile(mFilePath + ".frag");
+        if (vertex_src.empty() || fragment_src.empty()) {
+            LOOM_CORE_ERROR("OpenGLShader::Reload: could not read shader files for '{}'", mFilePath);
+            return;
+        }
+        glDeleteProgram(mRendererID);
+        mRendererID = 0;
+        Compile(vertex_src, fragment_src);
     }
 
     std::string OpenGLShader::ReadFile(const std::string& filepath) {

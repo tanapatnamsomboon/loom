@@ -4,8 +4,7 @@
 
 namespace Loom {
 
-    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, const TextureSpecification& spec)
-        : mPath(path) {
+    void OpenGLTexture2D::Load(const std::string& path, const TextureSpecification& spec) {
         int width, height, channels;
         stbi_set_flip_vertically_on_load(1);
         stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
@@ -63,6 +62,11 @@ namespace Loom {
         stbi_image_free(data);
     }
 
+    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, const TextureSpecification& spec)
+        : mPath(path), mSpec(spec) {
+        Load(path, spec);
+    }
+
     OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
         : mWidth(width)
         , mHeight(height) {
@@ -92,6 +96,13 @@ namespace Loom {
 
     void OpenGLTexture2D::Bind(uint32_t slot) const {
         glBindTextureUnit(slot, mRendererID);
+    }
+
+    void OpenGLTexture2D::Reload() {
+        if (mPath.empty()) return;
+        glDeleteTextures(1, &mRendererID);
+        mRendererID = 0;
+        Load(mPath, mSpec);
     }
 
 } // namespace Loom

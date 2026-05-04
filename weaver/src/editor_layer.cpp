@@ -4,6 +4,7 @@
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 // clang-format on
+#include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/project/project.h>
@@ -78,6 +79,8 @@ namespace Weaver {
 #pragma region Update Loop
 
     void EditorLayer::OnUpdate(Loom::Timestep ts) {
+        Loom::AssetManager::ReloadChanged();
+
         mViewportPanel.BeginFrame();
         mViewportPanel.RenderScene(ts);
         mViewportPanel.UpdateHoveredEntity();

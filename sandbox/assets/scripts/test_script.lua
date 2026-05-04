@@ -22,13 +22,7 @@ function OnCreate()
 end
 
 function OnUpdate(ts)
-    -- 5. Physics.Raycast (only meaningful during Play with Rigidbody2D in scene)
-    local origin = Vec3(0, 5, 0)
-    local dir    = Vec3(0, -1, 0)
-    local hit    = Physics.Raycast(origin, dir, 20.0)
-    if hit.hit then
-        Log.Info("Hit:", hit.entity:GetTag(), "at y=", hit.point.y)
-    end
+
 end
 
 function OnDestroy()
