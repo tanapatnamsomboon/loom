@@ -26,7 +26,9 @@ namespace Weaver {
         ContentBrowserPanel& mContentBrowser;
         SceneManager&        mSceneManager;
 
-        bool mShowWizard = false;
+        bool mShowWizard      = false;
+        bool mShowErrorModal  = false;
+        std::string mErrorMessage;
         char mProjectName[256] = "MyAwesomeGame";
         std::string mProjectPath;
     };

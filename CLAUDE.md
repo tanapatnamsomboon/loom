@@ -243,9 +243,10 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *Goal: make the `.loomproj` file and `Project`/`ProjectManager` robust enough to be the single source of truth for WeaverRuntime.*
 
-- [ ] **`chore(project):` Schema hardening**
-  - Add a `Version` integer field to `ProjectConfig` YAML; `ProjectSerializer::Deserialize` warns on missing/unknown version
-  - Validate required fields on load: missing `StartScene` or non-existent `AssetDirectory` logs a `LOOM_CORE_ERROR` and returns `false`; `ProjectManager` shows an error modal instead of silently proceeding
+- [x] **`chore(project):` Schema hardening**
+  - `Version: 1` added to `ProjectConfig` and written by `ProjectSerializer::Serialize`
+  - `Deserialize` warns on missing version, warns on future version, errors on missing/empty `AssetDirectory` or non-existent path on disk, warns on missing `StartScene`
+  - `ProjectManager::OpenProject` shows a "Project Load Error" modal instead of silently dropping the failure
 
 - [ ] **`feat(project):` Runtime window config**
   - Add `WindowTitle` (string), `WindowWidth` (int), `WindowHeight` (int) to `ProjectConfig` + `ProjectSerializer`
@@ -383,6 +384,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Project schema hardening** — `Version: 1` added to `ProjectConfig`; `ProjectSerializer::Deserialize` validates version (warn if missing/future), errors on missing/non-existent `AssetDirectory`, warns on missing `StartScene`; `ProjectManager` shows a "Project Load Error" modal on deserialization failure instead of silently proceeding.
 - **Editor camera serialization** — `EditorCamera` gains `GetPitch()`, `GetYaw()`, and `SetState(position, pitch, yaw)`; `SceneSerializer::Serialize/Deserialize` accept an optional `EditorCamera*`; saves a top-level `EditorCamera:` block (Position, Pitch, Yaw) in the `.loom` file; `SceneManager::SaveScene`, `SaveSceneAs`, and `OpenSceneImpl` pass `&mContext.EditorCamera`; WeaverRuntime is unaffected (passes `nullptr` by default).
 - **Script Property Exposure System** — `ScriptField` / `ScriptFieldType` added to `engine/include/loom/scripting/script_field.h`; `LuaScriptComponent` gains `Fields` map; `IScriptingBackend` extended with `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`; `LuaScriptingBackend` implements field discovery via sandboxed `sol::state` with path-keyed cache, injects overrides before `OnCreate`, reads live values via `TryGetFieldValue`; `SceneSerializer` round-trips `Fields` block in YAML for both scenes and prefabs; `SceneHierarchyPanel` shows per-type widgets below the script path row, disabled in play mode showing live values; `SceneManager::OnScenePlay/Stop` toggles panel play mode.
 - **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` will reuse the same `SceneLoader` queue.

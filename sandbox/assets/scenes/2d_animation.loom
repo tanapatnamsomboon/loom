@@ -1,4 +1,8 @@
 Scene: 2d_animation
+EditorCamera:
+  Position: [-4.1815624, 2.9178774, 6.931868]
+  Pitch: 0.25200018
+  Yaw: 0.4020001
 Entities:
   - Entity: 647933478549646723
     TagComponent:

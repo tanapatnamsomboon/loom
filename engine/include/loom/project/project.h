@@ -8,6 +8,7 @@
 namespace Loom {
 
     struct ProjectConfig {
+        int Version = 1;
         std::string Name = "Untitled";
         std::filesystem::path StartScene;
         std::filesystem::path AssetDirectory;

@@ -47,17 +47,21 @@ namespace Weaver {
         auto project = std::make_shared<Loom::Project>();
         Loom::ProjectSerializer serializer(project);
 
-        if (serializer.Deserialize(filepath)) {
-            Loom::Project::SetActive(project);
-            Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + project->GetConfig().Name);
-            mContentBrowser.Init();
-
-            std::filesystem::path start_scene = Loom::Project::GetAssetFileSystemPath(project->GetConfig().StartScene);
-            if (!project->GetConfig().StartScene.empty() && std::filesystem::exists(start_scene))
-                mSceneManager.OpenScene(start_scene.string());
-            else
-                mSceneManager.NewScene();
+        if (!serializer.Deserialize(filepath)) {
+            mErrorMessage  = "Failed to open project.\n\nThe file may be corrupt or reference a missing AssetDirectory.\nCheck the console log for details.";
+            mShowErrorModal = true;
+            return;
         }
+
+        Loom::Project::SetActive(project);
+        Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + project->GetConfig().Name);
+        mContentBrowser.Init();
+
+        std::filesystem::path start_scene = Loom::Project::GetAssetFileSystemPath(project->GetConfig().StartScene);
+        if (!project->GetConfig().StartScene.empty() && std::filesystem::exists(start_scene))
+            mSceneManager.OpenScene(start_scene.string());
+        else
+            mSceneManager.NewScene();
     }
 
     // -------------------------------------------------------------------------
@@ -98,7 +102,23 @@ namespace Weaver {
             mShowWizard = false;
         }
 
+        if (mShowErrorModal) {
+            ImGui::OpenPopup("Project Load Error");
+            mShowErrorModal = false;
+        }
+
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Project Load Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted(mErrorMessage.c_str());
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            if (ImGui::Button("OK", ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
         if (!ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
