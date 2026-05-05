@@ -248,9 +248,10 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `Deserialize` warns on missing version, warns on future version, errors on missing/empty `AssetDirectory` or non-existent path on disk, warns on missing `StartScene`
   - `ProjectManager::OpenProject` shows a "Project Load Error" modal instead of silently dropping the failure
 
-- [ ] **`feat(project):` Runtime window config**
-  - Add `WindowTitle` (string), `WindowWidth` (int), `WindowHeight` (int) to `ProjectConfig` + `ProjectSerializer`
-  - Expose in the "New Project Wizard" modal and a new "Project Settings" popup in `ProjectManager`
+- [x] **`feat(project):` Runtime window config**
+  - `WindowTitle`, `WindowWidth`, `WindowHeight` added to `ProjectConfig` + `ProjectSerializer` (serialized/deserialized)
+  - "Project Settings..." menu item added to File menu (disabled when no active project)
+  - `ProjectManager::OpenSettings()` modal: Project Name, Start Scene (InputText + NFD browse), Window Title, Width, Height, Apply/Cancel
   - *(Merges and closes the "Project config expansion" item that was previously in Phase 2)*
 
 - [ ] **`chore(project):` ProjectManager null-safety & state**
@@ -384,6 +385,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Runtime window config + Project Settings** — `WindowTitle`, `WindowWidth`, `WindowHeight` added to `ProjectConfig` and serialized/deserialized by `ProjectSerializer`; `ProjectManager::OpenSettings()` populates temp buffers from the active config; "Project Settings..." modal exposes Name, Start Scene (with NFD browse), Window Title, Width, Height; "Project Settings..." menu item added to File menu (disabled when no project is open); settings round-trip through the `.loomproj` file.
 - **Project schema hardening** — `Version: 1` added to `ProjectConfig`; `ProjectSerializer::Deserialize` validates version (warn if missing/future), errors on missing/non-existent `AssetDirectory`, warns on missing `StartScene`; `ProjectManager` shows a "Project Load Error" modal on deserialization failure instead of silently proceeding.
 - **Editor camera serialization** — `EditorCamera` gains `GetPitch()`, `GetYaw()`, and `SetState(position, pitch, yaw)`; `SceneSerializer::Serialize/Deserialize` accept an optional `EditorCamera*`; saves a top-level `EditorCamera:` block (Position, Pitch, Yaw) in the `.loom` file; `SceneManager::SaveScene`, `SaveSceneAs`, and `OpenSceneImpl` pass `&mContext.EditorCamera`; WeaverRuntime is unaffected (passes `nullptr` by default).
 - **Script Property Exposure System** — `ScriptField` / `ScriptFieldType` added to `engine/include/loom/scripting/script_field.h`; `LuaScriptComponent` gains `Fields` map; `IScriptingBackend` extended with `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`; `LuaScriptingBackend` implements field discovery via sandboxed `sol::state` with path-keyed cache, injects overrides before `OnCreate`, reads live values via `TryGetFieldValue`; `SceneSerializer` round-trips `Fields` block in YAML for both scenes and prefabs; `SceneHierarchyPanel` shows per-type widgets below the script path row, disabled in play mode showing live values; `SceneManager::OnScenePlay/Stop` toggles panel play mode.

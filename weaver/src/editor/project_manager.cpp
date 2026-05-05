@@ -68,6 +68,18 @@ namespace Weaver {
     // Save Project As
     // -------------------------------------------------------------------------
 
+    void ProjectManager::OpenSettings() {
+        auto project = Loom::Project::GetActive();
+        if (!project) return;
+        const auto& cfg = project->GetConfig();
+        strncpy(mSettingsName,        cfg.Name.c_str(),               sizeof(mSettingsName) - 1);
+        strncpy(mSettingsStartScene,  cfg.StartScene.string().c_str(), sizeof(mSettingsStartScene) - 1);
+        strncpy(mSettingsWindowTitle, cfg.WindowTitle.c_str(),         sizeof(mSettingsWindowTitle) - 1);
+        mSettingsWindowWidth  = cfg.WindowWidth;
+        mSettingsWindowHeight = cfg.WindowHeight;
+        mShowSettingsModal = true;
+    }
+
     void ProjectManager::SaveProjectAs() {
         constexpr nfdfilteritem_t filters[] = {
             { "Loom Project", "loomproj" },
@@ -107,6 +119,11 @@ namespace Weaver {
             mShowErrorModal = false;
         }
 
+        if (mShowSettingsModal) {
+            ImGui::OpenPopup("Project Settings");
+            mShowSettingsModal = false;
+        }
+
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Project Load Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -116,6 +133,73 @@ namespace Weaver {
             ImGui::Spacing();
             if (ImGui::Button("OK", ImVec2(120, 0)))
                 ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Project Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            auto project = Loom::Project::GetActive();
+            if (project) {
+                ImGui::Text("Project Settings");
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::InputText("Project Name", mSettingsName, sizeof(mSettingsName));
+
+                // --- Start Scene ---
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Start Scene");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                ImGui::InputText("##StartScene", mSettingsStartScene, sizeof(mSettingsStartScene));
+                ImGui::SameLine();
+                if (ImGui::Button("...##BrowseStartScene", { browse_w, 0.0f })) {
+                    constexpr nfdfilteritem_t filters[] = { { "Loom Scene", "loom" } };
+                    NFD::Guard      guard;
+                    NFD::UniquePath out_path;
+                    if (NFD::OpenDialog(out_path, filters, 1) == NFD_OKAY) {
+                        std::filesystem::path picked(out_path.get());
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        std::string rel_str = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                            ? rel.generic_string() : picked.generic_string();
+                        strncpy(mSettingsStartScene, rel_str.c_str(), sizeof(mSettingsStartScene) - 1);
+                    }
+                }
+                ImGui::TextDisabled("  Relative to asset directory");
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::TextUnformatted("Runtime Window");
+                ImGui::Spacing();
+
+                ImGui::InputText("Window Title",  mSettingsWindowTitle, sizeof(mSettingsWindowTitle));
+                ImGui::TextDisabled("  Leave blank to use the project name");
+                ImGui::InputInt("Width",  &mSettingsWindowWidth);
+                ImGui::InputInt("Height", &mSettingsWindowHeight);
+                mSettingsWindowWidth  = std::max(1, mSettingsWindowWidth);
+                mSettingsWindowHeight = std::max(1, mSettingsWindowHeight);
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if (ImGui::Button("Apply", ImVec2(120, 0))) {
+                    auto& cfg          = project->GetConfig();
+                    cfg.Name           = mSettingsName;
+                    cfg.StartScene     = mSettingsStartScene;
+                    cfg.WindowTitle    = mSettingsWindowTitle;
+                    cfg.WindowWidth    = mSettingsWindowWidth;
+                    cfg.WindowHeight   = mSettingsWindowHeight;
+                    Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + cfg.Name);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                    ImGui::CloseCurrentPopup();
+            }
             ImGui::EndPopup();
         }
 

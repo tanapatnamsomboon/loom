@@ -232,6 +232,9 @@ namespace Weaver {
             if (ImGui::MenuItem("New Project..."))     mProjectManager.NewProject();
             if (ImGui::MenuItem("Open Project..."))    mProjectManager.OpenProject();
             if (ImGui::MenuItem("Save Project As...")) mProjectManager.SaveProjectAs();
+            ImGui::BeginDisabled(!Loom::Project::GetActive());
+            if (ImGui::MenuItem("Project Settings...")) mProjectManager.OpenSettings();
+            ImGui::EndDisabled();
             ImGui::Separator();
             if (ImGui::MenuItem("New",        "Ctrl+N"))       mSceneManager.NewScene();
             if (ImGui::MenuItem("Open...",    "Ctrl+O"))       mSceneManager.OpenScene();

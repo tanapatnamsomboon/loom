@@ -12,6 +12,10 @@ namespace Loom {
         std::string Name = "Untitled";
         std::filesystem::path StartScene;
         std::filesystem::path AssetDirectory;
+        // Runtime window settings used by WeaverRuntime; default to project name / 1280×720.
+        std::string WindowTitle;
+        int WindowWidth  = 1280;
+        int WindowHeight = 720;
     };
 
     class LOOM_API Project {

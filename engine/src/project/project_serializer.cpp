@@ -21,6 +21,9 @@ namespace Loom {
         out << YAML::Key << "Name"           << YAML::Value << config.Name;
         out << YAML::Key << "AssetDirectory" << YAML::Value << config.AssetDirectory.string();
         out << YAML::Key << "StartScene"     << YAML::Value << config.StartScene.string();
+        out << YAML::Key << "WindowTitle"    << YAML::Value << config.WindowTitle;
+        out << YAML::Key << "WindowWidth"    << YAML::Value << config.WindowWidth;
+        out << YAML::Key << "WindowHeight"   << YAML::Value << config.WindowHeight;
         out << YAML::EndMap;
         out << YAML::EndMap;
 
@@ -96,6 +99,11 @@ namespace Loom {
         config.StartScene = project_node["StartScene"] ? project_node["StartScene"].as<std::string>() : "";
         if (config.StartScene.empty())
             LOOM_CORE_WARN("ProjectSerializer: '{}' has no StartScene set.", filepath);
+
+        // Optional: window config — fall back to safe defaults
+        config.WindowTitle  = project_node["WindowTitle"]  ? project_node["WindowTitle"].as<std::string>() : "";
+        config.WindowWidth  = project_node["WindowWidth"]  ? project_node["WindowWidth"].as<int>()  : 1280;
+        config.WindowHeight = project_node["WindowHeight"] ? project_node["WindowHeight"].as<int>() : 720;
 
         mProject->SetProjectDirectory(path.parent_path());
         return true;
