@@ -425,6 +425,7 @@ namespace {
     }
 
     void LuaScriptingBackend::OnFileChanged(const std::string& path) {
+        mFieldSchemaCache.erase(path);
         if (!mActiveScene) return;
 
         auto view = mActiveScene->GetAllEntitiesWith<LuaScriptComponent>();
@@ -463,6 +464,23 @@ namespace {
 
         mScriptInstances[entity_id] = std::move(env);
 
+        // First, promote all Properties defaults to globals so every declared field is accessible.
+        sol::object props_obj = mScriptInstances[entity_id]["Properties"];
+        if (props_obj.valid() && props_obj.get_type() == sol::type::table) {
+            sol::table props = props_obj.as<sol::table>();
+            props.for_each([&](const sol::object& key, const sol::object& val) {
+                if (key.get_type() == sol::type::string)
+                    mScriptInstances[entity_id][key.as<std::string>()] = val;
+            });
+        }
+
+        // Then overwrite with any editor-set overrides so per-entity values take precedence.
+        for (const auto& [name, field] : lsc.Fields) {
+            std::visit([&, &n = name](auto&& v) {
+                mScriptInstances[entity_id][n] = v;
+            }, field.Value);
+        }
+
         sol::protected_function on_create = mScriptInstances[entity_id]["OnCreate"];
         if (on_create.valid()) {
             auto res = on_create();
@@ -487,6 +505,142 @@ namespace {
         }
 
         mScriptInstances.erase(it);
+    }
+
+    std::vector<ScriptField> LuaScriptingBackend::GetScriptFields(const std::string& script_path) {
+        std::string full_path = Project::GetAssetFileSystemPath(script_path).generic_string();
+
+        auto cache_it = mFieldSchemaCache.find(full_path);
+        if (cache_it != mFieldSchemaCache.end())
+            return cache_it->second;
+
+        if (!std::filesystem::exists(full_path))
+            return {};
+
+        // Spin up a minimal sandboxed state just for field discovery.
+        sol::state sandbox;
+        sandbox.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table);
+        sandbox.new_usertype<glm::vec2>("Vec2",
+            sol::call_constructor, sol::constructors<glm::vec2(), glm::vec2(float, float)>(),
+            "x", &glm::vec2::x, "y", &glm::vec2::y);
+        sandbox.new_usertype<glm::vec3>("Vec3",
+            sol::call_constructor, sol::constructors<glm::vec3(), glm::vec3(float, float, float)>(),
+            "x", &glm::vec3::x, "y", &glm::vec3::y, "z", &glm::vec3::z);
+
+        auto result = sandbox.safe_script_file(full_path, sol::script_pass_on_error);
+        if (!result.valid())
+            return {};
+
+        sol::object props_obj = sandbox["Properties"];
+        if (!props_obj.valid() || props_obj.get_type() != sol::type::table)
+            return {};
+
+        sol::table props = props_obj.as<sol::table>();
+        std::vector<ScriptField> fields;
+
+        props.for_each([&](const sol::object& key, const sol::object& val) {
+            if (key.get_type() != sol::type::string) return;
+            ScriptField field;
+            field.Name = key.as<std::string>();
+            switch (val.get_type()) {
+                case sol::type::boolean:
+                    field.Type  = ScriptFieldType::Bool;
+                    field.Value = val.as<bool>();
+                    fields.push_back(std::move(field));
+                    break;
+                case sol::type::string:
+                    field.Type  = ScriptFieldType::String;
+                    field.Value = val.as<std::string>();
+                    fields.push_back(std::move(field));
+                    break;
+                case sol::type::number:
+                    if (val.is<lua_Integer>()) {
+                        field.Type  = ScriptFieldType::Int;
+                        field.Value = (int)val.as<lua_Integer>();
+                    } else {
+                        field.Type  = ScriptFieldType::Float;
+                        field.Value = val.as<float>();
+                    }
+                    fields.push_back(std::move(field));
+                    break;
+                case sol::type::userdata:
+                    if (val.is<glm::vec2>()) {
+                        field.Type  = ScriptFieldType::Vec2;
+                        field.Value = val.as<glm::vec2>();
+                        fields.push_back(std::move(field));
+                    } else if (val.is<glm::vec3>()) {
+                        field.Type  = ScriptFieldType::Vec3;
+                        field.Value = val.as<glm::vec3>();
+                        fields.push_back(std::move(field));
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        mFieldSchemaCache[full_path] = fields;
+        return fields;
+    }
+
+    void LuaScriptingBackend::ApplyFields(entt::entity entity_id,
+                                          const std::unordered_map<std::string, ScriptField>& fields) {
+        auto it = mScriptInstances.find(entity_id);
+        if (it == mScriptInstances.end()) return;
+        sol::environment& env = it->second;
+        for (const auto& [name, field] : fields) {
+            std::visit([&env, &name](auto&& v) { env[name] = v; }, field.Value);
+        }
+    }
+
+    bool LuaScriptingBackend::TryGetFieldValue(entt::entity entity_id,
+                                               const std::string& name,
+                                               ScriptField& out_field) {
+        auto it = mScriptInstances.find(entity_id);
+        if (it == mScriptInstances.end()) return false;
+
+        sol::object val = it->second[name];
+        if (!val.valid() || val.get_type() == sol::type::nil) return false;
+
+        switch (out_field.Type) {
+            case ScriptFieldType::Float:
+                if (val.get_type() == sol::type::number) {
+                    out_field.Value = val.as<float>();
+                    return true;
+                }
+                break;
+            case ScriptFieldType::Int:
+                if (val.get_type() == sol::type::number) {
+                    out_field.Value = (int)val.as<lua_Integer>();
+                    return true;
+                }
+                break;
+            case ScriptFieldType::Bool:
+                if (val.get_type() == sol::type::boolean) {
+                    out_field.Value = val.as<bool>();
+                    return true;
+                }
+                break;
+            case ScriptFieldType::String:
+                if (val.get_type() == sol::type::string) {
+                    out_field.Value = val.as<std::string>();
+                    return true;
+                }
+                break;
+            case ScriptFieldType::Vec2:
+                if (val.is<glm::vec2>()) {
+                    out_field.Value = val.as<glm::vec2>();
+                    return true;
+                }
+                break;
+            case ScriptFieldType::Vec3:
+                if (val.is<glm::vec3>()) {
+                    out_field.Value = val.as<glm::vec3>();
+                    return true;
+                }
+                break;
+        }
+        return false;
     }
 
 } // namespace Loom

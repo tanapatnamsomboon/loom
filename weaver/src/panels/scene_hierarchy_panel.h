@@ -23,6 +23,7 @@ namespace Weaver {
         void OnImGuiRender();
 
         void SetSceneModifiedCallback(const std::function<void()>& callback) { mSceneModifiedCallback = callback; }
+        void SetPlayMode(bool playing) { mIsPlayMode = playing; }
 
     private:
         void DrawEntityNode(Loom::Entity entity);
@@ -37,6 +38,7 @@ namespace Weaver {
         std::shared_ptr<Loom::Texture2D> mCheckerboard;
 
         std::function<void()> mSceneModifiedCallback;
+        bool                  mIsPlayMode = false;
     };
 
 } // namespace Weaver

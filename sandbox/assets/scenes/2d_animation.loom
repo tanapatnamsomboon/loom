@@ -134,6 +134,10 @@ Entities:
       GenerateMips: false
     LuaScriptComponent:
       ScriptPath: scripts/player.lua
+      Fields:
+        Speed:
+          Type: 0
+          Value: 1
     Rigidbody2DComponent:
       BodyType: 1
       FixedRotation: true

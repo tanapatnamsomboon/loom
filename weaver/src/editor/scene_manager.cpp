@@ -154,6 +154,7 @@ namespace Weaver {
 
     void SceneManager::OnScenePlay() {
         mContext.SceneState = SceneState::Play;
+        mContext.HierarchyPanel->SetPlayMode(true);
 
         Loom::Entity selected     = mContext.HierarchyPanel->GetSelectedEntity();
         bool         has_selected = (bool)selected;
@@ -182,6 +183,7 @@ namespace Weaver {
         mContext.ActiveScene->OnRuntimeStop();
         Loom::SceneLoader::Get().Consume(); // discard any mid-frame transition queued before stop
         mContext.SceneState  = SceneState::Edit;
+        mContext.HierarchyPanel->SetPlayMode(false);
         mContext.ActiveScene = mContext.EditorScene;
         mContext.HierarchyPanel->SetContext(mContext.ActiveScene);
 

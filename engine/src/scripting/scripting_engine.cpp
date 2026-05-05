@@ -57,6 +57,24 @@ namespace Loom {
             sBackend->OnFileChanged(path);
     }
 
+    std::vector<ScriptField> ScriptingEngine::GetScriptFields(const std::string& script_path) {
+        if (!sBackend) return {};
+        return sBackend->GetScriptFields(script_path);
+    }
+
+    void ScriptingEngine::ApplyFields(Entity entity,
+                                      const std::unordered_map<std::string, ScriptField>& fields) {
+        if (sBackend)
+            sBackend->ApplyFields((entt::entity)entity, fields);
+    }
+
+    bool ScriptingEngine::TryGetFieldValue(Entity entity,
+                                           const std::string& name,
+                                           ScriptField& out_field) {
+        if (!sBackend) return false;
+        return sBackend->TryGetFieldValue((entt::entity)entity, name, out_field);
+    }
+
     bool ScriptingEngine::HasBackend() {
         return sBackend != nullptr;
     }

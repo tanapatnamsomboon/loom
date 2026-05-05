@@ -214,26 +214,28 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Lua API: `Scene.Load("path/to/scene.loom")`, `Scene.Reload()`
   - `EditorLayer` polls `SceneLoader` after each `OnUpdateRuntime` and delegates to `SceneManager::OnRuntimeSceneTransition`; `RuntimeLayer` will do the same
 
-- [ ] **Script Property Exposure System** *(Script Field Binding)*
+- [x] **Script Property Exposure System** *(Script Field Binding)*
 
   *Goal: allow scripts to expose typed variables to the Properties Panel so the Game Developer can override defaults per-entity in Weaver without editing code. The data model is language-agnostic so future backends plug in cleanly.*
 
-  - [ ] **`feat(scripting):` Language-agnostic `ScriptField` data model**
-    - `ScriptFieldType` enum: `Float`, `Int`, `Bool`, `Vec2`, `Vec3`, `String` — lives in `engine/scripting/` with no backend dependency
+  - [x] **`feat(scripting):` Language-agnostic `ScriptField` data model**
+    - `ScriptFieldType` enum: `Float`, `Int`, `Bool`, `Vec2`, `Vec3`, `String` — lives in `engine/include/loom/scripting/script_field.h`
     - `ScriptField` struct: `Name` (string), `Type`, `Value` (`std::variant<float, int, bool, glm::vec2, glm::vec3, std::string>`)
-    - `LuaScriptComponent` gains `std::unordered_map<std::string, ScriptField> Fields` to hold editor-set overrides for that entity instance
-    - `IScriptingBackend` extended with two new pure-virtual methods: `GetScriptFields(script_path) → std::vector<ScriptField>` (returns the field schema declared in the script file) and `ApplyFields(Entity, fields_map)` (injects override values into the script environment before `OnCreate()`)
-    - `SceneSerializer` reads/writes the `Fields:` block under `LuaScriptComponent` in YAML (same round-trip pattern as existing components)
+    - `LuaScriptComponent` gains `std::unordered_map<std::string, ScriptField> Fields` for editor-set overrides
+    - `IScriptingBackend` extended with three new pure-virtuals: `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`
+    - `SceneSerializer` reads/writes the `Fields:` block under `LuaScriptComponent` in YAML; prefab deserializer also updated
 
-  - [ ] **`feat(scripting):` Lua field discovery & value injection**
-    - Convention: a top-level `Properties` table in the script acts as both the schema and default values (e.g., `Properties = { Speed = 5.0, Health = 100 }`); `LuaScriptingBackend::GetScriptFields()` loads the chunk in a sandboxed `sol::state`, reads the `Properties` table, and infers `ScriptFieldType` from the Lua value types
-    - `ApplyFields()` writes editor-overridden values into the entity's `sol::environment` before `OnCreate()` is called, so the script sees the overridden values as its globals
-    - Hot-reload preserves editor-set field values across script file saves
+  - [x] **`feat(scripting):` Lua field discovery & value injection**
+    - `Properties = { Speed = 5.0, Health = 100 }` top-level table is the schema convention
+    - `LuaScriptingBackend::GetScriptFields()` runs a sandboxed `sol::state`, reads the `Properties` table, infers type; results are cached by absolute path and invalidated on `OnFileChanged`
+    - `LoadEntityScript` injects editor overrides from `lsc.Fields` into the `sol::environment` before `OnCreate()` is called
+    - `TryGetFieldValue` reads live globals from a running environment for real-time inspector display
 
-  - [ ] **`feat(editor):` Script fields ImGui drawer in Properties Panel**
-    - `SceneHierarchyPanel`'s `LuaScriptComponent` inspector block queries `ScriptingEngine::GetScriptFields(script_path)` and renders each field with the matching widget: `DragFloat`, `DragInt`, `Checkbox`, `InputText`, `DragFloat2`, `DragFloat3`
-    - Edits update `LuaScriptComponent::Fields` via `ScriptingEngine::SetField()` and mark the scene dirty
-    - In Play mode the block is read-only (shows live runtime values); in Edit mode it is fully editable
+  - [x] **`feat(editor):` Script fields ImGui drawer in Properties Panel**
+    - Inspector block below the script path row renders one widget per schema field: `DragFloat`, `DragInt`, `Checkbox`, `InputText`, `DragFloat2`, `DragFloat3`
+    - Edits write to `LuaScriptComponent::Fields` directly and mark scene dirty
+    - In Play mode fields are `BeginDisabled`/read-only and show live runtime values via `TryGetFieldValue`; in Edit mode fully editable
+    - `SceneManager::OnScenePlay/Stop` calls `HierarchyPanel::SetPlayMode` to switch modes
 
 ---
 
@@ -381,6 +383,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Script Property Exposure System** — `ScriptField` / `ScriptFieldType` added to `engine/include/loom/scripting/script_field.h`; `LuaScriptComponent` gains `Fields` map; `IScriptingBackend` extended with `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`; `LuaScriptingBackend` implements field discovery via sandboxed `sol::state` with path-keyed cache, injects overrides before `OnCreate`, reads live values via `TryGetFieldValue`; `SceneSerializer` round-trips `Fields` block in YAML for both scenes and prefabs; `SceneHierarchyPanel` shows per-type widgets below the script path row, disabled in play mode showing live values; `SceneManager::OnScenePlay/Stop` toggles panel play mode.
 - **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` will reuse the same `SceneLoader` queue.
 - **Editor quit / unsaved-changes confirmation** — `Application::Close()` added; event dispatch reordered so layers intercept first; `SceneManager::RequestQuit()` gates close behind the existing "Save Changes?" modal when dirty; `Ctrl+Q` shortcut and `File > Exit` menu item wired; `SceneDirty` callback bug fixed.
 - **Physics scripting — spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` added to the Lua `Physics` table; both return a 1-indexed Lua array of `Entity` handles; `Scene::OverlapCircle2D` / `Scene::OverlapBox2D` implemented via `b2World_OverlapCircle` / `b2World_OverlapPolygon` with per-shape callback; deduplication via `std::unordered_set` prevents duplicate entries when an entity holds multiple collider components.

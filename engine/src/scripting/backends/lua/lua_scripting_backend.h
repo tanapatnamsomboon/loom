@@ -4,8 +4,10 @@
 #include "scripting/file_watcher.h"
 #include <sol/sol.hpp>
 #include <entt/entt.hpp>
-#include <unordered_map>
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace Loom {
 
@@ -26,6 +28,13 @@ namespace Loom {
 
         void OnFileChanged(const std::string& path) override;
 
+        std::vector<ScriptField> GetScriptFields(const std::string& script_path) override;
+        void ApplyFields(entt::entity entity,
+                         const std::unordered_map<std::string, ScriptField>& fields) override;
+        bool TryGetFieldValue(entt::entity entity,
+                              const std::string& name,
+                              ScriptField& out_field) override;
+
     private:
         void BindLuaAPI();
         void LoadEntityScript(entt::entity entity_id, Scene* scene);
@@ -37,6 +46,8 @@ namespace Loom {
         std::unordered_map<entt::entity, sol::environment> mScriptInstances;
         Scene* mActiveScene = nullptr;
         std::unique_ptr<FileWatcher> mFileWatcher;
+        // Cached field schemas keyed by absolute script path; invalidated by OnFileChanged.
+        std::unordered_map<std::string, std::vector<ScriptField>> mFieldSchemaCache;
     };
 
 } // namespace Loom

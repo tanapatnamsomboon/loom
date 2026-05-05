@@ -4,11 +4,13 @@
 #include "loom/renderer/texture.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
+#include "loom/scripting/script_field.h"
 #include <box2d/id.h>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Loom {
@@ -102,6 +104,8 @@ namespace Loom {
     struct LuaScriptComponent {
         // Absolute path at runtime; relative to asset directory when serialized (like textures).
         std::string ScriptPath;
+        // Editor-set overrides for Properties declared in the script.
+        std::unordered_map<std::string, ScriptField> Fields;
 
         LuaScriptComponent()                          = default;
         LuaScriptComponent(const LuaScriptComponent&) = default;

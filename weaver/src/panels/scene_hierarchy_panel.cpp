@@ -685,6 +685,92 @@ namespace Weaver {
                         ImGui::SetTooltip("Hot-reload script (only active during Play)");
                 }
 
+                // --- Script Properties ---
+                if (!ls.ScriptPath.empty()) {
+                    auto schema = Loom::ScriptingEngine::GetScriptFields(ls.ScriptPath);
+                    if (!schema.empty()) {
+                        ImGui::Separator();
+                        ImGui::TextDisabled("Script Properties");
+                        ImGui::Spacing();
+
+                        for (const auto& schema_field : schema) {
+                            // Start from schema default; apply stored override only if types match.
+                            Loom::ScriptField display_field = schema_field;
+                            auto ov_it = ls.Fields.find(schema_field.Name);
+                            if (ov_it != ls.Fields.end() && ov_it->second.Type == schema_field.Type)
+                                display_field = ov_it->second;
+
+                            // In play mode, try to read the live runtime value.
+                            if (mIsPlayMode) {
+                                Loom::ScriptField live = schema_field;
+                                if (Loom::ScriptingEngine::TryGetFieldValue(entity, schema_field.Name, live))
+                                    display_field = live;
+                            }
+
+                            ImGui::PushID(schema_field.Name.c_str());
+                            ImGui::BeginDisabled(mIsPlayMode);
+
+                            bool field_modified = false;
+                            switch (schema_field.Type) {
+                                case Loom::ScriptFieldType::Float: {
+                                    float v = std::get<float>(display_field.Value);
+                                    if (ImGui::DragFloat(schema_field.Name.c_str(), &v, 0.1f)) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, v };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                                case Loom::ScriptFieldType::Int: {
+                                    int v = std::get<int>(display_field.Value);
+                                    if (ImGui::DragInt(schema_field.Name.c_str(), &v)) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, v };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                                case Loom::ScriptFieldType::Bool: {
+                                    bool v = std::get<bool>(display_field.Value);
+                                    if (ImGui::Checkbox(schema_field.Name.c_str(), &v)) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, v };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                                case Loom::ScriptFieldType::Vec2: {
+                                    glm::vec2 v = std::get<glm::vec2>(display_field.Value);
+                                    if (ImGui::DragFloat2(schema_field.Name.c_str(), glm::value_ptr(v), 0.1f)) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, v };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                                case Loom::ScriptFieldType::Vec3: {
+                                    glm::vec3 v = std::get<glm::vec3>(display_field.Value);
+                                    if (ImGui::DragFloat3(schema_field.Name.c_str(), glm::value_ptr(v), 0.1f)) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, v };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                                case Loom::ScriptFieldType::String: {
+                                    std::string sv = std::get<std::string>(display_field.Value);
+                                    char buf[256] = {};
+                                    strncpy(buf, sv.c_str(), sizeof(buf) - 1);
+                                    if (ImGui::InputText(schema_field.Name.c_str(), buf, sizeof(buf))) {
+                                        ls.Fields[schema_field.Name] = { schema_field.Name, schema_field.Type, std::string(buf) };
+                                        field_modified = true;
+                                    }
+                                    break;
+                                }
+                            }
+
+                            ImGui::EndDisabled();
+                            ImGui::PopID();
+                            is_modified |= field_modified;
+                        }
+                    }
+                }
+
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
                 ImGui::TreePop();
             }

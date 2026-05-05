@@ -1,13 +1,23 @@
 local is_grounded = false
-local speed = 1.0
+
+Properties = {
+    Speed  = 5.0,
+    Health = 100,
+    Active = true,
+    Label  = "Hero"
+}
+
+function OnCreate()
+    Log.Info("Speed =", Speed, " Health =", Health, " Label =", Label)
+end
 
 function OnUpdate(ts)
     local vel = entity:GetLinearVelocity()
 
     if Input.IsKeyPressed(Key.A) then
-        vel.x = -speed
+        vel.x = -Speed
     elseif Input.IsKeyPressed(Key.D) then
-        vel.x = speed
+        vel.x = Speed
     else
         vel.x = 0
     end

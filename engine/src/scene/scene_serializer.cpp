@@ -187,6 +187,25 @@ namespace Loom {
             out << YAML::BeginMap;
             auto& lsc = entity.GetComponent<LuaScriptComponent>();
             out << YAML::Key << "ScriptPath" << YAML::Value << ToRelativeAssetPath(lsc.ScriptPath);
+            if (!lsc.Fields.empty()) {
+                out << YAML::Key << "Fields" << YAML::BeginMap;
+                for (const auto& [name, field] : lsc.Fields) {
+                    out << YAML::Key << name << YAML::BeginMap;
+                    out << YAML::Key << "Type" << YAML::Value << (int)field.Type;
+                    out << YAML::Key << "Value" << YAML::Value;
+                    std::visit([&](auto&& v) {
+                        using T = std::decay_t<decltype(v)>;
+                        if constexpr (std::is_same_v<T, bool>)        out << v;
+                        else if constexpr (std::is_same_v<T, int>)    out << v;
+                        else if constexpr (std::is_same_v<T, float>)  out << v;
+                        else if constexpr (std::is_same_v<T, std::string>) out << v;
+                        else if constexpr (std::is_same_v<T, glm::vec2>)   out << v;
+                        else if constexpr (std::is_same_v<T, glm::vec3>)   out << v;
+                    }, field.Value);
+                    out << YAML::EndMap;
+                }
+                out << YAML::EndMap;
+            }
             out << YAML::EndMap;
         }
 
@@ -402,6 +421,26 @@ namespace Loom {
             if (auto lsc_node = entity_node["LuaScriptComponent"]) {
                 auto& lsc      = entity.AddComponent<LuaScriptComponent>();
                 lsc.ScriptPath = YAML_GET(lsc_node["ScriptPath"], std::string, "");
+                if (auto fields_node = lsc_node["Fields"]) {
+                    for (auto it = fields_node.begin(); it != fields_node.end(); ++it) {
+                        std::string name     = it->first.as<std::string>();
+                        auto        fn       = it->second;
+                        ScriptField field;
+                        field.Name = name;
+                        field.Type = (ScriptFieldType)YAML_GET(fn["Type"], int, 0);
+                        if (auto vn = fn["Value"]) {
+                            switch (field.Type) {
+                                case ScriptFieldType::Float:  field.Value = vn.as<float>();       break;
+                                case ScriptFieldType::Int:    field.Value = vn.as<int>();         break;
+                                case ScriptFieldType::Bool:   field.Value = vn.as<bool>();        break;
+                                case ScriptFieldType::Vec2:   field.Value = vn.as<glm::vec2>();   break;
+                                case ScriptFieldType::Vec3:   field.Value = vn.as<glm::vec3>();   break;
+                                case ScriptFieldType::String: field.Value = vn.as<std::string>(); break;
+                            }
+                        }
+                        lsc.Fields[name] = std::move(field);
+                    }
+                }
             }
 
             // Rigidbody 2D Component
@@ -567,6 +606,26 @@ namespace Loom {
         if (auto lsc_node = data["LuaScriptComponent"]) {
             auto& lsc      = entity.AddComponent<LuaScriptComponent>();
             lsc.ScriptPath = YAML_GET(lsc_node["ScriptPath"], std::string, "");
+            if (auto fields_node = lsc_node["Fields"]) {
+                for (auto it = fields_node.begin(); it != fields_node.end(); ++it) {
+                    std::string name     = it->first.as<std::string>();
+                    auto        fn       = it->second;
+                    ScriptField field;
+                    field.Name = name;
+                    field.Type = (ScriptFieldType)YAML_GET(fn["Type"], int, 0);
+                    if (auto vn = fn["Value"]) {
+                        switch (field.Type) {
+                            case ScriptFieldType::Float:  field.Value = vn.as<float>();       break;
+                            case ScriptFieldType::Int:    field.Value = vn.as<int>();         break;
+                            case ScriptFieldType::Bool:   field.Value = vn.as<bool>();        break;
+                            case ScriptFieldType::Vec2:   field.Value = vn.as<glm::vec2>();   break;
+                            case ScriptFieldType::Vec3:   field.Value = vn.as<glm::vec3>();   break;
+                            case ScriptFieldType::String: field.Value = vn.as<std::string>(); break;
+                        }
+                    }
+                    lsc.Fields[name] = std::move(field);
+                }
+            }
         }
 
         if (auto rb2d_node = data["Rigidbody2DComponent"]) {
