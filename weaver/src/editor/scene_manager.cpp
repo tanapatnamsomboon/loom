@@ -4,6 +4,7 @@
 #include <loom/core/log.h>
 #include <loom/project/project.h>
 #include <loom/scene/components.h>
+#include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
 #include <nfd.hpp>
 #include <filesystem>
@@ -179,6 +180,7 @@ namespace Weaver {
             selected_uuid = (uint64_t)selected.GetComponent<Loom::IDComponent>().ID;
 
         mContext.ActiveScene->OnRuntimeStop();
+        Loom::SceneLoader::Get().Consume(); // discard any mid-frame transition queued before stop
         mContext.SceneState  = SceneState::Edit;
         mContext.ActiveScene = mContext.EditorScene;
         mContext.HierarchyPanel->SetContext(mContext.ActiveScene);
@@ -188,6 +190,38 @@ namespace Weaver {
             if (editor_entity)
                 mContext.HierarchyPanel->SetSelectedEntity(editor_entity);
         }
+    }
+
+    void SceneManager::OnRuntimeSceneTransition(const std::string& relative_path, bool is_reload) {
+        mContext.ActiveScene->OnRuntimeStop();
+
+        std::shared_ptr<Loom::Scene> new_scene;
+
+        if (is_reload) {
+            LOOM_CORE_INFO("SceneManager: reloading runtime scene");
+            new_scene = Loom::Scene::Copy(mContext.EditorScene);
+        } else {
+            std::filesystem::path full_path = Loom::Project::GetAssetDirectory() / relative_path;
+
+            if (!std::filesystem::exists(full_path)) {
+                LOOM_CORE_ERROR("SceneManager: scene '{}' not found — reloading current", relative_path);
+                new_scene = Loom::Scene::Copy(mContext.EditorScene);
+            } else {
+                new_scene = std::make_shared<Loom::Scene>();
+                Loom::SceneSerializer serializer(new_scene);
+                if (!serializer.Deserialize(full_path.string())) {
+                    LOOM_CORE_ERROR("SceneManager: failed to load '{}' — reloading current", relative_path);
+                    new_scene = Loom::Scene::Copy(mContext.EditorScene);
+                } else {
+                    LOOM_CORE_INFO("SceneManager: transitioning to '{}'", relative_path);
+                }
+            }
+        }
+
+        mContext.HierarchyPanel->SetSelectedEntity(Loom::Entity{});
+        mContext.ActiveScene = new_scene;
+        mContext.HierarchyPanel->SetContext(new_scene);
+        mContext.ActiveScene->OnRuntimeStart();
     }
 
     // -------------------------------------------------------------------------

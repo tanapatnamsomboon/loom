@@ -18,6 +18,7 @@ namespace Weaver {
 
         void OnScenePlay();
         void OnSceneStop();
+        void OnRuntimeSceneTransition(const std::string& relative_path, bool is_reload);
 
         // Renders the "Save Changes?" modal — call each frame from OnImGuiRender
         void OnImGuiRender();

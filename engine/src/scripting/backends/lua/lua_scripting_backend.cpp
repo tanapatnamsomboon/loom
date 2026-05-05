@@ -9,6 +9,7 @@
 #include "loom/core/mouse_codes.h"
 #include "loom/core/log.h"
 #include "loom/project/project.h"
+#include "loom/scene/scene_loader.h"
 #include <box2d/box2d.h>
 #include <glm/glm.hpp>
 #include <filesystem>
@@ -312,6 +313,14 @@ namespace {
                     result[idx++] = LuaEntityWrapper{ Entity{ e, mActiveScene }, mActiveScene };
             }
             return result;
+        });
+
+        sol::table scene = mLua.create_named_table("Scene");
+        scene.set_function("Load", [](const std::string& relative_path) {
+            SceneLoader::Get().QueueLoad(relative_path);
+        });
+        scene.set_function("Reload", []() {
+            SceneLoader::Get().QueueReload();
         });
     }
 

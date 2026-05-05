@@ -1,0 +1,42 @@
+Scene: scene_a
+Entities:
+  - Entity: 3531993781284145669
+    TagComponent:
+      Tag: Crate
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/crate.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+  - Entity: 12387327274394533336
+    TagComponent:
+      Tag: SceneManager
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    LuaScriptComponent:
+      ScriptPath: scripts/scene_a_timer.lua
+  - Entity: 13005922780356979758
+    TagComponent:
+      Tag: Camera
+    TransformComponent:
+      Translation: [0, 0, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 15
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1

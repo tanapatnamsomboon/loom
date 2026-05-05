@@ -55,7 +55,7 @@ function OnCollisionEnd(other) end    -- called when this entity's collider stop
 function OnSensorBegin(other) end     -- called when another entity enters this entity's sensor collider
 function OnSensorEnd(other) end       -- called when another entity exits this entity's sensor collider
 
--- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3
+-- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3, Scene
 -- entity:GetTranslation() / SetTranslation(vec3)
 -- entity:GetRotation()    / SetRotation(vec3)
 -- entity:GetScale()       / SetScale(vec3)
@@ -68,6 +68,9 @@ function OnSensorEnd(other) end       -- called when another entity exits this e
 -- Physics.Raycast(origin_vec3, dir_vec3, distance) -> { hit, point, normal, entity }
 -- Physics.OverlapCircle(center_vec2, radius) -> array of entities
 -- Physics.OverlapBox(center_vec2, half_extents_vec2) -> array of entities
+-- Scene transitions (queued end-of-frame; path is relative to asset directory):
+--   Scene.Load("scenes/level2.loom")  -- load a different scene file
+--   Scene.Reload()                    -- restart the current scene from its last saved state
 -- Audio (requires AudioSourceComponent):
 --   entity:PlayAudio()              entity:StopAudio()
 --   entity:IsAudioPlaying() -> bool
@@ -187,10 +190,10 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `EditorLayer` intercepts `WindowCloseEvent` and routes to `RequestQuit()`; `Ctrl+Q` shortcut + `File > Exit` menu item added
   - Fixed pre-existing bug: `SetSceneModifiedCallback` was setting `SceneDirty = false` instead of `true`
 
-- [ ] **Scene transitions** *(prerequisite for WeaverRuntime — games need level loading)*
+- [x] **Scene transitions** *(prerequisite for WeaverRuntime — games need level loading)*
   - Engine-side `SceneLoader` singleton (no editor dependency): queues a scene path to load at end of frame
   - Lua API: `Scene.Load("path/to/scene.loom")`, `Scene.Reload()`
-  - `RuntimeLayer` checks the queue each frame and executes the transition
+  - `EditorLayer` polls `SceneLoader` after each `OnUpdateRuntime` and delegates to `SceneManager::OnRuntimeSceneTransition`; `RuntimeLayer` will do the same
 
 ---
 
@@ -338,6 +341,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` will reuse the same `SceneLoader` queue.
 - **Editor quit / unsaved-changes confirmation** — `Application::Close()` added; event dispatch reordered so layers intercept first; `SceneManager::RequestQuit()` gates close behind the existing "Save Changes?" modal when dirty; `Ctrl+Q` shortcut and `File > Exit` menu item wired; `SceneDirty` callback bug fixed.
 - **Physics scripting — spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` added to the Lua `Physics` table; both return a 1-indexed Lua array of `Entity` handles; `Scene::OverlapCircle2D` / `Scene::OverlapBox2D` implemented via `b2World_OverlapCircle` / `b2World_OverlapPolygon` with per-shape callback; deduplication via `std::unordered_set` prevents duplicate entries when an entity holds multiple collider components.
 - **Physics scripting — sensor / trigger colliders** — `IsSensor` bool added to `BoxCollider2DComponent` and `CircleCollider2DComponent`; sensor shapes set `b2ShapeDef.isSensor = true` + `enableSensorEvents = true` (mutually exclusive with `enableContactEvents`); `b2World_GetSensorEvents()` polled after physics step; `ScriptingEngine::OnSensorBegin/End(Entity, Entity)` dispatches to Lua `OnSensorBegin(other)` / `OnSensorEnd(other)` on both entities; `IScriptingBackend` extended with two new pure-virtual methods; inspector checkbox + YAML round-trip.

@@ -44,6 +44,7 @@ set(ENGINE_SOURCES
   src/scene/entity.cpp
   src/scene/scene.cpp
   src/scene/scene_camera.cpp
+  src/scene/scene_loader.cpp
   src/scene/scene_serializer.cpp
   src/scene/script_registry.cpp
 

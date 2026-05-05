@@ -8,6 +8,7 @@
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/project/project.h>
+#include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
 #include <filesystem>
 
@@ -85,6 +86,14 @@ namespace Weaver {
         mViewportPanel.RenderScene(ts);
         mViewportPanel.UpdateHoveredEntity();
         mViewportPanel.EndFrame();
+
+        if (mContext.SceneState == SceneState::Play) {
+            auto& loader = Loom::SceneLoader::Get();
+            if (loader.HasPendingTransition()) {
+                mSceneManager.OnRuntimeSceneTransition(loader.GetPendingPath(), loader.IsReload());
+                loader.Consume();
+            }
+        }
     }
 
 #pragma endregion
