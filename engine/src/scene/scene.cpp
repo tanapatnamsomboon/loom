@@ -312,6 +312,7 @@ namespace Loom {
                 shape_def.density = bc2d.Density;
                 shape_def.material.friction = bc2d.Friction;
                 shape_def.material.restitution = bc2d.Restitution;
+                shape_def.enableContactEvents = true;
 
                 b2Polygon box = b2MakeOffsetBox(
                     bc2d.Size.x * transform.Scale.x,
@@ -330,6 +331,7 @@ namespace Loom {
                 shape_def.density = cc2d.Density;
                 shape_def.material.friction = cc2d.Friction;
                 shape_def.material.restitution = cc2d.Restitution;
+                shape_def.enableContactEvents = true;
 
                 b2Circle circle;
                 circle.center = { cc2d.Offset.x, cc2d.Offset.y };
@@ -367,6 +369,25 @@ namespace Loom {
         if (b2World_IsValid(mPhysicsWorld)) {
             int32_t sub_step_count = 8;
             b2World_Step(mPhysicsWorld, ts, sub_step_count);
+
+            // Resolve a Box2D body back to an Entity via the stored userData handle.
+            auto resolve_entity = [this](b2BodyId body_id) -> Entity {
+                void* userdata = b2Body_GetUserData(body_id);
+                auto  raw      = static_cast<entt::id_type>(reinterpret_cast<uintptr_t>(userdata));
+                return { static_cast<entt::entity>(raw), this };
+            };
+
+            b2ContactEvents contact_events = b2World_GetContactEvents(mPhysicsWorld);
+            for (int i = 0; i < contact_events.beginCount; ++i) {
+                Entity a = resolve_entity(b2Shape_GetBody(contact_events.beginEvents[i].shapeIdA));
+                Entity b = resolve_entity(b2Shape_GetBody(contact_events.beginEvents[i].shapeIdB));
+                ScriptingEngine::OnCollisionBegin(a, b);
+            }
+            for (int i = 0; i < contact_events.endCount; ++i) {
+                Entity a = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdA));
+                Entity b = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdB));
+                ScriptingEngine::OnCollisionEnd(a, b);
+            }
 
             auto view = mRegistry.view<Rigidbody2DComponent>();
             for (auto e : view) {

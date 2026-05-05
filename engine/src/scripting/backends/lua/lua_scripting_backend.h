@@ -17,12 +17,17 @@ namespace Loom {
         void OnRuntimeStart(Scene* scene) override;
         void OnRuntimeUpdate(Timestep ts, Scene* scene) override;
         void OnRuntimeStop() override;
+
+        void OnCollisionBegin(entt::entity a, entt::entity b) override;
+        void OnCollisionEnd(entt::entity a, entt::entity b) override;
+
         void OnFileChanged(const std::string& path) override;
 
     private:
         void BindLuaAPI();
         void LoadEntityScript(entt::entity entity_id, Scene* scene);
         void UnloadEntityScript(entt::entity entity_id);
+        void DispatchCollisionEvent(entt::entity self, entt::entity other, const char* fn_name);
 
     private:
         sol::state mLua;

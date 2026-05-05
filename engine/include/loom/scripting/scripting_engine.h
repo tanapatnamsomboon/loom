@@ -2,6 +2,7 @@
 
 #include "loom/core/core.h"
 #include "loom/core/timestep.h"
+#include "loom/scene/entity.h"
 #include <memory>
 #include <string>
 
@@ -19,6 +20,9 @@ namespace Loom {
         static void OnRuntimeStart(Scene* scene);
         static void OnRuntimeUpdate(Timestep ts, Scene* scene);
         static void OnRuntimeStop();
+
+        static void OnCollisionBegin(Entity a, Entity b);
+        static void OnCollisionEnd(Entity a, Entity b);
 
         // Forwarded by a file-watcher when a script asset changes on disk.
         static void OnFileChanged(const std::string& path);

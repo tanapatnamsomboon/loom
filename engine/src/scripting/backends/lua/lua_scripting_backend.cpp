@@ -350,6 +350,35 @@ namespace {
         mActiveScene = nullptr;
     }
 
+    void LuaScriptingBackend::DispatchCollisionEvent(entt::entity self, entt::entity other, const char* fn_name) {
+        auto it = mScriptInstances.find(self);
+        if (it == mScriptInstances.end()) return;
+
+        sol::protected_function fn = it->second[fn_name];
+        if (!fn.valid()) return;
+
+        LuaEntityWrapper other_wrapper{ Entity{ other, mActiveScene }, mActiveScene };
+        auto res = fn(other_wrapper);
+        if (!res.valid()) {
+            sol::error err = res;
+            Entity entity = { self, mActiveScene };
+            LOOM_CORE_ERROR("Lua {} error in '{}': {}", fn_name,
+                entity.GetComponent<LuaScriptComponent>().ScriptPath, err.what());
+        }
+    }
+
+    void LuaScriptingBackend::OnCollisionBegin(entt::entity a, entt::entity b) {
+        if (!mActiveScene) return;
+        DispatchCollisionEvent(a, b, "OnCollisionBegin");
+        DispatchCollisionEvent(b, a, "OnCollisionBegin");
+    }
+
+    void LuaScriptingBackend::OnCollisionEnd(entt::entity a, entt::entity b) {
+        if (!mActiveScene) return;
+        DispatchCollisionEvent(a, b, "OnCollisionEnd");
+        DispatchCollisionEvent(b, a, "OnCollisionEnd");
+    }
+
     void LuaScriptingBackend::OnFileChanged(const std::string& path) {
         if (!mActiveScene) return;
 

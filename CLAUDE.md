@@ -41,7 +41,7 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
 - `platform/`: Platform-specific implementations (e.g., `platform/opengl/` for OpenGL buffer/shader/texture implementations, `platform/windows/` for input and window).
 - `scripting/`: Scripting subsystem.
   - `scripting_engine.h/.cpp` (public): Singleton facade. `Init()` creates the Lua backend; `Shutdown()` tears it down. `OnRuntimeStart/Update/Stop` are forwarded by `Scene`. Initialized automatically by `Application`.
-  - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnFileChanged`).
+  - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnCollisionBegin`, `OnCollisionEnd`, `OnFileChanged`).
   - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec2`, `Vec3`, `Entity` (transform/tag/audio/physics accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
 
 ### Lua Script API (for `LuaScriptComponent` scripts)
@@ -50,6 +50,8 @@ Each script runs in an isolated `sol::environment`. The global `entity` is a han
 function OnCreate()  end        -- called once at runtime start
 function OnUpdate(ts) end       -- called every frame; ts = delta time (seconds)
 function OnDestroy() end        -- called at runtime stop
+function OnCollisionBegin(other) end  -- called when this entity's collider first touches another
+function OnCollisionEnd(other) end    -- called when this entity's collider stops touching another
 
 -- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3
 -- entity:GetTranslation() / SetTranslation(vec3)
@@ -69,6 +71,8 @@ function OnDestroy() end        -- called at runtime stop
 -- Physics body (requires Rigidbody2DComponent):
 --   entity:SetLinearVelocity(vec2)  entity:GetLinearVelocity() -> vec2
 --   entity:ApplyForce(vec2)         entity:ApplyImpulse(vec2)
+-- Collision callbacks (no component requirement beyond the collider itself):
+--   OnCollisionBegin(other_entity)  / OnCollisionEnd(other_entity)  -- both entities notified
 ```
 
 ## `weaver/` — Editor Application
@@ -158,7 +162,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Lua audio API on `entity`: `PlayAudio()`, `StopAudio()`, `IsAudioPlaying()`, `SetVolume(v)`, `SetPitch(p)`
   - Lua physics API on `entity`: `SetLinearVelocity(vec2)`, `GetLinearVelocity()`, `ApplyForce(vec2)`, `ApplyImpulse(vec2)` via `Rigidbody2DComponent`
 
-- [ ] **Physics scripting — collision callbacks** *(sub-item A)*
+- [x] **Physics scripting — collision callbacks** *(sub-item A)*
   - After physics step in `Scene::OnUpdateRuntime`, call `b2World_GetContactEvents()` and dispatch `OnCollisionBegin(other_entity)` / `OnCollisionEnd(other_entity)` to Lua scripts on both involved entities
   - Enable `b2ShapeDef.enableContactEvents = true` on all shapes at creation (no new component field)
   - Guards: entity must have `LuaScriptComponent`; skip if script env missing
@@ -299,6 +303,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Physics scripting — collision callbacks** — `b2ShapeDef.enableContactEvents = true` on all shapes; `b2World_GetContactEvents()` polled after each physics step; `ScriptingEngine::OnCollisionBegin/End(Entity, Entity)` dispatches to Lua `OnCollisionBegin(other)` / `OnCollisionEnd(other)` callbacks on both involved entities; `IScriptingBackend` extended with two new pure-virtual methods.
 - **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
 - **Asset path normalization** — `ToRelativeAssetPath()` helper in serializer; all component paths (texture, Lua, audio) serialized relative to asset dir using `std::filesystem::relative()`.
 - **Asset hot-reload** — `FileWatcher` embedded in `AssetManager`; `Reload()` on `Texture2D`/`Shader` updates GPU resources in-place; polled each frame from `EditorLayer::OnUpdate`.
