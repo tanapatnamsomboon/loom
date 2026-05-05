@@ -10,6 +10,7 @@ add_executable(Weaver
   src/panels/toolbar_panel.cpp
   src/editor/scene_manager.cpp
   src/editor/project_manager.cpp
+  src/editor/editor_prefs.cpp
   src/scripts/player_controller.cpp
 )
 

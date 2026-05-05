@@ -5,6 +5,7 @@
 #include <loom/project/project.h>
 #include <loom/project/project_serializer.h>
 #include <nfd.hpp>
+#include <algorithm>
 #include <filesystem>
 
 namespace Weaver {
@@ -12,7 +13,9 @@ namespace Weaver {
     ProjectManager::ProjectManager(EditorContext& ctx, ContentBrowserPanel& contentBrowser, SceneManager& sceneManager)
         : mContext(ctx)
         , mContentBrowser(contentBrowser)
-        , mSceneManager(sceneManager) {}
+        , mSceneManager(sceneManager) {
+        mPrefs = EditorPrefsSerializer::Load();
+    }
 
     // -------------------------------------------------------------------------
     // New Project
@@ -54,6 +57,7 @@ namespace Weaver {
         }
 
         Loom::Project::SetActive(project);
+        AddToRecent(filepath);
         Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + project->GetConfig().Name);
         mContentBrowser.Init();
 
@@ -81,6 +85,8 @@ namespace Weaver {
     }
 
     void ProjectManager::SaveProjectAs() {
+        if (!Loom::Project::GetActive()) return;
+
         constexpr nfdfilteritem_t filters[] = {
             { "Loom Project", "loomproj" },
             { "All Files", "*" },
@@ -109,6 +115,12 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void ProjectManager::OnImGuiRender() {
+        if (!mDeferredOpenPath.empty()) {
+            std::string path = std::move(mDeferredOpenPath);
+            mDeferredOpenPath.clear();
+            OpenProject(path);
+        }
+
         if (mShowWizard) {
             ImGui::OpenPopup("New Project Wizard");
             mShowWizard = false;
@@ -208,6 +220,23 @@ namespace Weaver {
         if (!ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
 
+        if (!mPrefs.RecentProjects.empty()) {
+            ImGui::TextUnformatted("Recent Projects");
+            ImGui::Separator();
+            for (const auto& proj_path : mPrefs.RecentProjects) {
+                auto stem = std::filesystem::path(proj_path).stem().string();
+                if (ImGui::Selectable(stem.c_str())) {
+                    mDeferredOpenPath = proj_path;
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", proj_path.c_str());
+            }
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+        }
+
         ImGui::Text("Create a New Loom Engine Project");
         ImGui::Separator();
 
@@ -251,6 +280,7 @@ namespace Weaver {
             mContentBrowser.Init();
             mSceneManager.NewScene();
 
+            AddToRecent(proj_file.string());
             LOOM_CORE_INFO("Created new project at: {0}", root_dir.string());
             ImGui::CloseCurrentPopup();
         }
@@ -263,6 +293,16 @@ namespace Weaver {
             ImGui::CloseCurrentPopup();
 
         ImGui::EndPopup();
+    }
+
+    void ProjectManager::AddToRecent(const std::string& filepath) {
+        std::string path = filepath;  // copy before mutating the vector; filepath may alias an element in it
+        auto& list = mPrefs.RecentProjects;
+        list.erase(std::remove(list.begin(), list.end(), path), list.end());
+        list.insert(list.begin(), std::move(path));
+        if (list.size() > EditorPrefs::kMaxRecent)
+            list.resize(EditorPrefs::kMaxRecent);
+        EditorPrefsSerializer::Save(mPrefs);
     }
 
 } // namespace Weaver

@@ -2,8 +2,10 @@
 
 #include "editor_context.h"
 #include "editor/scene_manager.h"
+#include "editor/editor_prefs.h"
 #include "panels/content_browser_panel.h"
 #include <string>
+#include <vector>
 
 namespace Weaver {
 
@@ -19,13 +21,18 @@ namespace Weaver {
         void SaveProjectAs();
         void OpenSettings();
 
-        // Renders the "New Project Wizard" modal — call each frame from OnImGuiRender
+        const std::vector<std::string>& GetRecentProjects() const { return mPrefs.RecentProjects; }
+
+        // Renders modals — call each frame from OnImGuiRender
         void OnImGuiRender();
 
     private:
         EditorContext&       mContext;
         ContentBrowserPanel& mContentBrowser;
         SceneManager&        mSceneManager;
+
+        EditorPrefs mPrefs;
+        std::string mDeferredOpenPath;
 
         bool mShowWizard        = false;
         bool mShowErrorModal    = false;
@@ -40,6 +47,8 @@ namespace Weaver {
         char mSettingsWindowTitle[256] = {};
         int  mSettingsWindowWidth      = 1280;
         int  mSettingsWindowHeight     = 720;
+
+        void AddToRecent(const std::string& filepath);
     };
 
 } // namespace Weaver

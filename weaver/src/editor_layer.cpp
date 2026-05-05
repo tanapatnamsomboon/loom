@@ -229,9 +229,30 @@ namespace Weaver {
         if (!ImGui::BeginMainMenuBar()) return;
 
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New Project..."))     mProjectManager.NewProject();
-            if (ImGui::MenuItem("Open Project..."))    mProjectManager.OpenProject();
+            if (ImGui::MenuItem("New Project..."))  mProjectManager.NewProject();
+            if (ImGui::MenuItem("Open Project...")) mProjectManager.OpenProject();
+            ImGui::BeginDisabled(!Loom::Project::GetActive());
             if (ImGui::MenuItem("Save Project As...")) mProjectManager.SaveProjectAs();
+            ImGui::EndDisabled();
+            {
+                const auto& recent = mProjectManager.GetRecentProjects();
+                if (recent.empty()) {
+                    ImGui::BeginDisabled(true);
+                    ImGui::MenuItem("Open Recent");
+                    ImGui::EndDisabled();
+                } else {
+                    if (ImGui::BeginMenu("Open Recent")) {
+                        for (const auto& path : recent) {
+                            auto label = std::filesystem::path(path).stem().string();
+                            if (ImGui::MenuItem(label.c_str()))
+                                mProjectManager.OpenProject(path);
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("%s", path.c_str());
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+            }
             ImGui::BeginDisabled(!Loom::Project::GetActive());
             if (ImGui::MenuItem("Project Settings...")) mProjectManager.OpenSettings();
             ImGui::EndDisabled();

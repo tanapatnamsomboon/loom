@@ -254,7 +254,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `ProjectManager::OpenSettings()` modal: Project Name, Start Scene (InputText + NFD browse), Window Title, Width, Height, Apply/Cancel
   - *(Merges and closes the "Project config expansion" item that was previously in Phase 2)*
 
-- [ ] **`chore(project):` ProjectManager null-safety & state**
+- [x] **`chore(project):` ProjectManager null-safety & state**
   - Guard every `Project::GetActive()` dereference; a missing active project must never silently corrupt state
   - Add a "recently opened projects" list (persisted to `editor_prefs.yaml` in the user config directory)
 
