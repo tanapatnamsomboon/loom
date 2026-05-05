@@ -2,6 +2,25 @@ You are an expert C++ Game Engine Developer assisting with the development of "L
 
 Before modifying or adding code, review the architecture and conventions below to ensure all suggestions align with the existing codebase.
 
+# 0. Terminology & Context
+
+To ensure accurate communication and architectural decisions, we strictly separate roles and domains. Whenever an instruction is given, evaluate which domain and persona it applies to before acting.
+
+## The 2 Domains (What are we building?)
+
+1. **The Engine (Loom Engine):** The core C++ codebase — OpenGL renderer, ECS, Lua bindings, and Editor UI (`engine/`, `weaver/`). Example: "Optimize compile time" → make the C++ Engine build faster in CMake/Visual Studio.
+2. **The Game (Project/Assets):** The specific game project created *using* the Engine — the `.loomproj`, scenes, assets, and Lua scripts living in an asset directory. Example: "Add a jump mechanic" → write a Lua script or scene asset, not C++ engine code.
+
+## The 3 Personas (Who are we talking about?)
+
+1. **Engine Developer (Us):** You and I. We write C++ to build the Engine. "I need to fix a bug" → Engine Developer speaking.
+2. **Game Developer (The User):** The person using Weaver and writing Lua scripts to create a Game. "Improve user experience" or "make it easier to use" → make the Engine's tooling better *for* the Game Developer.
+3. **The Player (End-User):** The person playing the final compiled Game via WeaverRuntime. "Gameplay performance" or "frame drops" → the Player's experience at runtime.
+
+All architectural suggestions, feature designs, and bug analyses must be framed using these terms.
+
+---
+
 # 1. Project Overview
 - **Name:** Loom Engine
 - **Language:** C++ (Standard: C++20)
@@ -194,6 +213,27 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Engine-side `SceneLoader` singleton (no editor dependency): queues a scene path to load at end of frame
   - Lua API: `Scene.Load("path/to/scene.loom")`, `Scene.Reload()`
   - `EditorLayer` polls `SceneLoader` after each `OnUpdateRuntime` and delegates to `SceneManager::OnRuntimeSceneTransition`; `RuntimeLayer` will do the same
+
+- [ ] **Script Property Exposure System** *(Script Field Binding)*
+
+  *Goal: allow scripts to expose typed variables to the Properties Panel so the Game Developer can override defaults per-entity in Weaver without editing code. The data model is language-agnostic so future backends plug in cleanly.*
+
+  - [ ] **`feat(scripting):` Language-agnostic `ScriptField` data model**
+    - `ScriptFieldType` enum: `Float`, `Int`, `Bool`, `Vec2`, `Vec3`, `String` — lives in `engine/scripting/` with no backend dependency
+    - `ScriptField` struct: `Name` (string), `Type`, `Value` (`std::variant<float, int, bool, glm::vec2, glm::vec3, std::string>`)
+    - `LuaScriptComponent` gains `std::unordered_map<std::string, ScriptField> Fields` to hold editor-set overrides for that entity instance
+    - `IScriptingBackend` extended with two new pure-virtual methods: `GetScriptFields(script_path) → std::vector<ScriptField>` (returns the field schema declared in the script file) and `ApplyFields(Entity, fields_map)` (injects override values into the script environment before `OnCreate()`)
+    - `SceneSerializer` reads/writes the `Fields:` block under `LuaScriptComponent` in YAML (same round-trip pattern as existing components)
+
+  - [ ] **`feat(scripting):` Lua field discovery & value injection**
+    - Convention: a top-level `Properties` table in the script acts as both the schema and default values (e.g., `Properties = { Speed = 5.0, Health = 100 }`); `LuaScriptingBackend::GetScriptFields()` loads the chunk in a sandboxed `sol::state`, reads the `Properties` table, and infers `ScriptFieldType` from the Lua value types
+    - `ApplyFields()` writes editor-overridden values into the entity's `sol::environment` before `OnCreate()` is called, so the script sees the overridden values as its globals
+    - Hot-reload preserves editor-set field values across script file saves
+
+  - [ ] **`feat(editor):` Script fields ImGui drawer in Properties Panel**
+    - `SceneHierarchyPanel`'s `LuaScriptComponent` inspector block queries `ScriptingEngine::GetScriptFields(script_path)` and renders each field with the matching widget: `DragFloat`, `DragInt`, `Checkbox`, `InputText`, `DragFloat2`, `DragFloat3`
+    - Edits update `LuaScriptComponent::Fields` via `ScriptingEngine::SetField()` and mark the scene dirty
+    - In Play mode the block is read-only (shows live runtime values); in Edit mode it is fully editable
 
 ---
 
