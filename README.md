@@ -1,88 +1,96 @@
 # Loom Engine
 
-A 2D game engine written in C++20, built around OpenGL rendering, Box2D 3.x physics, and Lua scripting.  
-**Weaver** is the accompanying ImGui-based editor — create scenes, tweak components, write scripts, and hit Play, all without leaving the tool.
+A 2D game engine written in **C++20**, built around an abstract OpenGL renderer, Box2D 3.x physics, and a Lua 5.4 scripting layer.
 
-The engine is architected for a clean separation between the engine library (`Loom`), the editor (`Weaver`), and an upcoming standalone runtime (`WeaverRuntime`) that lets finished projects ship as self-contained executables.
+**Weaver** is the accompanying Dear ImGui editor — design scenes visually, tweak components in the inspector, author scripts, and hit Play, all without leaving the tool.
+
+The codebase is structured as three distinct targets: the **Loom** engine library, the **Weaver** editor, and an upcoming **WeaverRuntime** that ships a finished project as a lean standalone executable with no editor code linked in.
 
 ---
 
 ## Features
 
-### Editor — Weaver
+### Weaver Editor
 
-- **Scene Hierarchy** — tree view of all entities; drag-and-drop reparenting; parent-child world transform composition
-- **Viewport** — framebuffer-rendered scene with `EditorCamera`; transform gizmos (translate / rotate / scale) via ImGuizmo; click-to-select mouse picking
-- **Infinite dynamic grid** — configurable snap, fades with zoom
-- **Component Inspector** — property editors for all built-in components; per-component context menu to add or remove
-- **Content Browser** — file tree of the project asset directory; drag textures onto sprite slots; drag `.loom` scenes or `.lprefab` prefabs onto the viewport to open or instantiate
-- **Play / Stop mode** — enter runtime in-editor; all physics, scripts, and audio activate on play and are torn down cleanly on stop
+- **Scene Hierarchy** — entity tree with drag-and-drop reparenting; parent-child world transform composition; right-click context actions (create child, detach, save as prefab, delete)
+- **Viewport** — framebuffer-rendered scene with `EditorCamera`; translate / rotate / scale gizmos via ImGuizmo; click-to-select mouse picking
+- **Infinite dynamic grid** — perspective-aware fade, configurable snap
+- **Component Inspector** — property editors for every built-in component; right-click to remove; "Add Component" menu
+- **Content Browser** — project asset file tree; drag textures onto sprite slots; drag `.loom` scenes or `.lprefab` prefabs onto the viewport to open or instantiate
+- **Play / Stop** — enter runtime in-editor; physics, scripting, and audio activate on play and are torn down cleanly on stop
 - **Project & Scene I/O** — New / Open / Save / Save As for both projects and scenes; "unsaved changes" guard modal
 
 ### Renderer
 
-- **Renderer2D** — batched quad rendering; sprite color, texture, and tiling factor
-- **TextureSpecification** — per-texture filter mode (nearest / linear), wrap mode, and mipmap generation
-- **Sprite animation** — frame-based `AnimationComponent`; configurable FPS, loop toggle; spritesheet auto-fill helper (start row/col, cell size, frame count)
-- **Cameras** — `OrthographicCamera` for gameplay, `EditorCamera` (perspective) for the Weaver viewport
+- **Renderer2D** — batched quad rendering with color tint, texture, and tiling factor
+- **TextureSpecification** — per-texture filter mode (nearest / linear), wrap mode (repeat / clamp), mipmap generation
+- **Sprite animation** — frame-based `AnimationComponent`; configurable FPS, loop toggle; spritesheet auto-fill helper (cell size, start row/col, frame count)
+- **Cameras** — `OrthographicCamera` for gameplay, perspective `EditorCamera` for the viewport; constant-size billboarded camera icons in the editor
 
 ### ECS & Scene
 
-- **EnTT** entity-component system; all game objects are lightweight entity handles
+- **EnTT** entity-component system; game objects are lightweight handles over a registry
 - Built-in components: `Transform`, `Tag`, `Camera`, `SpriteRenderer`, `NativeScript`, `LuaScript`, `Rigidbody2D`, `BoxCollider2D`, `CircleCollider2D`, `Animation`, `AudioSource`
 - **Entity hierarchy** — `RelationshipComponent`; world transform computed from local transforms up the parent chain
-- **YAML scene serialization** — `.loom` scene files; `.lprefab` single-entity prefab files
-- **Prefab system** — save any entity as a prefab from the editor; drag-and-drop to instantiate; `entity:Instantiate(path)` from Lua
+- **YAML scene serialization** — `.loom` scene files; asset paths stored project-relative for portability
+- **Prefab system** — save any entity as `.lprefab`; drag-and-drop instantiation from the content browser; `entity:Instantiate(path)` from Lua
 
 ### Physics — Box2D 3.x
 
-- Static, Dynamic, and Kinematic body types
-- `BoxCollider2DComponent` and `CircleCollider2DComponent` with density, friction, restitution, and offset
-- `FixedRotation` constraint
-- Physics bodies synced back to `TransformComponent` each frame
+- Static, Dynamic, and Kinematic body types; `FixedRotation` constraint
+- `BoxCollider2DComponent` and `CircleCollider2DComponent` — density, friction, restitution, and per-shape offset
+- **Collision callbacks** — `OnCollisionBegin` / `OnCollisionEnd` dispatched to Lua scripts on both involved entities each physics step
+- **Sensor / trigger colliders** — `IsSensor` toggle on any collider; sensors detect overlap without exerting physical force; dispatches `OnSensorBegin` / `OnSensorEnd` to Lua on both entities
+- Physics bodies synced back to `TransformComponent` every frame
+- Debug wireframe overlay (boxes and circles) rendered in the editor viewport
 
 ### Scripting — Lua 5.4
 
-- Per-entity isolated `sol::environment`s; scripts never share global state
-- **Hot-reload** — the file watcher detects `.lua` changes on disk and reloads the script instantly during Play mode
-- Full entity API for transform, tag, scene management, audio control, and physics body manipulation (see Scripting section)
-- `Physics.Raycast` from Lua
+- Per-entity isolated `sol::environment`s — scripts never share global state
+- **Hot-reload** — file watcher detects `.lua` changes on disk and reloads the script instantly while in Play mode
+- Complete entity API: transform, tag, scene management, audio control, physics body manipulation
+- Collision and sensor callbacks delivered directly to the owning script environment
+- `Physics.Raycast` world query from Lua
 
 ### Audio — miniaudio
 
 - `AudioEngine` singleton with miniaudio backend
 - `AudioSourceComponent` — asset path, volume, pitch, pan, loop, autoplay
-- Autoplay fires on `OnRuntimeStart`; all sources cleaned up on `OnRuntimeStop`
-- Runtime control from Lua: `PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`
+- Autoplay fires on `OnRuntimeStart`; all sources stopped and cleaned up on `OnRuntimeStop`
+- Full runtime control from Lua: `PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`
 
 ### Asset Management
 
-- `AssetManager` — centralized texture and shader cache; assets loaded once and reused
-- **Hot-reload** — `FileWatcher` detects texture and shader changes on disk; GPU resources updated in-place during Play mode
-- Asset paths normalized to project-relative paths for cross-machine portability
+- `AssetManager` — centralized texture and shader cache; assets loaded once and shared across the scene
+- **Hot-reload** — `FileWatcher` detects texture and shader changes on disk; GPU resources patched in-place during Play mode
+- Asset paths normalized to project-relative on save, resolved to absolute at runtime
 
 ---
 
 ## Current Status
 
-Loom is in active development, working through its **Phase 1: 2D Feature Complete** milestone. The goal is to ship everything a 2D game needs before building the standalone runtime.
+Loom is in active development targeting **Phase 1: 2D Feature Complete** — everything a 2D game needs before the standalone runtime ships.
 
-**Completed:**
-- Core engine architecture (ECS, Renderer2D, events, input)
-- Full Weaver editor (viewport, hierarchy, inspector, content browser)
-- Box2D physics integration
-- Lua scripting with hot-reload
-- Audio system with runtime Lua control
-- Prefab system
-- Sprite animation
-- Asset hot-reload
+### Phase 1 — 2D Feature Complete
 
-**In progress (Phase 1):**
-- Physics scripting — collision callbacks (`OnCollisionBegin` / `OnCollisionEnd`), sensor/trigger colliders, spatial overlap queries
-- Scene transitions (`Scene.Load` / `Scene.Reload` from Lua)
+| Feature | Status |
+|---|---|
+| Core engine (ECS, Renderer2D, events, input) | ✅ Done |
+| Weaver editor (viewport, hierarchy, inspector, content browser) | ✅ Done |
+| Box2D physics integration | ✅ Done |
+| Lua scripting with hot-reload | ✅ Done |
+| Audio system with runtime Lua control | ✅ Done |
+| Prefab system | ✅ Done |
+| Sprite animation + spritesheet helper | ✅ Done |
+| Asset hot-reload | ✅ Done |
+| Physics collision callbacks (`OnCollisionBegin` / `OnCollisionEnd`) | ✅ Done |
+| Sensor / trigger colliders (`OnSensorBegin` / `OnSensorEnd`) | ✅ Done |
+| Spatial overlap queries (`Physics.OverlapCircle` / `Physics.OverlapBox`) | 🔲 Planned |
+| Scene transitions (`Scene.Load` / `Scene.Reload` from Lua) | 🔲 Planned |
 
-**Next (Phase 2):**
-- `WeaverRuntime` — a standalone executable that loads and runs a Weaver project without any editor code linked in
+### Phase 2 — WeaverRuntime
+
+A standalone runtime executable (`WeaverRuntime`) that loads a project file from disk and runs it at full speed with no editor or ImGui code linked in. Projects built in Weaver become shippable games.
 
 ---
 
@@ -182,10 +190,17 @@ Scripts run in isolated environments and support hot-reload — save the file on
 ### Lifecycle hooks
 
 ```lua
-function OnCreate()    end  -- called once when the scene starts
-function OnUpdate(ts)  end  -- called every frame; ts is delta time in seconds
-function OnDestroy()   end  -- called when the scene stops
+function OnCreate()              end  -- called once when the scene starts
+function OnUpdate(ts)            end  -- called every frame; ts = delta time in seconds
+function OnDestroy()             end  -- called when the scene stops
+
+function OnCollisionBegin(other) end  -- solid collider first contact
+function OnCollisionEnd(other)   end  -- solid collider separation
+function OnSensorBegin(other)    end  -- entity enters a sensor / trigger area
+function OnSensorEnd(other)      end  -- entity exits a sensor / trigger area
 ```
+
+All collision and sensor callbacks receive `other` — an entity handle to the other participant.
 
 ### Globals
 
@@ -203,18 +218,18 @@ function OnDestroy()   end  -- called when the scene stops
 ### Entity API — Transform & Scene
 
 ```lua
-entity:GetTranslation()             -- Vec3
+entity:GetTranslation()          -- Vec3
 entity:SetTranslation(vec3)
-entity:GetRotation()                -- Vec3 (Euler, radians)
+entity:GetRotation()             -- Vec3 (Euler, radians)
 entity:SetRotation(vec3)
-entity:GetScale()                   -- Vec3
+entity:GetScale()                -- Vec3
 entity:SetScale(vec3)
-entity:GetTag()                     -- string
+entity:GetTag()                  -- string
 
-entity:FindByTag(tag)               -- entity
-entity:Spawn()                      -- entity  (new blank entity in same scene)
+entity:FindByTag(tag)            -- entity
+entity:Spawn()                   -- entity  (new blank entity in same scene)
 entity:Destroy()
-entity:Instantiate(path)            -- entity  (spawns a .lprefab file)
+entity:Instantiate(path)         -- entity  (spawns a .lprefab file)
 ```
 
 ### Entity API — Audio *(requires AudioSourceComponent)*
@@ -222,16 +237,16 @@ entity:Instantiate(path)            -- entity  (spawns a .lprefab file)
 ```lua
 entity:PlayAudio()
 entity:StopAudio()
-entity:IsAudioPlaying()             -- bool
-entity:SetVolume(v)                 -- 0.0 – 1.0
-entity:SetPitch(p)                  -- 0.1 – 4.0
+entity:IsAudioPlaying()          -- bool
+entity:SetVolume(v)              -- 0.0 – 1.0
+entity:SetPitch(p)               -- 0.1 – 4.0
 ```
 
 ### Entity API — Physics body *(requires Rigidbody2DComponent)*
 
 ```lua
 entity:SetLinearVelocity(vec2)
-entity:GetLinearVelocity()          -- Vec2
+entity:GetLinearVelocity()       -- Vec2
 entity:ApplyForce(vec2)
 entity:ApplyImpulse(vec2)
 ```
@@ -258,6 +273,18 @@ function OnUpdate(ts)
 end
 ```
 
+### Example — sensor / trigger zone
+
+```lua
+function OnSensorBegin(other)
+    Log.Info(other:GetTag() .. " entered the zone")
+end
+
+function OnSensorEnd(other)
+    Log.Info(other:GetTag() .. " left the zone")
+end
+```
+
 ### Example — audio trigger
 
 ```lua
@@ -277,19 +304,19 @@ end
 
 All libraries are included as Git submodules under `vendor/`.
 
-| Library                    | Purpose                      |
-|----------------------------|------------------------------|
-| EnTT                       | Entity-Component-System      |
-| GLFW                       | Window and input             |
-| GLAD                       | OpenGL loader                |
-| Dear ImGui                 | Editor UI                    |
-| ImGuizmo                   | Transform gizmos             |
-| GLM                        | Math                         |
-| spdlog                     | Logging                      |
-| stb_image                  | Image loading                |
-| Box2D 3.x                  | 2D physics                   |
-| yaml-cpp                   | Scene serialization          |
-| nativefiledialog-extended  | Native file dialogs          |
-| Lua 5.4                    | Scripting VM                 |
-| sol2 3.5.0                 | Lua C++ bindings             |
-| miniaudio                  | Audio playback               |
+| Library                   | Purpose                      |
+|---------------------------|------------------------------|
+| EnTT                      | Entity-Component-System      |
+| GLFW                      | Window and input             |
+| GLAD                      | OpenGL loader                |
+| Dear ImGui                | Editor UI                    |
+| ImGuizmo                  | Transform gizmos             |
+| GLM                       | Math                         |
+| spdlog                    | Logging                      |
+| stb_image                 | Image loading                |
+| Box2D 3.x                 | 2D physics                   |
+| yaml-cpp                  | Scene serialization          |
+| nativefiledialog-extended | Native file dialogs          |
+| Lua 5.4                   | Scripting VM                 |
+| sol2 3.5.0                | Lua C++ bindings             |
+| miniaudio                 | Audio playback               |
