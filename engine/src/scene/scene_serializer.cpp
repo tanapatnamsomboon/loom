@@ -276,11 +276,18 @@ namespace Loom {
     void SceneSerializer::Serialize(const std::string& filepath) {
         YAML::Emitter out;
         out << YAML::BeginMap;
-        out << YAML::Key << "Scene" << YAML::Value << "Untitled";
+        std::string scene_name = std::filesystem::path(filepath).stem().string();
+        out << YAML::Key << "Scene" << YAML::Value << scene_name;
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
 
+        // Sort by UUID so the on-disk order is stable across save/load round-trips.
         auto view = mScene->GetAllEntitiesWith<IDComponent>();
-        for (auto entity_id : view) {
+        std::vector<entt::entity> sorted(view.begin(), view.end());
+        std::sort(sorted.begin(), sorted.end(), [&](entt::entity a, entt::entity b) {
+            return (uint64_t)mScene->mRegistry.get<IDComponent>(a).ID
+                 < (uint64_t)mScene->mRegistry.get<IDComponent>(b).ID;
+        });
+        for (auto entity_id : sorted) {
             Entity entity{ entity_id, mScene.get() };
             if (!entity)
                 continue;

@@ -65,7 +65,7 @@ namespace Weaver {
 
         mSceneHierarchyPanel.Init();
         mSceneHierarchyPanel.SetSceneModifiedCallback([this] {
-            mContext.SceneDirty = false;
+            mContext.SceneDirty = true;
         });
 
         mToolbarPanel.SetOnPlayPressed([this] { mSceneManager.OnScenePlay(); });
@@ -95,8 +95,14 @@ namespace Weaver {
         mContext.EditorCamera.OnEvent(event);
 
         Loom::EventDispatcher dispatcher(event);
+        dispatcher.Dispatch<Loom::WindowCloseEvent>(LOOM_BIND_EVENT_FN(EditorLayer::OnWindowClose));
         dispatcher.Dispatch<Loom::MouseButtonPressedEvent>(LOOM_BIND_EVENT_FN(EditorLayer::OnMouseButtonPressed));
         dispatcher.Dispatch<Loom::KeyPressedEvent>(LOOM_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
+    }
+
+    bool EditorLayer::OnWindowClose(Loom::WindowCloseEvent& event) {
+        mSceneManager.RequestQuit();
+        return true; // always consume — RequestQuit decides whether to actually close
     }
 
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
@@ -127,6 +133,9 @@ namespace Weaver {
             case Loom::Key::S:
                 if (ctrl && shift) { mSceneManager.SaveSceneAs(); return; }
                 if (ctrl)          { mSceneManager.SaveScene();   return; }
+                break;
+            case Loom::Key::Q:
+                if (ctrl) { mSceneManager.RequestQuit(); return; }
                 break;
             default:
                 break;
@@ -208,6 +217,8 @@ namespace Weaver {
             if (ImGui::MenuItem("Open...",    "Ctrl+O"))       mSceneManager.OpenScene();
             if (ImGui::MenuItem("Save",       "Ctrl+S"))       mSceneManager.SaveScene();
             if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) mSceneManager.SaveSceneAs();
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit",       "Ctrl+Q"))       mSceneManager.RequestQuit();
             ImGui::EndMenu();
         }
 

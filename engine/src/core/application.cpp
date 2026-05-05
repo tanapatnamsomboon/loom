@@ -56,13 +56,16 @@ namespace Loom {
     }
 
     void Application::OnEvent(Event& event) {
-        EventDispatcher dispatcher(event);
-        dispatcher.Dispatch<WindowCloseEvent>(LOOM_BIND_EVENT_FN(Application::OnWindowClose));
-
+        // Layers handle first so they can intercept (e.g. editor blocks close for save prompt)
         for (auto it = mLayerStack.end(); it != mLayerStack.begin(); ) {
             (*--it)->OnEvent(event);
             if (event.mHandled)
                 break;
+        }
+
+        if (!event.mHandled) {
+            EventDispatcher dispatcher(event);
+            dispatcher.Dispatch<WindowCloseEvent>(LOOM_BIND_EVENT_FN(Application::OnWindowClose));
         }
     }
 

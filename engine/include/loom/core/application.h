@@ -20,6 +20,8 @@ namespace Loom {
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* layer);
 
+        void Close() { mRunning = false; }
+
         Window& GetWindow() { return *mWindow; }
         static Application& Get() { return *sInstance; }
 

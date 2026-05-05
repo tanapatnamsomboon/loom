@@ -8,6 +8,7 @@
 #include "panels/toolbar_panel.h"
 #include "panels/viewport_panel.h"
 #include <loom/core/layer.h>
+#include <loom/events/application_event.h>
 #include <loom/events/key_event.h>
 
 namespace Weaver {
@@ -23,6 +24,7 @@ namespace Weaver {
         void OnImGuiRender() override;
 
     private:
+        bool OnWindowClose(Loom::WindowCloseEvent& event);
         bool OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event);
         bool OnKeyPressed(Loom::KeyPressedEvent& event);
         void HandleShortcuts(Loom::KeyPressedEvent& event);

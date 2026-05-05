@@ -1,5 +1,6 @@
 #include "scene_manager.h"
 #include <imgui.h>
+#include <loom/core/application.h>
 #include <loom/core/log.h>
 #include <loom/project/project.h>
 #include <loom/scene/components.h>
@@ -134,6 +135,19 @@ namespace Weaver {
     }
 
     // -------------------------------------------------------------------------
+    // Quit
+    // -------------------------------------------------------------------------
+
+    void SceneManager::RequestQuit() {
+        if (mContext.SceneDirty) {
+            mPendingAction  = PendingAction::Quit;
+            mShowSavePrompt = true;
+        } else {
+            mShowQuitPrompt = true;
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Play / Stop
     // -------------------------------------------------------------------------
 
@@ -181,40 +195,56 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void SceneManager::OnImGuiRender() {
-        if (mShowSavePrompt) {
-            ImGui::OpenPopup("Save Changes?");
-            mShowSavePrompt = false;
+        // Queue popup opens before BeginPopupModal — both must be checked every frame.
+        if (mShowSavePrompt) { ImGui::OpenPopup("Save Changes?"); mShowSavePrompt = false; }
+        if (mShowQuitPrompt) { ImGui::OpenPopup("Quit?");         mShowQuitPrompt = false; }
+
+        // --- Save Changes? ---
+        if (ImGui::BeginPopupModal("Save Changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("You have unsaved changes in the current scene.\nDo you want to save them?");
+            ImGui::Separator();
+
+            auto dispatch_pending = [this]() {
+                PendingAction action = mPendingAction;
+                mPendingAction = PendingAction::None;
+                if (action == PendingAction::Open) OpenSceneImpl(mPendingPath);
+                if (action == PendingAction::New)  NewSceneImpl();
+                if (action == PendingAction::Quit) Loom::Application::Get().Close();
+            };
+
+            if (ImGui::Button("Save", ImVec2(100, 0))) {
+                SaveScene();
+                dispatch_pending();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Don't Save", ImVec2(100, 0))) {
+                dispatch_pending();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(100, 0))) {
+                mPendingAction = PendingAction::None;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
 
-        if (!ImGui::BeginPopupModal("Save Changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-            return;
+        // --- Quit? ---
+        if (ImGui::BeginPopupModal("Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Are you sure you want to quit?");
+            ImGui::Separator();
 
-        ImGui::Text("You have unsaved changes in the current scene.\nDo you want to save them?");
-        ImGui::Separator();
+            if (ImGui::Button("Quit", ImVec2(100, 0))) {
+                ImGui::CloseCurrentPopup();
+                Loom::Application::Get().Close();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(100, 0)))
+                ImGui::CloseCurrentPopup();
 
-        auto dispatch_pending = [this]() {
-            if (mPendingAction == PendingAction::Open) OpenSceneImpl(mPendingPath);
-            if (mPendingAction == PendingAction::New)  NewSceneImpl();
-            mPendingAction = PendingAction::None;
-        };
-
-        if (ImGui::Button("Save", ImVec2(100, 0))) {
-            SaveScene();
-            dispatch_pending();
-            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Don't Save", ImVec2(100, 0))) {
-            dispatch_pending();
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(100, 0))) {
-            mPendingAction = PendingAction::None;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::EndPopup();
     }
 
 } // namespace Weaver

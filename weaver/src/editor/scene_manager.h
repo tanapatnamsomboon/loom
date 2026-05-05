@@ -14,6 +14,7 @@ namespace Weaver {
         void OpenScene(const std::string& filepath);
         void SaveScene();
         void SaveSceneAs();
+        void RequestQuit();
 
         void OnScenePlay();
         void OnSceneStop();
@@ -28,8 +29,9 @@ namespace Weaver {
         EditorContext& mContext;
 
         bool mShowSavePrompt = false;
+        bool mShowQuitPrompt = false;
 
-        enum class PendingAction { None, Open, New };
+        enum class PendingAction { None, Open, New, Quit };
         PendingAction mPendingAction = PendingAction::None;
         std::string   mPendingPath;
     };

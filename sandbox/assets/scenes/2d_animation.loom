@@ -1,19 +1,46 @@
-Scene: Untitled
+Scene: 2d_animation
 Entities:
-  - Entity: 14772537176877521806
+  - Entity: 647933478549646723
     TagComponent:
-      Tag: GameManager
+      Tag: Birch1
     TransformComponent:
-      Translation: [0, 0, 0]
+      Translation: [-1, 0.39975932, -0.5]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    AudioSourceComponent:
-      AssetPath: ""
-      Volume: 1
-      Pitch: 1
-      Pan: 0
-      Loop: false
-      AutoPlay: false
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/birch1.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: scripts/overlap.lua
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0.03, 0]
+      Size: [0.07, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: false
+  - Entity: 9047455008060296161
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 1.75, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/sun.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
   - Entity: 11268422857169728154
     TagComponent:
       Tag: Camera
@@ -56,6 +83,41 @@ Entities:
       Restitution: 0
       RestitutionThreshold: 0.5
       IsSensor: false
+  - Entity: 14772537176877521806
+    TagComponent:
+      Tag: GameManager
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    AudioSourceComponent:
+      AssetPath: ""
+      Volume: 1
+      Pitch: 1
+      Pan: 0
+      Loop: false
+      AutoPlay: false
+  - Entity: 15708114778933537143
+    TagComponent:
+      Tag: Background
+    TransformComponent:
+      Translation: [0, 0.8, -2]
+      Rotation: [0, 0, 0]
+      Scale: [7.5, 3.75, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/background.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    AudioSourceComponent:
+      AssetPath: sounds/ambience.wav
+      Volume: 0.15
+      Pitch: 1
+      Pan: 0
+      Loop: true
+      AutoPlay: true
   - Entity: 18388464593526116949
     TagComponent:
       Tag: Sprite
@@ -93,65 +155,3 @@ Entities:
         - [0.2, 0.857143, 0.3, 1]
         - [0.3, 0.857143, 0.4, 1]
         - [0.4, 0.857143, 0.5, 1]
-  - Entity: 9047455008060296161
-    TagComponent:
-      Tag: Sun
-    TransformComponent:
-      Translation: [0, 1.75, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/sun.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
-  - Entity: 15708114778933537143
-    TagComponent:
-      Tag: Background
-    TransformComponent:
-      Translation: [0, 0.8, -2]
-      Rotation: [0, 0, 0]
-      Scale: [7.5, 3.75, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/background.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
-    AudioSourceComponent:
-      AssetPath: sounds/ambience.wav
-      Volume: 0.15
-      Pitch: 1
-      Pan: 0
-      Loop: true
-      AutoPlay: true
-  - Entity: 647933478549646723
-    TagComponent:
-      Tag: Birch1
-    TransformComponent:
-      Translation: [-1, 0.39975932, -0.5]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/birch1.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
-    LuaScriptComponent:
-      ScriptPath: scripts/overlap.lua
-    Rigidbody2DComponent:
-      BodyType: 0
-      FixedRotation: false
-    BoxCollider2DComponent:
-      Offset: [0.03, 0]
-      Size: [0.07, 0.5]
-      Density: 1
-      Friction: 0.5
-      Restitution: 0
-      RestitutionThreshold: 0.5
-      IsSensor: false
