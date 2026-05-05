@@ -194,6 +194,25 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ---
 
+## Phase 1.5 — Project System Hardening *(prerequisite for WeaverRuntime)*
+
+*Goal: make the `.loomproj` file and `Project`/`ProjectManager` robust enough to be the single source of truth for WeaverRuntime.*
+
+- [ ] **`chore(project):` Schema hardening**
+  - Add a `Version` integer field to `ProjectConfig` YAML; `ProjectSerializer::Deserialize` warns on missing/unknown version
+  - Validate required fields on load: missing `StartScene` or non-existent `AssetDirectory` logs a `LOOM_CORE_ERROR` and returns `false`; `ProjectManager` shows an error modal instead of silently proceeding
+
+- [ ] **`feat(project):` Runtime window config**
+  - Add `WindowTitle` (string), `WindowWidth` (int), `WindowHeight` (int) to `ProjectConfig` + `ProjectSerializer`
+  - Expose in the "New Project Wizard" modal and a new "Project Settings" popup in `ProjectManager`
+  - *(Merges and closes the "Project config expansion" item that was previously in Phase 2)*
+
+- [ ] **`chore(project):` ProjectManager null-safety & state**
+  - Guard every `Project::GetActive()` dereference; a missing active project must never silently corrupt state
+  - Add a "recently opened projects" list (persisted to `editor_prefs.yaml` in the user config directory)
+
+---
+
 ## Phase 2 — WeaverRuntime (Standalone Export)
 
 *Goal: a project saved from Weaver runs as a standalone executable.*
@@ -208,10 +227,6 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `OnDetach`: `Scene::OnRuntimeStop()`
   - Polls `SceneLoader` queue each frame and executes scene transitions
 
-- [ ] **Project config expansion**
-  - Add `WindowTitle`, `WindowWidth`, `WindowHeight` to project YAML and `ProjectSerializer`
-  - `WeaverRuntime` reads these to configure its window before `Run()`
-
 - [ ] **Packaging validation**
   - Verify a Weaver project loads and runs correctly in `WeaverRuntime`
   - Confirm all asset paths resolve correctly relative to the executable
@@ -222,11 +237,21 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *Goal: close daily workflow gaps before committing to 3D.*
 
-- [ ] **Undo / Redo system** *(suggestion)*
-  - `IEditorCommand` interface: `Execute()`, `Undo()`
-  - Commands for: entity create/delete, component add/remove, property edit
-  - `EditorHistory` stack (50 steps); Ctrl+Z / Ctrl+Y keybindings
-  - Wire into all existing inspector property changes
+- [ ] **Undo / Redo system + Dirty Checking (Command Pattern)**
+
+  - [ ] **`feat(editor):` `IEditorCommand` interface + `EditorHistory` manager**
+    - `IEditorCommand`: `Execute()`, `Undo()`, `GetDescription() → string`
+    - `EditorHistory`: fixed 50-step stack living in `EditorContext`; `Ctrl+Z` / `Ctrl+Y` keybindings wired in `EditorLayer`
+
+  - [ ] **`feat(editor):` Core command implementations**
+    - `EntityCreateCommand`, `EntityDeleteCommand`
+    - `AddComponentCommand`, `RemoveComponentCommand`
+    - `TransformEditCommand` (batches gizmo drag deltas into one undoable step)
+    - `PropertyEditCommand<T>` (generic template for inspector field edits)
+
+  - [ ] **`refactor(editor):` History-driven dirty checking**
+    - Replace scattered `SceneDirty = true` calls with `EditorHistory::MarkSavePoint()` on save; dirty = `history_depth != save_point_depth`
+    - Title-bar `*` and "Save Changes?" modal remain behaviorally identical, now driven by history stack depth rather than an ad-hoc boolean
 
 - [ ] **Text / HUD rendering** *(suggestion)*
   - Add **stb_truetype** (single-header, already in `vendor/stb` family)
