@@ -115,10 +115,21 @@ namespace Weaver {
     }
 
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
-        Loom::Entity selected   = mContext.HierarchyPanel->GetSelectedEntity();
+        if (event.GetMouseButton() != 0 || !mContext.ViewportHovered)
+            return false;
+
+        Loom::Entity selected     = mContext.HierarchyPanel->GetSelectedEntity();
         bool         gizmo_active = selected && mContext.GizmoType != -1 && ImGuizmo::IsOver();
-        if (event.GetMouseButton() == 0 && mContext.ViewportHovered && !gizmo_active)
-            mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
+
+        if (!gizmo_active) {
+            // Gizmo handles are not rendered into the entity ID attachment, so HoveredEntity
+            // is null when the cursor lands on a handle. Guard against accidentally deselecting
+            // when IsOver() is briefly false (one-frame lag on first hover) and the pick
+            // buffer also returns null because the cursor is over a handle.
+            bool gizmo_visible = selected && mContext.GizmoType != -1;
+            if (!gizmo_visible || mContext.HoveredEntity)
+                mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
+        }
         return false;
     }
 
