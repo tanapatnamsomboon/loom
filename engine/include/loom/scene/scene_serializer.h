@@ -8,12 +8,15 @@
 
 namespace Loom {
 
+    class EditorCamera;
+
     class LOOM_API SceneSerializer {
     public:
         SceneSerializer(const std::shared_ptr<Scene>& scene);
 
-        void Serialize(const std::string& filepath);
-        bool Deserialize(const std::string& filepath);
+        // Pass a non-null camera pointer to persist / restore editor viewport state.
+        void Serialize(const std::string& filepath, const EditorCamera* camera = nullptr);
+        bool Deserialize(const std::string& filepath, EditorCamera* out_camera = nullptr);
 
         void   SerializePrefab(const std::string& filepath, Entity entity);
         Entity DeserializePrefab(const std::string& filepath);

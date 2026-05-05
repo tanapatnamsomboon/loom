@@ -3,6 +3,7 @@
 #include "loom/core/log.h"
 #include "loom/core/uuid.h"
 #include "loom/project/project.h"
+#include "loom/renderer/editor_camera.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include <yaml-cpp/yaml.h>
@@ -292,11 +293,20 @@ namespace Loom {
     SceneSerializer::SceneSerializer(const std::shared_ptr<Scene>& scene)
         : mScene(scene) {}
 
-    void SceneSerializer::Serialize(const std::string& filepath) {
+    void SceneSerializer::Serialize(const std::string& filepath, const EditorCamera* camera) {
         YAML::Emitter out;
         out << YAML::BeginMap;
         std::string scene_name = std::filesystem::path(filepath).stem().string();
         out << YAML::Key << "Scene" << YAML::Value << scene_name;
+
+        if (camera) {
+            out << YAML::Key << "EditorCamera" << YAML::BeginMap;
+            out << YAML::Key << "Position" << YAML::Value << camera->GetPosition();
+            out << YAML::Key << "Pitch"    << YAML::Value << camera->GetPitch();
+            out << YAML::Key << "Yaw"      << YAML::Value << camera->GetYaw();
+            out << YAML::EndMap;
+        }
+
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
 
         // Sort by UUID so the on-disk order is stable across save/load round-trips.
@@ -331,7 +341,7 @@ namespace Loom {
         return _yaml_node_ ? _yaml_node_.as<type>() : (fallback); \
     }())
 
-    bool SceneSerializer::Deserialize(const std::string& filepath) {
+    bool SceneSerializer::Deserialize(const std::string& filepath, EditorCamera* out_camera) {
         std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
         YAML::Node data;
         try {
@@ -344,6 +354,15 @@ namespace Loom {
         if (!data["Scene"]) {
             LOOM_CORE_ERROR("SceneSerializer: '{}' is not a valid scene file", filepath);
             return false;
+        }
+
+        if (out_camera) {
+            if (auto cam_node = data["EditorCamera"]) {
+                glm::vec3 pos   = YAML_GET(cam_node["Position"], glm::vec3, glm::vec3(0.0f, 0.0f, 5.0f));
+                float     pitch = YAML_GET(cam_node["Pitch"],    float,     0.0f);
+                float     yaw   = YAML_GET(cam_node["Yaw"],      float,     0.0f);
+                out_camera->SetState(pos, pitch, yaw);
+            }
         }
 
         auto entities_node = data["Entities"];

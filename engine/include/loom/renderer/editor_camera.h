@@ -23,6 +23,11 @@ namespace Loom {
         glm::mat4 GetViewProjectionMatrix() const { return mProjection * mViewMatrix; }
 
         const glm::vec3& GetPosition() const { return mPosition; }
+        float GetPitch() const { return mPitch; }
+        float GetYaw()   const { return mYaw; }
+
+        // Restores camera state and rebuilds the view matrix.
+        void SetState(const glm::vec3& position, float pitch, float yaw);
 
         void ResetMousePosition() { mInitialMousePosition = { Input::GetMouseX(), Input::GetMouseY() }; }
 

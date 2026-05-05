@@ -77,7 +77,7 @@ namespace Weaver {
         auto new_scene = std::make_shared<Loom::Scene>();
         Loom::SceneSerializer serializer(new_scene);
 
-        if (serializer.Deserialize(filepath)) {
+        if (serializer.Deserialize(filepath, &mContext.EditorCamera)) {
             mContext.EditorScene = new_scene;
             mContext.ActiveScene = mContext.EditorScene;
             mContext.HierarchyPanel->SetContext(mContext.EditorScene);
@@ -96,7 +96,7 @@ namespace Weaver {
             return;
         }
         Loom::SceneSerializer serializer(mContext.ActiveScene);
-        serializer.Serialize(mContext.CurrentScenePath);
+        serializer.Serialize(mContext.CurrentScenePath, &mContext.EditorCamera);
         mContext.SceneDirty = false;
     }
 
@@ -118,7 +118,7 @@ namespace Weaver {
             std::filesystem::create_directories(path.parent_path());
 
             Loom::SceneSerializer serializer(mContext.ActiveScene);
-            serializer.Serialize(path.string());
+            serializer.Serialize(path.string(), &mContext.EditorCamera);
             mContext.CurrentScenePath = path.string();
             mContext.SceneDirty       = false;
 

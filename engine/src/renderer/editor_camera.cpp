@@ -61,6 +61,13 @@ namespace Loom {
         mViewMatrix = glm::inverse(mViewMatrix);
     }
 
+    void EditorCamera::SetState(const glm::vec3& position, float pitch, float yaw) {
+        mPosition = position;
+        mPitch    = pitch;
+        mYaw      = yaw;
+        UpdateView();
+    }
+
     bool EditorCamera::OnMouseScroll(MouseScrolledEvent& event) {
         mFOV -= event.GetYOffset() * 2.0f;
         mFOV = std::clamp(mFOV, 1.0f, 120.0f);
