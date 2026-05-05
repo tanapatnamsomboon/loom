@@ -8,6 +8,7 @@
 #include "loom/scene/entity.h"
 #include "loom/scripting/scripting_engine.h"
 #include <algorithm>
+#include <unordered_set>
 #include <box2d/box2d.h>
 
 namespace Loom {
@@ -631,6 +632,50 @@ namespace Loom {
         auto     raw          = static_cast<entt::id_type>(reinterpret_cast<uintptr_t>(userdata));
         result.entityHandle   = static_cast<entt::entity>(raw);
         return result;
+    }
+
+    // Callback fires once per overlapping shape; we deduplicate by body to avoid
+    // returning the same entity twice when it has multiple collider components.
+    struct OverlapContext {
+        std::vector<entt::entity>         results;
+        std::unordered_set<entt::entity>  seen;
+    };
+
+    static bool OverlapCallback(b2ShapeId shape_id, void* context) {
+        auto& ctx    = *static_cast<OverlapContext*>(context);
+        b2BodyId bid = b2Shape_GetBody(shape_id);
+        void*    ud  = b2Body_GetUserData(bid);
+        auto     raw = static_cast<entt::id_type>(reinterpret_cast<uintptr_t>(ud));
+        auto     e   = static_cast<entt::entity>(raw);
+        if (ctx.seen.insert(e).second)
+            ctx.results.push_back(e);
+        return true; // continue query
+    }
+
+    std::vector<entt::entity> Scene::OverlapCircle2D(glm::vec2 center, float radius) {
+        if (!b2World_IsValid(mPhysicsWorld)) return {};
+
+        OverlapContext context;
+
+        b2Vec2       point{ center.x, center.y };
+        b2ShapeProxy proxy = b2MakeProxy(&point, 1, radius);
+        b2World_OverlapShape(mPhysicsWorld, &proxy, b2DefaultQueryFilter(), OverlapCallback, &context);
+        return context.results;
+    }
+
+    std::vector<entt::entity> Scene::OverlapBox2D(glm::vec2 center, glm::vec2 half_extents) {
+        if (!b2World_IsValid(mPhysicsWorld)) return {};
+
+        OverlapContext context;
+
+        b2Vec2 points[4];
+        points[0] = { center.x - half_extents.x, center.y - half_extents.y };
+        points[1] = { center.x + half_extents.x, center.y - half_extents.y };
+        points[2] = { center.x + half_extents.x, center.y + half_extents.y };
+        points[3] = { center.x - half_extents.x, center.y + half_extents.y };
+        b2ShapeProxy proxy = b2MakeProxy(points, 4, 0.0f);
+        b2World_OverlapShape(mPhysicsWorld, &proxy, b2DefaultQueryFilter(), OverlapCallback, &context);
+        return context.results;
     }
 
 } // namespace Loom

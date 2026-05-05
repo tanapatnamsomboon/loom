@@ -289,6 +289,30 @@ namespace {
                 result["entity"] = LuaEntityWrapper{ Entity{ hit.entityHandle, mActiveScene }, mActiveScene };
             return result;
         });
+
+        physics.set_function("OverlapCircle", [this](glm::vec2 center, float radius) -> sol::table {
+            sol::table result = mLua.create_table();
+            if (!mActiveScene) return result;
+            auto entities = mActiveScene->OverlapCircle2D(center, radius);
+            int idx = 1;
+            for (auto e : entities) {
+                if (e != entt::null)
+                    result[idx++] = LuaEntityWrapper{ Entity{ e, mActiveScene }, mActiveScene };
+            }
+            return result;
+        });
+
+        physics.set_function("OverlapBox", [this](glm::vec2 center, glm::vec2 half_extents) -> sol::table {
+            sol::table result = mLua.create_table();
+            if (!mActiveScene) return result;
+            auto entities = mActiveScene->OverlapBox2D(center, half_extents);
+            int idx = 1;
+            for (auto e : entities) {
+                if (e != entt::null)
+                    result[idx++] = LuaEntityWrapper{ Entity{ e, mActiveScene }, mActiveScene };
+            }
+            return result;
+        });
     }
 
     void LuaScriptingBackend::OnRuntimeStart(Scene* scene) {

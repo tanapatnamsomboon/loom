@@ -9,6 +9,7 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <unordered_map>
+#include <vector>
 
 namespace Loom {
 
@@ -47,6 +48,9 @@ namespace Loom {
             entt::entity entityHandle = entt::null;
         };
         RaycastHit2D Raycast2D(glm::vec2 origin, glm::vec2 direction, float distance);
+
+        std::vector<entt::entity> OverlapCircle2D(glm::vec2 center, float radius);
+        std::vector<entt::entity> OverlapBox2D(glm::vec2 center, glm::vec2 half_extents);
 
         template<typename... Components>
         auto GetAllEntitiesWith() {

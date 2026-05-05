@@ -1,36 +1,104 @@
 Scene: Untitled
 Entities:
-  - Entity: 14772537176877521806
+  - Entity: 647933478549646723
     TagComponent:
-      Tag: GameManager
+      Tag: Birch1
     TransformComponent:
-      Translation: [0, 0, 0]
+      Translation: [-1, 0.39975932, -0.5]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/birch1.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: scripts/overlap.lua
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: false
+  - Entity: 15708114778933537143
+    TagComponent:
+      Tag: Background
+    TransformComponent:
+      Translation: [0, 0.8, -2]
+      Rotation: [0, 0, 0]
+      Scale: [7.5, 3.75, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/background.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
     AudioSourceComponent:
-      AssetPath: ""
-      Volume: 1
+      AssetPath: sounds/ambience.wav
+      Volume: 0.15
       Pitch: 1
       Pan: 0
-      Loop: false
-      AutoPlay: false
-  - Entity: 11268422857169728154
+      Loop: true
+      AutoPlay: true
+  - Entity: 9047455008060296161
     TagComponent:
-      Tag: Camera
+      Tag: Sun
     TransformComponent:
-      Translation: [0, 1, 2]
+      Translation: [0, 1.75, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    CameraComponent:
-      Primary: true
-      FixedAspectRatio: false
-      OrthographicSize: 3
-      OrthographicNear: -1
-      OrthographicFar: 10
-      PerspectiveFOV: 0.785398
-      PerspectiveNear: 0.01
-      PerspectiveFar: 1000
-      ProjectionType: 1
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/sun.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+  - Entity: 18388464593526116949
+    TagComponent:
+      Tag: Sprite
+    TransformComponent:
+      Translation: [0, 0.3, 0.1]
+      Rotation: [0, 0, 0]
+      Scale: [0.8, 0.64, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/spritesheet.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: false
+    LuaScriptComponent:
+      ScriptPath: scripts/player.lua
+    Rigidbody2DComponent:
+      BodyType: 1
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: false
+    AnimationComponent:
+      FrameDuration: 0.1
+      Loop: true
+      IsPlaying: true
+      Frames:
+        - [0, 0.857143, 0.1, 1]
+        - [0.1, 0.857143, 0.2, 1]
+        - [0.2, 0.857143, 0.3, 1]
+        - [0.3, 0.857143, 0.4, 1]
+        - [0.4, 0.857143, 0.5, 1]
   - Entity: 12422624765810591396
     TagComponent:
       Tag: Platform
@@ -55,74 +123,35 @@ Entities:
       Friction: 0.5
       Restitution: 0
       RestitutionThreshold: 0.5
-  - Entity: 18388464593526116949
+      IsSensor: false
+  - Entity: 11268422857169728154
     TagComponent:
-      Tag: Sprite
+      Tag: Camera
     TransformComponent:
-      Translation: [0, 0.40016618, 0.1]
-      Rotation: [0, 0, 0]
-      Scale: [0.8, 0.64, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/spritesheet.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: false
-    LuaScriptComponent:
-      ScriptPath: scripts/player.lua
-    Rigidbody2DComponent:
-      BodyType: 1
-      FixedRotation: false
-    BoxCollider2DComponent:
-      Offset: [0, 0]
-      Size: [0.5, 0.5]
-      Density: 1
-      Friction: 0.5
-      Restitution: 0
-      RestitutionThreshold: 0.5
-    AnimationComponent:
-      FrameDuration: 0.1
-      Loop: true
-      IsPlaying: true
-      Frames:
-        - [0, 0.857143, 0.1, 1]
-        - [0.1, 0.857143, 0.2, 1]
-        - [0.2, 0.857143, 0.3, 1]
-        - [0.3, 0.857143, 0.4, 1]
-        - [0.4, 0.857143, 0.5, 1]
-  - Entity: 9047455008060296161
-    TagComponent:
-      Tag: Sun
-    TransformComponent:
-      Translation: [0, 1.75, 0]
+      Translation: [0, 1, 2]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/sun.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
-  - Entity: 15708114778933537143
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 3
+      OrthographicNear: -1
+      OrthographicFar: 10
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1
+  - Entity: 14772537176877521806
     TagComponent:
-      Tag: Background
+      Tag: GameManager
     TransformComponent:
-      Translation: [0, 0.8, -0.5]
+      Translation: [0, 0, 0]
       Rotation: [0, 0, 0]
-      Scale: [7.5, 3.75, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/background.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
+      Scale: [1, 1, 1]
     AudioSourceComponent:
-      AssetPath: sounds/ambience.wav
-      Volume: 0.15
+      AssetPath: ""
+      Volume: 1
       Pitch: 1
       Pan: 0
-      Loop: true
-      AutoPlay: true
+      Loop: false
+      AutoPlay: false

@@ -66,6 +66,8 @@ function OnSensorEnd(other) end       -- called when another entity exits this e
 -- entity:Instantiate(path) -> entity (instantiates a .lprefab file)
 -- Input.IsKeyPressed(Key.W), Input.GetMouseX(), etc.
 -- Physics.Raycast(origin_vec3, dir_vec3, distance) -> { hit, point, normal, entity }
+-- Physics.OverlapCircle(center_vec2, radius) -> array of entities
+-- Physics.OverlapBox(center_vec2, half_extents_vec2) -> array of entities
 -- Audio (requires AudioSourceComponent):
 --   entity:PlayAudio()              entity:StopAudio()
 --   entity:IsAudioPlaying() -> bool
@@ -174,7 +176,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Sensors set `b2ShapeDef.isSensor = true` + `b2ShapeDef.enableSensorEvents = true`
   - After physics step, call `b2World_GetSensorEvents()` and dispatch `OnSensorBegin(other_entity)` / `OnSensorEnd(other_entity)` to Lua scripts on both entities
 
-- [ ] **Physics scripting — spatial overlap queries** *(sub-item C)*
+- [x] **Physics scripting — spatial overlap queries** *(sub-item C)*
   - `Physics.OverlapCircle(center_vec2, radius)` → Lua array of entities
   - `Physics.OverlapBox(center_vec2, half_extents_vec2)` → Lua array of entities
   - Uses Box2D world AABB/shape query API; no new components required
@@ -305,6 +307,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Physics scripting — spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` added to the Lua `Physics` table; both return a 1-indexed Lua array of `Entity` handles; `Scene::OverlapCircle2D` / `Scene::OverlapBox2D` implemented via `b2World_OverlapCircle` / `b2World_OverlapPolygon` with per-shape callback; deduplication via `std::unordered_set` prevents duplicate entries when an entity holds multiple collider components.
 - **Physics scripting — sensor / trigger colliders** — `IsSensor` bool added to `BoxCollider2DComponent` and `CircleCollider2DComponent`; sensor shapes set `b2ShapeDef.isSensor = true` + `enableSensorEvents = true` (mutually exclusive with `enableContactEvents`); `b2World_GetSensorEvents()` polled after physics step; `ScriptingEngine::OnSensorBegin/End(Entity, Entity)` dispatches to Lua `OnSensorBegin(other)` / `OnSensorEnd(other)` on both entities; `IScriptingBackend` extended with two new pure-virtual methods; inspector checkbox + YAML round-trip.
 - **Physics scripting — collision callbacks** — `b2ShapeDef.enableContactEvents = true` on all shapes; `b2World_GetContactEvents()` polled after each physics step; `ScriptingEngine::OnCollisionBegin/End(Entity, Entity)` dispatches to Lua `OnCollisionBegin(other)` / `OnCollisionEnd(other)` callbacks on both involved entities; `IScriptingBackend` extended with two new pure-virtual methods.
 - **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
