@@ -52,6 +52,8 @@ function OnUpdate(ts) end       -- called every frame; ts = delta time (seconds)
 function OnDestroy() end        -- called at runtime stop
 function OnCollisionBegin(other) end  -- called when this entity's collider first touches another
 function OnCollisionEnd(other) end    -- called when this entity's collider stops touching another
+function OnSensorBegin(other) end     -- called when another entity enters this entity's sensor collider
+function OnSensorEnd(other) end       -- called when another entity exits this entity's sensor collider
 
 -- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3
 -- entity:GetTranslation() / SetTranslation(vec3)
@@ -167,7 +169,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Enable `b2ShapeDef.enableContactEvents = true` on all shapes at creation (no new component field)
   - Guards: entity must have `LuaScriptComponent`; skip if script env missing
 
-- [ ] **Physics scripting — sensor / trigger colliders** *(sub-item B)*
+- [x] **Physics scripting — sensor / trigger colliders** *(sub-item B)*
   - Add `IsSensor` bool to `BoxCollider2DComponent` and `CircleCollider2DComponent`; inspector checkbox + YAML (default `false`)
   - Sensors set `b2ShapeDef.isSensor = true` + `b2ShapeDef.enableSensorEvents = true`
   - After physics step, call `b2World_GetSensorEvents()` and dispatch `OnSensorBegin(other_entity)` / `OnSensorEnd(other_entity)` to Lua scripts on both entities
@@ -303,6 +305,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Physics scripting — sensor / trigger colliders** — `IsSensor` bool added to `BoxCollider2DComponent` and `CircleCollider2DComponent`; sensor shapes set `b2ShapeDef.isSensor = true` + `enableSensorEvents = true` (mutually exclusive with `enableContactEvents`); `b2World_GetSensorEvents()` polled after physics step; `ScriptingEngine::OnSensorBegin/End(Entity, Entity)` dispatches to Lua `OnSensorBegin(other)` / `OnSensorEnd(other)` on both entities; `IScriptingBackend` extended with two new pure-virtual methods; inspector checkbox + YAML round-trip.
 - **Physics scripting — collision callbacks** — `b2ShapeDef.enableContactEvents = true` on all shapes; `b2World_GetContactEvents()` polled after each physics step; `ScriptingEngine::OnCollisionBegin/End(Entity, Entity)` dispatches to Lua `OnCollisionBegin(other)` / `OnCollisionEnd(other)` callbacks on both involved entities; `IScriptingBackend` extended with two new pure-virtual methods.
 - **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
 - **Asset path normalization** — `ToRelativeAssetPath()` helper in serializer; all component paths (texture, Lua, audio) serialized relative to asset dir using `std::filesystem::relative()`.

@@ -312,7 +312,12 @@ namespace Loom {
                 shape_def.density = bc2d.Density;
                 shape_def.material.friction = bc2d.Friction;
                 shape_def.material.restitution = bc2d.Restitution;
-                shape_def.enableContactEvents = true;
+                if (bc2d.IsSensor) {
+                    shape_def.isSensor           = true;
+                    shape_def.enableSensorEvents = true;
+                } else {
+                    shape_def.enableContactEvents = true;
+                }
 
                 b2Polygon box = b2MakeOffsetBox(
                     bc2d.Size.x * transform.Scale.x,
@@ -331,7 +336,12 @@ namespace Loom {
                 shape_def.density = cc2d.Density;
                 shape_def.material.friction = cc2d.Friction;
                 shape_def.material.restitution = cc2d.Restitution;
-                shape_def.enableContactEvents = true;
+                if (cc2d.IsSensor) {
+                    shape_def.isSensor           = true;
+                    shape_def.enableSensorEvents = true;
+                } else {
+                    shape_def.enableContactEvents = true;
+                }
 
                 b2Circle circle;
                 circle.center = { cc2d.Offset.x, cc2d.Offset.y };
@@ -387,6 +397,18 @@ namespace Loom {
                 Entity a = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdA));
                 Entity b = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdB));
                 ScriptingEngine::OnCollisionEnd(a, b);
+            }
+
+            b2SensorEvents sensor_events = b2World_GetSensorEvents(mPhysicsWorld);
+            for (int i = 0; i < sensor_events.beginCount; ++i) {
+                Entity a = resolve_entity(b2Shape_GetBody(sensor_events.beginEvents[i].sensorShapeId));
+                Entity b = resolve_entity(b2Shape_GetBody(sensor_events.beginEvents[i].visitorShapeId));
+                ScriptingEngine::OnSensorBegin(a, b);
+            }
+            for (int i = 0; i < sensor_events.endCount; ++i) {
+                Entity a = resolve_entity(b2Shape_GetBody(sensor_events.endEvents[i].sensorShapeId));
+                Entity b = resolve_entity(b2Shape_GetBody(sensor_events.endEvents[i].visitorShapeId));
+                ScriptingEngine::OnSensorEnd(a, b);
             }
 
             auto view = mRegistry.view<Rigidbody2DComponent>();

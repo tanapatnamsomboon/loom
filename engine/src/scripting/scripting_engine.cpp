@@ -42,6 +42,16 @@ namespace Loom {
             sBackend->OnCollisionEnd((entt::entity)a, (entt::entity)b);
     }
 
+    void ScriptingEngine::OnSensorBegin(Entity a, Entity b) {
+        if (sBackend)
+            sBackend->OnSensorBegin((entt::entity)a, (entt::entity)b);
+    }
+
+    void ScriptingEngine::OnSensorEnd(Entity a, Entity b) {
+        if (sBackend)
+            sBackend->OnSensorEnd((entt::entity)a, (entt::entity)b);
+    }
+
     void ScriptingEngine::OnFileChanged(const std::string& path) {
         if (sBackend)
             sBackend->OnFileChanged(path);

@@ -211,6 +211,7 @@ namespace Loom {
             out << YAML::Key << "Friction" << YAML::Value << bc2d.Friction;
             out << YAML::Key << "Restitution" << YAML::Value << bc2d.Restitution;
             out << YAML::Key << "RestitutionThreshold" << YAML::Value << bc2d.RestitutionThreshold;
+            out << YAML::Key << "IsSensor" << YAML::Value << bc2d.IsSensor;
             out << YAML::EndMap;
         }
 
@@ -225,6 +226,7 @@ namespace Loom {
             out << YAML::Key << "Friction" << YAML::Value << cc2d.Friction;
             out << YAML::Key << "Restitution" << YAML::Value << cc2d.Restitution;
             out << YAML::Key << "RestitutionThreshold" << YAML::Value << cc2d.RestitutionThreshold;
+            out << YAML::Key << "IsSensor" << YAML::Value << cc2d.IsSensor;
             out << YAML::EndMap;
         }
 
@@ -405,12 +407,13 @@ namespace Loom {
             // Box Collider 2D Component
             if (auto bc2d_node = entity_node["BoxCollider2DComponent"]) {
                 auto& bc2d = entity.AddComponent<BoxCollider2DComponent>();
-                bc2d.Offset = YAML_GET(bc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
-                bc2d.Size = YAML_GET(bc2d_node["Size"], glm::vec2, glm::vec2(0.5f));
-                bc2d.Density = YAML_GET(bc2d_node["Density"], float, 1.0f);
-                bc2d.Friction = YAML_GET(bc2d_node["Friction"], float, 0.5f);
-                bc2d.Restitution = YAML_GET(bc2d_node["Restitution"], float, 0.0f);
+                bc2d.Offset               = YAML_GET(bc2d_node["Offset"],               glm::vec2, glm::vec2(0.0f));
+                bc2d.Size                 = YAML_GET(bc2d_node["Size"],                 glm::vec2, glm::vec2(0.5f));
+                bc2d.Density              = YAML_GET(bc2d_node["Density"],              float, 1.0f);
+                bc2d.Friction             = YAML_GET(bc2d_node["Friction"],             float, 0.5f);
+                bc2d.Restitution          = YAML_GET(bc2d_node["Restitution"],          float, 0.0f);
                 bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
+                bc2d.IsSensor             = YAML_GET(bc2d_node["IsSensor"],             bool,  false);
             }
 
             // Animation Component
@@ -428,12 +431,13 @@ namespace Loom {
             // Circle Collider 2D Component
             if (auto cc2d_node = entity_node["CircleCollider2DComponent"]) {
                 auto& cc2d = entity.AddComponent<CircleCollider2DComponent>();
-                cc2d.Offset = YAML_GET(cc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
-                cc2d.Radius = YAML_GET(cc2d_node["Radius"], float, 0.5f);
-                cc2d.Density = YAML_GET(cc2d_node["Density"], float, 1.0f);
-                cc2d.Friction = YAML_GET(cc2d_node["Friction"], float, 0.5f);
-                cc2d.Restitution = YAML_GET(cc2d_node["Restitution"], float, 0.0f);
+                cc2d.Offset               = YAML_GET(cc2d_node["Offset"],               glm::vec2, glm::vec2(0.0f));
+                cc2d.Radius               = YAML_GET(cc2d_node["Radius"],               float, 0.5f);
+                cc2d.Density              = YAML_GET(cc2d_node["Density"],              float, 1.0f);
+                cc2d.Friction             = YAML_GET(cc2d_node["Friction"],             float, 0.5f);
+                cc2d.Restitution          = YAML_GET(cc2d_node["Restitution"],          float, 0.0f);
                 cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
+                cc2d.IsSensor             = YAML_GET(cc2d_node["IsSensor"],             bool,  false);
             }
 
             // Audio Source Component
@@ -566,22 +570,24 @@ namespace Loom {
 
         if (auto bc2d_node = data["BoxCollider2DComponent"]) {
             auto& bc2d = entity.AddComponent<BoxCollider2DComponent>();
-            bc2d.Offset               = YAML_GET(bc2d_node["Offset"], glm::vec2, glm::vec2(0.0f));
-            bc2d.Size                 = YAML_GET(bc2d_node["Size"],   glm::vec2, glm::vec2(0.5f));
+            bc2d.Offset               = YAML_GET(bc2d_node["Offset"],               glm::vec2, glm::vec2(0.0f));
+            bc2d.Size                 = YAML_GET(bc2d_node["Size"],                 glm::vec2, glm::vec2(0.5f));
             bc2d.Density              = YAML_GET(bc2d_node["Density"],              float, 1.0f);
             bc2d.Friction             = YAML_GET(bc2d_node["Friction"],             float, 0.5f);
             bc2d.Restitution          = YAML_GET(bc2d_node["Restitution"],          float, 0.0f);
             bc2d.RestitutionThreshold = YAML_GET(bc2d_node["RestitutionThreshold"], float, 0.5f);
+            bc2d.IsSensor             = YAML_GET(bc2d_node["IsSensor"],             bool,  false);
         }
 
         if (auto cc2d_node = data["CircleCollider2DComponent"]) {
             auto& cc2d = entity.AddComponent<CircleCollider2DComponent>();
-            cc2d.Offset               = YAML_GET(cc2d_node["Offset"],  glm::vec2, glm::vec2(0.0f));
-            cc2d.Radius               = YAML_GET(cc2d_node["Radius"],  float, 0.5f);
+            cc2d.Offset               = YAML_GET(cc2d_node["Offset"],               glm::vec2, glm::vec2(0.0f));
+            cc2d.Radius               = YAML_GET(cc2d_node["Radius"],               float, 0.5f);
             cc2d.Density              = YAML_GET(cc2d_node["Density"],              float, 1.0f);
             cc2d.Friction             = YAML_GET(cc2d_node["Friction"],             float, 0.5f);
             cc2d.Restitution          = YAML_GET(cc2d_node["Restitution"],          float, 0.0f);
             cc2d.RestitutionThreshold = YAML_GET(cc2d_node["RestitutionThreshold"], float, 0.5f);
+            cc2d.IsSensor             = YAML_GET(cc2d_node["IsSensor"],             bool,  false);
         }
 
         if (auto anim_node = data["AnimationComponent"]) {

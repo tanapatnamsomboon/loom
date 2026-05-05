@@ -21,6 +21,9 @@ namespace Loom {
         void OnCollisionBegin(entt::entity a, entt::entity b) override;
         void OnCollisionEnd(entt::entity a, entt::entity b) override;
 
+        void OnSensorBegin(entt::entity a, entt::entity b) override;
+        void OnSensorEnd(entt::entity a, entt::entity b) override;
+
         void OnFileChanged(const std::string& path) override;
 
     private:

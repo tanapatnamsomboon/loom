@@ -379,6 +379,18 @@ namespace {
         DispatchCollisionEvent(b, a, "OnCollisionEnd");
     }
 
+    void LuaScriptingBackend::OnSensorBegin(entt::entity a, entt::entity b) {
+        if (!mActiveScene) return;
+        DispatchCollisionEvent(a, b, "OnSensorBegin");
+        DispatchCollisionEvent(b, a, "OnSensorBegin");
+    }
+
+    void LuaScriptingBackend::OnSensorEnd(entt::entity a, entt::entity b) {
+        if (!mActiveScene) return;
+        DispatchCollisionEvent(a, b, "OnSensorEnd");
+        DispatchCollisionEvent(b, a, "OnSensorEnd");
+    }
+
     void LuaScriptingBackend::OnFileChanged(const std::string& path) {
         if (!mActiveScene) return;
 

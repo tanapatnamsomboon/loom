@@ -19,6 +19,9 @@ namespace Loom {
         virtual void OnCollisionBegin(entt::entity a, entt::entity b) = 0;
         virtual void OnCollisionEnd(entt::entity a, entt::entity b)   = 0;
 
+        virtual void OnSensorBegin(entt::entity a, entt::entity b) = 0;
+        virtual void OnSensorEnd(entt::entity a, entt::entity b)   = 0;
+
         // Invoked by the ScriptingEngine file watcher when a script file changes on disk.
         virtual void OnFileChanged(const std::string& path) = 0;
     };

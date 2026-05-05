@@ -552,6 +552,7 @@ namespace Weaver {
                 is_modified |= ImGui::DragFloat("Friction", &bc2d.Friction, 0.01f, 0.0f, 1.0f);
                 is_modified |= ImGui::DragFloat("Restitution", &bc2d.Restitution, 0.01f, 0.0f, 1.0f);
                 is_modified |= ImGui::DragFloat("Restitution Threshold", &bc2d.RestitutionThreshold, 0.01f, 0.0f);
+                is_modified |= ImGui::Checkbox("Is Sensor", &bc2d.IsSensor);
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
                 ImGui::TreePop();
@@ -583,6 +584,7 @@ namespace Weaver {
                 is_modified |= ImGui::DragFloat("Friction", &cc2d.Friction, 0.01f, 0.0f, 1.0f);
                 is_modified |= ImGui::DragFloat("Restitution", &cc2d.Restitution, 0.01f, 0.0f, 1.0f);
                 is_modified |= ImGui::DragFloat("Restitution Threshold", &cc2d.RestitutionThreshold, 0.01f, 0.0f);
+                is_modified |= ImGui::Checkbox("Is Sensor", &cc2d.IsSensor);
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
                 ImGui::TreePop();

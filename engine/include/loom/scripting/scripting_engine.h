@@ -24,6 +24,9 @@ namespace Loom {
         static void OnCollisionBegin(Entity a, Entity b);
         static void OnCollisionEnd(Entity a, Entity b);
 
+        static void OnSensorBegin(Entity a, Entity b);
+        static void OnSensorEnd(Entity a, Entity b);
+
         // Forwarded by a file-watcher when a script asset changes on disk.
         static void OnFileChanged(const std::string& path);
 

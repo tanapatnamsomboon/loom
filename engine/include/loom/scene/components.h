@@ -117,6 +117,7 @@ namespace Loom {
         float Friction             = 0.5f;
         float Restitution          = 0.0f;
         float RestitutionThreshold = 0.5f;
+        bool  IsSensor             = false;
 
         b2ShapeId RuntimeFixture = b2_nullShapeId;
 
@@ -132,6 +133,7 @@ namespace Loom {
         float Friction             = 0.5f;
         float Restitution          = 0.0f;
         float RestitutionThreshold = 0.5f;
+        bool  IsSensor             = false;
 
         b2ShapeId RuntimeFixture = b2_nullShapeId;
 
