@@ -12,6 +12,7 @@ namespace Loom {
     class LOOM_API Application {
     public:
         Application();
+        Application(const WindowProps& props);
         virtual ~Application();
 
         void Run();

@@ -11,9 +11,12 @@ namespace Loom {
 
     Application* Application::sInstance = nullptr;
 
-    Application::Application() {
+    Application::Application()
+        : Application(WindowProps()) {}
+
+    Application::Application(const WindowProps& props) {
         sInstance = this;
-        mWindow = std::unique_ptr<Window>(Window::Create());
+        mWindow = std::unique_ptr<Window>(Window::Create(props));
         mWindow->SetEventCallback(LOOM_BIND_EVENT_FN(Application::OnEvent));
         Input::Create();
 

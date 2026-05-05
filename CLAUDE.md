@@ -264,15 +264,16 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *Goal: a project saved from Weaver runs as a standalone executable.*
 
-- [ ] **`weaver_runtime/` CMake target**
-  - New directory alongside `weaver/`; `RuntimeApplication : Loom::Application`; own `main.cpp`
-  - Links only `Loom` + GLFW — ImGui and ImGuizmo **explicitly excluded** at the build level
+- [x] **`weaver_runtime/` CMake target**
+  - `weaver_runtime/` directory alongside `weaver/`; own `main.cpp`; links only `Loom` (no `nfd`, no editor deps)
+  - `Application(const WindowProps& props)` constructor added to engine; default ctor delegates to it
+  - `main.cpp` early-loads the project config to extract `WindowTitle/Width/Height` before `Application` is constructed
 
-- [ ] **`RuntimeLayer`**
-  - `OnAttach`: `argv[1]` → `ProjectSerializer::Deserialize()` → `SceneSerializer::Deserialize(StartScene)` → `Scene::OnRuntimeStart()`
-  - `OnUpdate(ts)`: `Scene::OnRuntimeUpdate(ts)` rendered full-window via primary `SceneCamera` (no editor overlays)
+- [x] **`RuntimeLayer`**
+  - `OnAttach`: reads `Project::GetActive()` config → `LoadScene(StartScene)` → `Scene::OnRuntimeStart()`
+  - `OnUpdate(ts)`: `RenderCommand::Clear()` → `Scene::OnUpdateRuntime(ts)` (handles scripts + physics + rendering via primary `SceneCamera`)
   - `OnDetach`: `Scene::OnRuntimeStop()`
-  - Polls `SceneLoader` queue each frame and executes scene transitions
+  - Polls `SceneLoader` queue after each update; handles both `IsReload()` and path-based transitions
 
 - [ ] **Packaging validation**
   - Verify a Weaver project loads and runs correctly in `WeaverRuntime`
@@ -385,11 +386,12 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **WeaverRuntime standalone executable** — `weaver_runtime/` CMake target added alongside `weaver/`; links only `Loom` (no `nfd`/editor deps); `Application(const WindowProps&)` constructor added to engine (default ctor delegates); `main.cpp` early-deserializes the project config to configure window title/size; `RuntimeLayer` loads start scene via `SceneSerializer`, calls `Scene::OnRuntimeStart/UpdateRuntime/Stop`, handles `WindowResizeEvent` to keep `OnViewportResize` in sync, and polls `SceneLoader` for Lua-driven scene transitions each frame.
 - **Runtime window config + Project Settings** — `WindowTitle`, `WindowWidth`, `WindowHeight` added to `ProjectConfig` and serialized/deserialized by `ProjectSerializer`; `ProjectManager::OpenSettings()` populates temp buffers from the active config; "Project Settings..." modal exposes Name, Start Scene (with NFD browse), Window Title, Width, Height; "Project Settings..." menu item added to File menu (disabled when no project is open); settings round-trip through the `.loomproj` file.
 - **Project schema hardening** — `Version: 1` added to `ProjectConfig`; `ProjectSerializer::Deserialize` validates version (warn if missing/future), errors on missing/non-existent `AssetDirectory`, warns on missing `StartScene`; `ProjectManager` shows a "Project Load Error" modal on deserialization failure instead of silently proceeding.
 - **Editor camera serialization** — `EditorCamera` gains `GetPitch()`, `GetYaw()`, and `SetState(position, pitch, yaw)`; `SceneSerializer::Serialize/Deserialize` accept an optional `EditorCamera*`; saves a top-level `EditorCamera:` block (Position, Pitch, Yaw) in the `.loom` file; `SceneManager::SaveScene`, `SaveSceneAs`, and `OpenSceneImpl` pass `&mContext.EditorCamera`; WeaverRuntime is unaffected (passes `nullptr` by default).
 - **Script Property Exposure System** — `ScriptField` / `ScriptFieldType` added to `engine/include/loom/scripting/script_field.h`; `LuaScriptComponent` gains `Fields` map; `IScriptingBackend` extended with `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`; `LuaScriptingBackend` implements field discovery via sandboxed `sol::state` with path-keyed cache, injects overrides before `OnCreate`, reads live values via `TryGetFieldValue`; `SceneSerializer` round-trips `Fields` block in YAML for both scenes and prefabs; `SceneHierarchyPanel` shows per-type widgets below the script path row, disabled in play mode showing live values; `SceneManager::OnScenePlay/Stop` toggles panel play mode.
-- **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` will reuse the same `SceneLoader` queue.
+- **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` polls the same `SceneLoader` queue each frame.
 - **Editor quit / unsaved-changes confirmation** — `Application::Close()` added; event dispatch reordered so layers intercept first; `SceneManager::RequestQuit()` gates close behind the existing "Save Changes?" modal when dirty; `Ctrl+Q` shortcut and `File > Exit` menu item wired; `SceneDirty` callback bug fixed.
 - **Physics scripting — spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` added to the Lua `Physics` table; both return a 1-indexed Lua array of `Entity` handles; `Scene::OverlapCircle2D` / `Scene::OverlapBox2D` implemented via `b2World_OverlapCircle` / `b2World_OverlapPolygon` with per-shape callback; deduplication via `std::unordered_set` prevents duplicate entries when an entity holds multiple collider components.
 - **Physics scripting — sensor / trigger colliders** — `IsSensor` bool added to `BoxCollider2DComponent` and `CircleCollider2DComponent`; sensor shapes set `b2ShapeDef.isSensor = true` + `enableSensorEvents = true` (mutually exclusive with `enableContactEvents`); `b2World_GetSensorEvents()` polled after physics step; `ScriptingEngine::OnSensorBegin/End(Entity, Entity)` dispatches to Lua `OnSensorBegin(other)` / `OnSensorEnd(other)` on both entities; `IScriptingBackend` extended with two new pure-virtual methods; inspector checkbox + YAML round-trip.

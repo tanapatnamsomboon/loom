@@ -15,3 +15,4 @@ include(cmake/vendors.cmake)
 
 add_subdirectory(engine)
 add_subdirectory(weaver)
+add_subdirectory(weaver_runtime)
