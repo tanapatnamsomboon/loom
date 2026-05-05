@@ -29,6 +29,7 @@ namespace Loom {
     }
 
     Application::~Application() {
+        mLayerStack.Clear();
         AudioEngine::Shutdown();
         ScriptingEngine::Shutdown();
         Renderer2D::Shutdown();

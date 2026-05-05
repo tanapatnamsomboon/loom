@@ -6,9 +6,14 @@ namespace Loom {
     LayerStack::LayerStack() {}
 
     LayerStack::~LayerStack() {
-        for (Layer* layer : mLayers) {
+        Clear();
+    }
+
+    void LayerStack::Clear() {
+        for (Layer* layer : mLayers)
             delete layer;
-        }
+        mLayers.clear();
+        mLayerInsertIndex = 0;
     }
 
     void LayerStack::PushLayer(Layer* layer) {
