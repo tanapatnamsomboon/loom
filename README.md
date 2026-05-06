@@ -2,9 +2,9 @@
 
 A 2D game engine written in **C++20**, built around an abstract OpenGL renderer, Box2D 3.x physics, and a Lua 5.4 scripting layer.
 
-**Weaver** is the accompanying Dear ImGui editor — design scenes visually, tweak components in the inspector, author scripts, and hit Play, all without leaving the tool.
+**Weaver** is the accompanying Dear ImGui editor — design scenes visually, tweak components in the inspector, author Lua scripts with live property overrides, and hit Play, all without leaving the tool.
 
-The codebase is structured as three distinct targets: the **Loom** engine library, the **Weaver** editor, and an upcoming **WeaverRuntime** that ships a finished project as a lean standalone executable with no editor code linked in.
+The project ships three distinct targets: the **Loom** engine library, the **Weaver** editor, and **WeaverRuntime** — a lean standalone executable that runs a finished project with no editor or ImGui code linked in.
 
 ---
 
@@ -18,7 +18,25 @@ The codebase is structured as three distinct targets: the **Loom** engine librar
 - **Component Inspector** — property editors for every built-in component; right-click to remove; "Add Component" menu
 - **Content Browser** — project asset file tree; drag textures onto sprite slots; drag `.loom` scenes or `.lprefab` prefabs onto the viewport to open or instantiate
 - **Play / Stop** — enter runtime in-editor; physics, scripting, and audio activate on play and are torn down cleanly on stop
-- **Project & Scene I/O** — New / Open / Save / Save As for both projects and scenes; "unsaved changes" guard modal
+- **Project & Scene I/O** — New / Open / Save / Save As for both projects and scenes; "unsaved changes" guard modal; recently opened projects list
+- **Project Settings** — configure window title, resolution, and start scene from a dedicated modal; settings round-trip through the `.loomproj` file and are consumed by WeaverRuntime at launch
+- **Undo / Redo** — 50-step command history (`Ctrl+Z` / `Ctrl+Shift+Z`); covers entity creation and deletion, component add/remove, gizmo transforms, and every inspector property edit; title-bar dirty indicator is driven by history depth rather than a manual flag
+- **Editor camera persistence** — camera position, pitch, and yaw saved per scene and restored exactly on re-open
+
+### Script Property Exposure
+
+Expose typed variables from a Lua script to the Inspector without editing Lua source. Declare a top-level `Properties` table and Weaver discovers the fields automatically:
+
+```lua
+Properties = {
+    Speed  = 5.0,   -- float   → DragFloat widget
+    Lives  = 3,     -- int     → DragInt widget
+    Active = true,  -- bool    → Checkbox widget
+    Label  = "hero" -- string  → InputText widget
+}
+```
+
+Each field appears as a live editor widget. Values are saved to the scene file and injected into the script environment before `OnCreate()` runs. In Play mode the inspector displays live runtime values read directly from the running environment.
 
 ### Renderer
 
@@ -32,15 +50,17 @@ The codebase is structured as three distinct targets: the **Loom** engine librar
 - **EnTT** entity-component system; game objects are lightweight handles over a registry
 - Built-in components: `Transform`, `Tag`, `Camera`, `SpriteRenderer`, `NativeScript`, `LuaScript`, `Rigidbody2D`, `BoxCollider2D`, `CircleCollider2D`, `Animation`, `AudioSource`
 - **Entity hierarchy** — `RelationshipComponent`; world transform computed from local transforms up the parent chain
-- **YAML scene serialization** — `.loom` scene files; asset paths stored project-relative for portability
+- **YAML scene serialization** — `.loom` scene files; asset paths stored project-relative for portability; editor camera state persisted per scene
 - **Prefab system** — save any entity as `.lprefab`; drag-and-drop instantiation from the content browser; `entity:Instantiate(path)` from Lua
+- **Scene transitions** — `Scene.Load("path")` and `Scene.Reload()` from Lua queue a scene change at end-of-frame; works identically in Weaver Play mode and WeaverRuntime
 
 ### Physics — Box2D 3.x
 
 - Static, Dynamic, and Kinematic body types; `FixedRotation` constraint
 - `BoxCollider2DComponent` and `CircleCollider2DComponent` — density, friction, restitution, and per-shape offset
 - **Collision callbacks** — `OnCollisionBegin` / `OnCollisionEnd` dispatched to Lua scripts on both involved entities each physics step
-- **Sensor / trigger colliders** — `IsSensor` toggle on any collider; sensors detect overlap without exerting physical force; dispatches `OnSensorBegin` / `OnSensorEnd` to Lua on both entities
+- **Sensor / trigger colliders** — `IsSensor` toggle on any collider; sensors detect overlap without exerting force; dispatches `OnSensorBegin` / `OnSensorEnd` to Lua on both entities
+- **Spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` return a Lua array of all overlapping entities
 - Physics bodies synced back to `TransformComponent` every frame
 - Debug wireframe overlay (boxes and circles) rendered in the editor viewport
 
@@ -48,9 +68,11 @@ The codebase is structured as three distinct targets: the **Loom** engine librar
 
 - Per-entity isolated `sol::environment`s — scripts never share global state
 - **Hot-reload** — file watcher detects `.lua` changes on disk and reloads the script instantly while in Play mode
+- **Script property overrides** — declare a `Properties` table; Weaver discovers fields, presents inspector widgets, saves overrides to the scene file, and injects values before `OnCreate()` runs
 - Complete entity API: transform, tag, scene management, audio control, physics body manipulation
 - Collision and sensor callbacks delivered directly to the owning script environment
-- `Physics.Raycast` world query from Lua
+- `Physics.Raycast`, `Physics.OverlapCircle`, `Physics.OverlapBox` world queries from Lua
+- `Scene.Load` / `Scene.Reload` for Lua-driven level transitions
 
 ### Audio — miniaudio
 
@@ -65,32 +87,42 @@ The codebase is structured as three distinct targets: the **Loom** engine librar
 - **Hot-reload** — `FileWatcher` detects texture and shader changes on disk; GPU resources patched in-place during Play mode
 - Asset paths normalized to project-relative on save, resolved to absolute at runtime
 
+### WeaverRuntime
+
+- Standalone executable that loads a `.loomproj` file and runs the game at full speed
+- No editor, ImGui, or file-dialog code linked in — pure engine + Lua
+- Reads `WindowTitle`, `WindowWidth`, `WindowHeight` from the project config before constructing the window
+- Handles Lua-driven `Scene.Load` / `Scene.Reload` transitions each frame
+- All asset paths and engine resources resolve correctly relative to the executable directory
+
 ---
 
 ## Current Status
 
-Loom is in active development targeting **Phase 1: 2D Feature Complete** — everything a 2D game needs before the standalone runtime ships.
+Phases 1, 1.5, and 2 are **complete**. The engine is 2D feature-complete with a working standalone runtime. Development has moved into **Phase 3 — Editor & Tools Polish**.
 
-### Phase 1 — 2D Feature Complete
+### Completed Phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | 2D Feature Complete — ECS, physics, scripting, audio, prefabs, animation, collision/sensor callbacks, spatial queries, scene transitions, script property exposure | ✅ Complete |
+| Phase 1.5 | Project System Hardening — schema versioning, error modals, runtime window config, Project Settings modal, recently opened projects | ✅ Complete |
+| Phase 2 | WeaverRuntime standalone executable | ✅ Complete |
+
+### Phase 3 — Editor & Tools Polish
 
 | Feature | Status |
-|---|---|
-| Core engine (ECS, Renderer2D, events, input) | ✅ Done |
-| Weaver editor (viewport, hierarchy, inspector, content browser) | ✅ Done |
-| Box2D physics integration | ✅ Done |
-| Lua scripting with hot-reload | ✅ Done |
-| Audio system with runtime Lua control | ✅ Done |
-| Prefab system | ✅ Done |
-| Sprite animation + spritesheet helper | ✅ Done |
-| Asset hot-reload | ✅ Done |
-| Physics collision callbacks (`OnCollisionBegin` / `OnCollisionEnd`) | ✅ Done |
-| Sensor / trigger colliders (`OnSensorBegin` / `OnSensorEnd`) | ✅ Done |
-| Spatial overlap queries (`Physics.OverlapCircle` / `Physics.OverlapBox`) | 🔲 Planned |
-| Scene transitions (`Scene.Load` / `Scene.Reload` from Lua) | 🔲 Planned |
+|---------|--------|
+| Undo / Redo system (Command Pattern, 50-step history) | ✅ Done |
+| Text / HUD rendering (`TextComponent` + glyph atlas) | 🔲 Planned |
+| Tilemap component | 🔲 Planned |
+| Particle system | 🔲 Planned |
 
-### Phase 2 — WeaverRuntime
+### Upcoming
 
-A standalone runtime executable (`WeaverRuntime`) that loads a project file from disk and runs it at full speed with no editor or ImGui code linked in. Projects built in Weaver become shippable games.
+- **Phase 4 — 3D Foundation:** GLTF mesh loading (`cgltf`), `Renderer3D`, Phong lighting, Jolt Physics 3D bodies
+- **Phase 5 — Advanced Rendering:** PBR shading, shadow mapping
+- **Phase 6 — Graphics API Expansion:** Vulkan and DirectX 12 backends
 
 ---
 
@@ -142,7 +174,9 @@ cmake --build --preset debug-loom     # engine library only
 
 ---
 
-## Running the Editor
+## Running
+
+### Weaver Editor
 
 After a successful build, launch Weaver from the output directory:
 
@@ -152,31 +186,42 @@ After a successful build, launch Weaver from the output directory:
 
 On first launch, create or open a project via **File > New Project** or **File > Open Project**. All scene assets and scripts live inside the project's asset directory.
 
+### WeaverRuntime
+
+Pass a `.loomproj` file as the first argument:
+
+```bash
+./build/debug/bin/WeaverRuntime path/to/MyGame.loomproj
+```
+
+The runtime reads window title and resolution from the project config and launches directly into the configured start scene.
+
 ---
 
 ## Project Structure
 
 ```
-engine/         Core engine library (Loom)
-  include/      Public headers, included as <loom/...>
+engine/           Core engine library (Loom)
+  include/        Public headers, included as <loom/...>
   src/
-    core/       Application loop, events, input, logging
-    renderer/   Renderer2D, shaders, textures, framebuffers, cameras
-    scene/      ECS (EnTT), components, scene serialization, prefabs
-    scripting/  ScriptingEngine facade and Lua backend
-    audio/      AudioEngine (miniaudio)
-    platform/   GLFW windowing, OpenGL driver implementations
-    asset/      AssetManager (texture and shader cache, hot-reload)
-    project/    Project and ProjectSerializer
-weaver/         Editor application (Weaver)
+    core/         Application loop, events, input, logging
+    renderer/     Renderer2D, shaders, textures, framebuffers, cameras
+    scene/        ECS (EnTT), components, scene serialization, prefabs
+    scripting/    ScriptingEngine facade and Lua backend
+    audio/        AudioEngine (miniaudio)
+    platform/     GLFW windowing, OpenGL driver implementations
+    asset/        AssetManager (texture and shader cache, hot-reload)
+    project/      Project and ProjectSerializer
+weaver/           Editor application (Weaver)
   src/
-    panels/     Viewport, scene hierarchy, content browser, toolbar
-    editor/     Scene and project I/O managers
-    scripts/    Native C++ script examples
-sandbox/        Example project demonstrating engine usage
-resources/      Engine shaders, fonts, and icons
-vendor/         Third-party libraries (Git submodules)
-cmake/          CMake helper modules
+    panels/       Viewport, scene hierarchy, content browser, toolbar
+    editor/       Scene and project I/O managers, undo/redo command history
+    scripts/      Native C++ script examples
+weaver_runtime/   Standalone runtime executable (WeaverRuntime)
+sandbox/          Example project demonstrating engine usage
+resources/        Engine shaders, fonts, and icons
+vendor/           Third-party libraries (Git submodules)
+cmake/            CMake helper modules
 ```
 
 ---
@@ -186,6 +231,26 @@ cmake/          CMake helper modules
 Attach a **Lua Script** component to any entity in Weaver, point it at a `.lua` file inside the project asset directory (drag from the Content Browser or use the browse button), then hit **Play**.
 
 Scripts run in isolated environments and support hot-reload — save the file on disk and Loom reloads it immediately while the scene is running.
+
+### Script Properties
+
+Declare a top-level `Properties` table to expose editable fields to the Weaver inspector:
+
+```lua
+Properties = {
+    Speed     = 5.0,
+    JumpForce = 8.0,
+    MaxHealth = 100,
+}
+
+function OnUpdate(ts)
+    -- Speed, JumpForce, MaxHealth are injected as globals from the inspector values
+    if Input.IsKeyPressed(Key.D) then entity:ApplyForce(Vec2(Speed, 0)) end
+    if Input.IsKeyPressed(Key.A) then entity:ApplyForce(Vec2(-Speed, 0)) end
+end
+```
+
+Property values set in the inspector are saved to the scene file and restored on every run without modifying the script.
 
 ### Lifecycle hooks
 
@@ -204,16 +269,17 @@ All collision and sensor callbacks receive `other` — an entity handle to the o
 
 ### Globals
 
-| Global    | Description                                          |
-|-----------|------------------------------------------------------|
-| `entity`  | Handle to the owning entity                          |
-| `Vec2`    | 2-component vector with `+`, `-`, `*` operators      |
-| `Vec3`    | 3-component vector with `+`, `-`, `*` operators      |
-| `Input`   | Keyboard and mouse query functions                   |
-| `Key`     | Key code constants (`Key.W`, `Key.Space`, …)         |
-| `Mouse`   | Mouse button constants (`Mouse.Left`, …)             |
-| `Log`     | Engine logging (`Log.Info`, `Log.Warn`, `Log.Error`) |
-| `Physics` | World-level physics queries                          |
+| Global    | Description                                           |
+|-----------|-------------------------------------------------------|
+| `entity`  | Handle to the owning entity                           |
+| `Vec2`    | 2-component vector with `+`, `-`, `*` operators       |
+| `Vec3`    | 3-component vector with `+`, `-`, `*` operators       |
+| `Input`   | Keyboard and mouse query functions                    |
+| `Key`     | Key code constants (`Key.W`, `Key.Space`, …)          |
+| `Mouse`   | Mouse button constants (`Mouse.Left`, …)              |
+| `Log`     | Engine logging (`Log.Info`, `Log.Warn`, `Log.Error`)  |
+| `Physics` | World-level physics queries                           |
+| `Scene`   | Scene transition control                              |
 
 ### Entity API — Transform & Scene
 
@@ -256,19 +322,33 @@ entity:ApplyImpulse(vec2)
 ```lua
 Physics.Raycast(origin_vec3, direction_vec3, distance)
 -- returns { hit: bool, point: Vec3, normal: Vec3, entity: entity }
+
+Physics.OverlapCircle(center_vec2, radius)
+-- returns array of overlapping entities
+
+Physics.OverlapBox(center_vec2, half_extents_vec2)
+-- returns array of overlapping entities
 ```
+
+### Scene transitions
+
+```lua
+Scene.Load("scenes/level2.loom")  -- queue a scene change (path relative to asset dir)
+Scene.Reload()                    -- restart the current scene from its last saved state
+```
+
+Transitions are queued and applied at the end of the frame — safe to call from any callback.
 
 ### Example — platformer movement
 
 ```lua
-local speed = 5.0
-local jump  = 8.0
+Properties = { Speed = 5.0, JumpForce = 8.0 }
 
 function OnUpdate(ts)
-    if Input.IsKeyPressed(Key.D) then entity:ApplyForce(Vec2( speed, 0)) end
-    if Input.IsKeyPressed(Key.A) then entity:ApplyForce(Vec2(-speed, 0)) end
+    if Input.IsKeyPressed(Key.D) then entity:ApplyForce(Vec2( Speed, 0)) end
+    if Input.IsKeyPressed(Key.A) then entity:ApplyForce(Vec2(-Speed, 0)) end
     if Input.IsKeyPressed(Key.Space) then
-        entity:ApplyImpulse(Vec2(0, jump))
+        entity:ApplyImpulse(Vec2(0, JumpForce))
     end
 end
 ```
@@ -282,6 +362,16 @@ end
 
 function OnSensorEnd(other)
     Log.Info(other:GetTag() .. " left the zone")
+end
+```
+
+### Example — scene transition on trigger
+
+```lua
+function OnSensorBegin(other)
+    if other:GetTag() == "Player" then
+        Scene.Load("scenes/level2.loom")
+    end
 end
 ```
 
