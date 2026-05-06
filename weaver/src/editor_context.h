@@ -1,5 +1,6 @@
 #pragma once
 
+#include "editor/editor_history.h"
 #include "panels/scene_hierarchy_panel.h"
 #include <glm/glm.hpp>
 #include <loom/renderer/editor_camera.h>
@@ -29,11 +30,16 @@ namespace Weaver {
     // Only cross-cutting data lives here; each subsystem owns its private state.
     struct EditorContext {
         // Scene lifecycle
-        SceneState                   SceneState   = SceneState::Edit;
+        SceneState                   SceneState = SceneState::Edit;
         std::shared_ptr<Loom::Scene> EditorScene;
         std::shared_ptr<Loom::Scene> ActiveScene;
         std::string                  CurrentScenePath;
-        bool                         SceneDirty = false;
+        bool                         SceneDirty = false; // true for edits outside the history (e.g. tag renames, prefab drops)
+
+        // Undo / Redo history
+        EditorHistory History;
+
+        bool IsDirty() const { return SceneDirty || History.IsDirty(); }
 
         // Camera
         Loom::EditorCamera EditorCamera;

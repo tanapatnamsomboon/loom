@@ -172,7 +172,7 @@ namespace Weaver {
             std::string filename = mContext.CurrentScenePath.empty()
                 ? "Untitled Scene"
                 : std::filesystem::path(mContext.CurrentScenePath).filename().string();
-            title = filename + (mContext.SceneDirty ? "*" : "") + " (Viewport)###Viewport";
+            title = filename + (mContext.IsDirty() ? "*" : "") + " (Viewport)###Viewport";
         }
 
         ImGui::Begin(title.c_str());
@@ -252,9 +252,16 @@ namespace Weaver {
             glm::value_ptr(world_transform), nullptr, snap ? snap_values : nullptr
         );
 
-        if (ImGuizmo::IsUsing()) {
-            mContext.SceneDirty = true;
+        bool is_using = ImGuizmo::IsUsing();
 
+        // Capture transform state when gizmo drag begins.
+        if (is_using && !mGizmoDragging) {
+            mGizmoDragging    = true;
+            mGizmoDragEntity  = selected.GetComponent<Loom::IDComponent>().ID;
+            mGizmoDragStart   = tc;
+        }
+
+        if (is_using) {
             // Convert world result back to local space if entity has a parent
             Loom::Entity parent = selected.GetParent();
             if (parent) {
@@ -269,6 +276,18 @@ namespace Weaver {
             tc.Translation           = translation;
             tc.Rotation             += delta_rotation;
             tc.Scale                 = scale;
+        }
+
+        // Commit a single TransformEditCommand when the gizmo drag ends.
+        if (!is_using && mGizmoDragging) {
+            mGizmoDragging = false;
+            Loom::Entity dragged = mContext.ActiveScene->GetEntityByUUID(mGizmoDragEntity);
+            if (dragged) {
+                auto& final_tc = dragged.GetComponent<Loom::TransformComponent>();
+                mContext.History.Push(std::make_unique<TransformEditCommand>(
+                    mContext.ActiveScene, mGizmoDragEntity,
+                    mGizmoDragStart, final_tc));
+            }
         }
     }
 

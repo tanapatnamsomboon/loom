@@ -19,7 +19,7 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void SceneManager::NewScene() {
-        if (mContext.SceneDirty) {
+        if (mContext.IsDirty()) {
             mPendingAction = PendingAction::New;
             mShowSavePrompt = true;
         } else {
@@ -33,6 +33,7 @@ namespace Weaver {
         mContext.HierarchyPanel->SetContext(mContext.ActiveScene);
         mContext.CurrentScenePath.clear();
         mContext.SceneDirty = false;
+        mContext.History.Clear();
     }
 
     // -------------------------------------------------------------------------
@@ -57,7 +58,7 @@ namespace Weaver {
     }
 
     void SceneManager::OpenScene(const std::string& filepath) {
-        if (mContext.SceneDirty) {
+        if (mContext.IsDirty()) {
             mPendingAction = PendingAction::Open;
             mPendingPath   = filepath;
             mShowSavePrompt = true;
@@ -83,6 +84,7 @@ namespace Weaver {
             mContext.HierarchyPanel->SetContext(mContext.EditorScene);
             mContext.CurrentScenePath = filepath;
             mContext.SceneDirty       = false;
+            mContext.History.Clear();
         }
     }
 
@@ -98,6 +100,7 @@ namespace Weaver {
         Loom::SceneSerializer serializer(mContext.ActiveScene);
         serializer.Serialize(mContext.CurrentScenePath, &mContext.EditorCamera);
         mContext.SceneDirty = false;
+        mContext.History.MarkSavePoint();
     }
 
     void SceneManager::SaveSceneAs() {
@@ -121,6 +124,7 @@ namespace Weaver {
             serializer.Serialize(path.string(), &mContext.EditorCamera);
             mContext.CurrentScenePath = path.string();
             mContext.SceneDirty       = false;
+            mContext.History.MarkSavePoint();
 
             // Set the project's start scene if it hasn't been assigned yet
             auto active_project = Loom::Project::GetActive();
@@ -140,7 +144,7 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void SceneManager::RequestQuit() {
-        if (mContext.SceneDirty) {
+        if (mContext.IsDirty()) {
             mPendingAction  = PendingAction::Quit;
             mShowSavePrompt = true;
         } else {

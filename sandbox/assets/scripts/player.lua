@@ -8,7 +8,6 @@ Properties = {
 }
 
 function OnCreate()
-    Log.Info("Speed =", Speed, " Health =", Health, " Label =", Label)
 end
 
 function OnUpdate(ts)

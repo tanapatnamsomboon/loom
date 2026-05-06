@@ -275,9 +275,10 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `OnDetach`: `Scene::OnRuntimeStop()`
   - Polls `SceneLoader` queue after each update; handles both `IsReload()` and path-based transitions
 
-- [ ] **Packaging validation**
+- [x] **Packaging validation**
   - Verify a Weaver project loads and runs correctly in `WeaverRuntime`
   - Confirm all asset paths resolve correctly relative to the executable
+  - Fixed: `GetEngineAssetDirectory()` returned a relative path; anchored cwd to exe dir via `GetModuleFileNameW` in `WeaverRuntime/main.cpp` before engine init; project path is made absolute before the cwd change
 
 ---
 
@@ -285,19 +286,19 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *Goal: close daily workflow gaps before committing to 3D.*
 
-- [ ] **Undo / Redo system + Dirty Checking (Command Pattern)**
+- [x] **Undo / Redo system + Dirty Checking (Command Pattern)**
 
-  - [ ] **`feat(editor):` `IEditorCommand` interface + `EditorHistory` manager**
+  - [x] **`feat(editor):` `IEditorCommand` interface + `EditorHistory` manager**
     - `IEditorCommand`: `Execute()`, `Undo()`, `GetDescription() → string`
     - `EditorHistory`: fixed 50-step stack living in `EditorContext`; `Ctrl+Z` / `Ctrl+Y` keybindings wired in `EditorLayer`
 
-  - [ ] **`feat(editor):` Core command implementations**
+  - [x] **`feat(editor):` Core command implementations**
     - `EntityCreateCommand`, `EntityDeleteCommand`
     - `AddComponentCommand`, `RemoveComponentCommand`
     - `TransformEditCommand` (batches gizmo drag deltas into one undoable step)
     - `PropertyEditCommand<T>` (generic template for inspector field edits)
 
-  - [ ] **`refactor(editor):` History-driven dirty checking**
+  - [x] **`refactor(editor):` History-driven dirty checking**
     - Replace scattered `SceneDirty = true` calls with `EditorHistory::MarkSavePoint()` on save; dirty = `history_depth != save_point_depth`
     - Title-bar `*` and "Save Changes?" modal remain behaviorally identical, now driven by history stack depth rather than an ad-hoc boolean
 
@@ -386,6 +387,8 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ## Completed
 
+- **Undo / Redo system (Command Pattern)** — `IEditorCommand` / `EditorHistory` (50-step deque with save-point tracking) live in `weaver/src/editor/`; six concrete commands: `EntityCreateCommand` (re-uses UUID on redo), `EntityDeleteCommand` (snapshots to YAML for UUID-preserving restore), `AddComponentCommand<T>`, `RemoveComponentCommand<T>` (captures data before removal), `TransformEditCommand` (committed on gizmo mouse-up), `PropertyEditCommand<T>` (generic before/after with setter lambda); `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` wired in `EditorLayer`; `SceneHierarchyPanel` routes all create/delete/add-component/remove-component/transform/property edits through `mCommandCallback`; `EditorContext::IsDirty()` ORs `SceneDirty` (non-history edits) with `History.IsDirty()` (history depth vs. save-point depth); save calls `MarkSavePoint()`, new/open call `Clear()`; title-bar `*` and "Save Changes?" modal driven by `IsDirty()`; undo correctly clears the dirty indicator.
+- **WeaverRuntime packaging validation** — Fixed engine resource path resolution: `WeaverRuntime/main.cpp` anchors cwd to the executable directory via `GetModuleFileNameW` before engine init (project path is made absolute first to preserve relative user-supplied args); all `resources/` assets now resolve correctly from any launch directory.
 - **WeaverRuntime standalone executable** — `weaver_runtime/` CMake target added alongside `weaver/`; links only `Loom` (no `nfd`/editor deps); `Application(const WindowProps&)` constructor added to engine (default ctor delegates); `main.cpp` early-deserializes the project config to configure window title/size; `RuntimeLayer` loads start scene via `SceneSerializer`, calls `Scene::OnRuntimeStart/UpdateRuntime/Stop`, handles `WindowResizeEvent` to keep `OnViewportResize` in sync, and polls `SceneLoader` for Lua-driven scene transitions each frame.
 - **Runtime window config + Project Settings** — `WindowTitle`, `WindowWidth`, `WindowHeight` added to `ProjectConfig` and serialized/deserialized by `ProjectSerializer`; `ProjectManager::OpenSettings()` populates temp buffers from the active config; "Project Settings..." modal exposes Name, Start Scene (with NFD browse), Window Title, Width, Height; "Project Settings..." menu item added to File menu (disabled when no project is open); settings round-trip through the `.loomproj` file.
 - **Project schema hardening** — `Version: 1` added to `ProjectConfig`; `ProjectSerializer::Deserialize` validates version (warn if missing/future), errors on missing/non-existent `AssetDirectory`, warns on missing `StartScene`; `ProjectManager` shows a "Project Load Error" modal on deserialization failure instead of silently proceeding.

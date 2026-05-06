@@ -1,14 +1,14 @@
 Scene: 2d_animation
 EditorCamera:
-  Position: [-4.1815624, 2.9178774, 6.931868]
-  Pitch: 0.25200018
-  Yaw: 0.4020001
+  Position: [-2.2423444, 1.5616583, 5.912926]
+  Pitch: 0.26100013
+  Yaw: 0.22499998
 Entities:
   - Entity: 647933478549646723
     TagComponent:
       Tag: Birch1
     TransformComponent:
-      Translation: [-1, 0.39975932, -0.5]
+      Translation: [-1.5650756, 0.39975932, -0.5]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
     SpriteRendererComponent:

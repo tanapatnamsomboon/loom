@@ -1,4 +1,5 @@
 #include "scene_hierarchy_panel.h"
+#include "editor/commands.h"
 #include <loom/asset/asset_manager.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_serializer.h>
@@ -61,8 +62,16 @@ namespace Weaver {
 
         if (ImGui::BeginPopupContextWindow("HierarchyContextWindow", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
             if (ImGui::MenuItem("Create Empty Entity")) {
-                mContext->CreateEntity("Empty Entity");
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
+                if (mCommandCallback) {
+                    auto cmd = std::make_unique<EntityCreateCommand>(mContext, "Empty Entity");
+                    auto* raw = cmd.get();  // valid after move since history holds the object
+                    mCommandCallback(std::move(cmd));
+                    if (raw->GetCreatedUUID())
+                        mSelectionContext = mContext->GetEntityByUUID(Loom::UUID(raw->GetCreatedUUID()));
+                } else {
+                    mSelectionContext = mContext->CreateEntity("Empty Entity");
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
             }
             ImGui::EndPopup();
         }
@@ -118,9 +127,18 @@ namespace Weaver {
         bool entity_deleted = false;
         if (ImGui::BeginPopupContextItem()) {
             if (ImGui::MenuItem("Create Child Entity")) {
-                Loom::Entity child = mContext->CreateEntity("Child Entity");
-                mContext->SetParent(child, entity);
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
+                uint64_t parent_uuid = (uint64_t)entity.GetComponent<Loom::IDComponent>().ID;
+                if (mCommandCallback) {
+                    auto cmd = std::make_unique<EntityCreateCommand>(mContext, "Child Entity", parent_uuid);
+                    auto* raw = cmd.get();
+                    mCommandCallback(std::move(cmd));
+                    if (raw->GetCreatedUUID())
+                        mSelectionContext = mContext->GetEntityByUUID(Loom::UUID(raw->GetCreatedUUID()));
+                } else {
+                    Loom::Entity child = mContext->CreateEntity("Child Entity");
+                    mContext->SetParent(child, entity);
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
             }
             if (has_parent) {
                 if (ImGui::MenuItem("Detach from Parent")) {
@@ -155,7 +173,6 @@ namespace Weaver {
         }
 
         if (entity_deleted) {
-            // Walk selection's ancestor chain to detect if it lives under the deleted entity
             bool clear_selection = (mSelectionContext == entity);
             if (!clear_selection && mSelectionContext) {
                 Loom::Entity check = mSelectionContext;
@@ -166,18 +183,33 @@ namespace Weaver {
                     check = parent;
                 }
             }
-            mContext->DestroyEntity(entity);
             if (clear_selection) mSelectionContext = {};
-            if (mSceneModifiedCallback) mSceneModifiedCallback();
+            if (mCommandCallback) {
+                mCommandCallback(std::make_unique<EntityDeleteCommand>(mContext, entity));
+            } else {
+                mContext->DestroyEntity(entity);
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
         }
     }
 
     void SceneHierarchyPanel::DrawComponents(Loom::Entity entity) {
+        Loom::UUID entity_uuid;
         if (entity.HasComponent<Loom::IDComponent>()) {
-            auto& uuid = entity.GetComponent<Loom::IDComponent>().ID;
-            ImGui::Text("UUID: %llu", (uint64_t)uuid);
+            entity_uuid = entity.GetComponent<Loom::IDComponent>().ID;
+            ImGui::Text("UUID: %llu", (uint64_t)entity_uuid);
             ImGui::Separator();
         }
+
+        // Helper: push a RemoveComponentCommand if a callback is set, else remove directly.
+        auto push_remove = [&]<typename T>(const char* label) {
+            if (mCommandCallback)
+                mCommandCallback(std::make_unique<RemoveComponentCommand<T>>(mContext, entity, label));
+            else {
+                entity.template RemoveComponent<T>();
+                if (mSceneModifiedCallback) mSceneModifiedCallback();
+            }
+        };
 
         if (entity.HasComponent<Loom::TagComponent>()) {
             auto& tag = entity.GetComponent<Loom::TagComponent>().Tag;
@@ -199,89 +231,73 @@ namespace Weaver {
         ImGui::PopItemWidth();
 
         if (ImGui::BeginPopup("AddComponent")) {
-            if (!mSelectionContext.HasComponent<Loom::CameraComponent>()) {
-                if (ImGui::MenuItem("Camera")) {
-                    mSelectionContext.AddComponent<Loom::CameraComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
+            auto push_add = [&]<typename T>(const char* label) {
+                if (!mSelectionContext.template HasComponent<T>()) {
+                    if (ImGui::MenuItem(label)) {
+                        Loom::UUID uuid = mSelectionContext.template GetComponent<Loom::IDComponent>().ID;
+                        if (mCommandCallback)
+                            mCommandCallback(std::make_unique<AddComponentCommand<T>>(mContext, uuid, label));
+                        else {
+                            mSelectionContext.template AddComponent<T>();
+                            if (mSceneModifiedCallback) mSceneModifiedCallback();
+                        }
+                        ImGui::CloseCurrentPopup();
+                    }
                 }
-            }
-            if (!mSelectionContext.HasComponent<Loom::SpriteRendererComponent>()) {
-                if (ImGui::MenuItem("Sprite Renderer")) {
-                    mSelectionContext.AddComponent<Loom::SpriteRendererComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::NativeScriptComponent>()) {
-                if (ImGui::MenuItem("Script")) {
-                    mSelectionContext.AddComponent<Loom::NativeScriptComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::Rigidbody2DComponent>()) {
-                if (ImGui::MenuItem("Rigidbody 2D")) {
-                    mSelectionContext.AddComponent<Loom::Rigidbody2DComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::BoxCollider2DComponent>()) {
-                if (ImGui::MenuItem("Box Collider 2D")) {
-                    mSelectionContext.AddComponent<Loom::BoxCollider2DComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::CircleCollider2DComponent>()) {
-                if (ImGui::MenuItem("Circle Collider 2D")) {
-                    mSelectionContext.AddComponent<Loom::CircleCollider2DComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::LuaScriptComponent>()) {
-                if (ImGui::MenuItem("Lua Script")) {
-                    mSelectionContext.AddComponent<Loom::LuaScriptComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::AnimationComponent>()) {
-                if (ImGui::MenuItem("Sprite Animator")) {
-                    mSelectionContext.AddComponent<Loom::AnimationComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (!mSelectionContext.HasComponent<Loom::AudioSourceComponent>()) {
-                if (ImGui::MenuItem("Audio Source")) {
-                    mSelectionContext.AddComponent<Loom::AudioSourceComponent>();
-                    if (mSceneModifiedCallback) mSceneModifiedCallback();
-                    ImGui::CloseCurrentPopup();
-                }
-            }
+            };
+            push_add.template operator()<Loom::CameraComponent>("Camera");
+            push_add.template operator()<Loom::SpriteRendererComponent>("Sprite Renderer");
+            push_add.template operator()<Loom::NativeScriptComponent>("Script");
+            push_add.template operator()<Loom::Rigidbody2DComponent>("Rigidbody 2D");
+            push_add.template operator()<Loom::BoxCollider2DComponent>("Box Collider 2D");
+            push_add.template operator()<Loom::CircleCollider2DComponent>("Circle Collider 2D");
+            push_add.template operator()<Loom::LuaScriptComponent>("Lua Script");
+            push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
+            push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
             ImGui::EndPopup();
         }
 
         if (entity.HasComponent<Loom::TransformComponent>()) {
             if (ImGui::TreeNodeEx((void*)typeid(Loom::TransformComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Transform")) {
-                auto& transform = entity.GetComponent<Loom::TransformComponent>();
+                auto& tc = entity.GetComponent<Loom::TransformComponent>();
                 bool is_modified = false;
 
-                is_modified |= ImGui::DragFloat3("Position", glm::value_ptr(transform.Translation), 0.1f);
+                // Drag-start snapshots for PropertyEditCommand (captured on activation frame,
+                // before the widget has applied any changes).
+                static glm::vec3 s_pos_before, s_rot_before, s_scale_before;
 
-                glm::vec3 rotation = glm::degrees(transform.Rotation);
-                if (ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f)) {
-                    transform.Rotation = glm::radians(rotation);
+                // Position
+                is_modified |= ImGui::DragFloat3("Position", glm::value_ptr(tc.Translation), 0.1f);
+                if (ImGui::IsItemActivated()) s_pos_before = tc.Translation;
+                if (ImGui::IsItemDeactivatedAfterEdit() && mCommandCallback)
+                    mCommandCallback(std::make_unique<PropertyEditCommand<glm::vec3>>(
+                        mContext, entity_uuid, s_pos_before, tc.Translation,
+                        [](Loom::Entity e, const glm::vec3& v) { e.GetComponent<Loom::TransformComponent>().Translation = v; },
+                        "Move"));
+
+                // Rotation (inspector shows degrees; engine stores radians)
+                glm::vec3 rotation_deg = glm::degrees(tc.Rotation);
+                if (ImGui::DragFloat3("Rotation", glm::value_ptr(rotation_deg), 0.1f)) {
+                    tc.Rotation = glm::radians(rotation_deg);
                     is_modified = true;
                 }
+                if (ImGui::IsItemActivated()) s_rot_before = tc.Rotation;
+                if (ImGui::IsItemDeactivatedAfterEdit() && mCommandCallback)
+                    mCommandCallback(std::make_unique<PropertyEditCommand<glm::vec3>>(
+                        mContext, entity_uuid, s_rot_before, tc.Rotation,
+                        [](Loom::Entity e, const glm::vec3& v) { e.GetComponent<Loom::TransformComponent>().Rotation = v; },
+                        "Rotate"));
 
-                is_modified |= ImGui::DragFloat3("Scale", glm::value_ptr(transform.Scale), 0.1f);
+                // Scale
+                is_modified |= ImGui::DragFloat3("Scale", glm::value_ptr(tc.Scale), 0.1f);
+                if (ImGui::IsItemActivated()) s_scale_before = tc.Scale;
+                if (ImGui::IsItemDeactivatedAfterEdit() && mCommandCallback)
+                    mCommandCallback(std::make_unique<PropertyEditCommand<glm::vec3>>(
+                        mContext, entity_uuid, s_scale_before, tc.Scale,
+                        [](Loom::Entity e, const glm::vec3& v) { e.GetComponent<Loom::TransformComponent>().Scale = v; },
+                        "Scale"));
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
-
                 ImGui::TreePop();
             }
         }
@@ -370,10 +386,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::SpriteRendererComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::SpriteRendererComponent>("Sprite Renderer");
         }
 
         if (entity.HasComponent<Loom::CameraComponent>()) {
@@ -434,10 +447,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::CameraComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::CameraComponent>("Camera");
         }
 
         if (entity.HasComponent<Loom::NativeScriptComponent>()) {
@@ -484,10 +494,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::NativeScriptComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::NativeScriptComponent>("Script");
         }
 
         if (entity.HasComponent<Loom::Rigidbody2DComponent>()) {
@@ -526,10 +533,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::Rigidbody2DComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::Rigidbody2DComponent>("Rigidbody 2D");
         }
 
         if (entity.HasComponent<Loom::BoxCollider2DComponent>()) {
@@ -558,10 +562,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::BoxCollider2DComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::BoxCollider2DComponent>("Box Collider 2D");
         }
 
         if (entity.HasComponent<Loom::CircleCollider2DComponent>()) {
@@ -590,10 +591,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::CircleCollider2DComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::CircleCollider2DComponent>("Circle Collider 2D");
         }
 
         if (entity.HasComponent<Loom::LuaScriptComponent>()) {
@@ -775,10 +773,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::LuaScriptComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::LuaScriptComponent>("Lua Script");
         }
 
         if (entity.HasComponent<Loom::AnimationComponent>()) {
@@ -892,10 +887,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::AnimationComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::AnimationComponent>("Sprite Animator");
         }
 
         if (entity.HasComponent<Loom::AudioSourceComponent>()) {
@@ -966,10 +958,7 @@ namespace Weaver {
                 ImGui::TreePop();
             }
 
-            if (remove_component) {
-                entity.RemoveComponent<Loom::AudioSourceComponent>();
-                if (mSceneModifiedCallback) mSceneModifiedCallback();
-            }
+            if (remove_component) push_remove.template operator()<Loom::AudioSourceComponent>("Audio Source");
         }
     }
 

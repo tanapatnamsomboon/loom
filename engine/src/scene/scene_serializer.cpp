@@ -555,27 +555,17 @@ namespace Loom {
         return DeserializePrefabInto(filepath, mScene.get());
     }
 
-    Entity SceneSerializer::DeserializePrefabInto(const std::string& filepath, Scene* scene) {
-        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
-        YAML::Node data;
-        try {
-            data = YAML::LoadFile(path.generic_string());
-        } catch (const YAML::Exception& e) {
-            LOOM_CORE_ERROR("SceneSerializer: failed to load prefab '{}': '{}'", filepath, e.what());
-            return {};
-        }
-
-        if (!data["Entity"]) {
-            LOOM_CORE_ERROR("SceneSerializer: '{}' is not a valid prefab file", filepath);
-            return {};
-        }
-
+    // Shared entity-from-node loader. preserve_uuid=true restores the original UUID
+    // (for undo/redo); false mints a fresh UUID (for prefab instantiation).
+    static Entity DeserializeEntityFromNode(const YAML::Node& data, Scene* scene, bool preserve_uuid) {
         std::string name = "Entity";
         if (auto tag_node = data["TagComponent"])
             name = YAML_GET(tag_node["Tag"], std::string, "Entity");
 
-        // Always mint a fresh UUID — prefabs are templates, not identity-preserving
-        Entity entity = scene->CreateEntityWithUUID(UUID(), name);
+        UUID uuid = preserve_uuid
+            ? UUID(YAML_GET(data["Entity"], uint64_t, (uint64_t)0))
+            : UUID();
+        Entity entity = scene->CreateEntityWithUUID(uuid, name);
 
         if (auto tc_node = data["TransformComponent"]) {
             auto& tc       = entity.GetComponent<TransformComponent>();
@@ -696,8 +686,46 @@ namespace Loom {
             asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
         }
 
+        return entity;
+    }
+
+    // ---------------------------------------------------------------------------
+
+    std::string SceneSerializer::SerializePrefabToString(Entity entity) {
+        YAML::Emitter out;
+        SerializeEntity(out, entity);
+        return std::string(out.c_str());
+    }
+
+    Entity SceneSerializer::DeserializePrefabInto(const std::string& filepath, Scene* scene) {
+        std::filesystem::path path = std::filesystem::path((const char8_t*)filepath.c_str());
+        YAML::Node data;
+        try {
+            data = YAML::LoadFile(path.generic_string());
+        } catch (const YAML::Exception& e) {
+            LOOM_CORE_ERROR("SceneSerializer: failed to load prefab '{}': '{}'", filepath, e.what());
+            return {};
+        }
+        if (!data["Entity"]) {
+            LOOM_CORE_ERROR("SceneSerializer: '{}' is not a valid prefab file", filepath);
+            return {};
+        }
+        Entity entity = DeserializeEntityFromNode(data, scene, false);
+        std::string name = entity ? entity.GetComponent<TagComponent>().Tag : "?";
         LOOM_CORE_INFO("SceneSerializer: instantiated prefab '{}' as '{}'", filepath, name);
         return entity;
+    }
+
+    Entity SceneSerializer::DeserializePrefabIntoFromString(const std::string& yaml_str, Scene* scene) {
+        YAML::Node data;
+        try {
+            data = YAML::Load(yaml_str);
+        } catch (const YAML::Exception& e) {
+            LOOM_CORE_ERROR("SceneSerializer: failed to parse prefab YAML: '{}'", e.what());
+            return {};
+        }
+        if (!data["Entity"]) return {};
+        return DeserializeEntityFromNode(data, scene, true);
     }
 
 } // namespace Loom

@@ -1,10 +1,12 @@
 #pragma once
 
+#include "editor/editor_command.h"
 #include <loom/core/core.h>
 #include <loom/renderer/texture.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/scene.h>
 #include <functional>
+#include <memory>
 
 namespace Weaver {
 
@@ -23,6 +25,7 @@ namespace Weaver {
         void OnImGuiRender();
 
         void SetSceneModifiedCallback(const std::function<void()>& callback) { mSceneModifiedCallback = callback; }
+        void SetCommandCallback(std::function<void(std::unique_ptr<IEditorCommand>)> callback) { mCommandCallback = std::move(callback); }
         void SetPlayMode(bool playing) { mIsPlayMode = playing; }
 
     private:
@@ -37,8 +40,9 @@ namespace Weaver {
 
         std::shared_ptr<Loom::Texture2D> mCheckerboard;
 
-        std::function<void()> mSceneModifiedCallback;
-        bool                  mIsPlayMode = false;
+        std::function<void()>                                   mSceneModifiedCallback;
+        std::function<void(std::unique_ptr<IEditorCommand>)>   mCommandCallback;
+        bool                                                    mIsPlayMode = false;
     };
 
 } // namespace Weaver

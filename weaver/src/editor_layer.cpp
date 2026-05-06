@@ -68,6 +68,9 @@ namespace Weaver {
         mSceneHierarchyPanel.SetSceneModifiedCallback([this] {
             mContext.SceneDirty = true;
         });
+        mSceneHierarchyPanel.SetCommandCallback([this](std::unique_ptr<IEditorCommand> cmd) {
+            mContext.History.Push(std::move(cmd));
+        });
 
         mToolbarPanel.SetOnPlayPressed([this] { mSceneManager.OnScenePlay(); });
         mToolbarPanel.SetOnStopPressed([this] { mSceneManager.OnSceneStop(); });
@@ -153,6 +156,13 @@ namespace Weaver {
             case Loom::Key::S:
                 if (ctrl && shift) { mSceneManager.SaveSceneAs(); return; }
                 if (ctrl)          { mSceneManager.SaveScene();   return; }
+                break;
+            case Loom::Key::Z:
+                if (ctrl && shift) { mContext.History.Redo(); return; }
+                if (ctrl)          { mContext.History.Undo(); return; }
+                break;
+            case Loom::Key::Y:
+                if (ctrl) { mContext.History.Redo(); return; }
                 break;
             case Loom::Key::Q:
                 if (ctrl) { mSceneManager.RequestQuit(); return; }
