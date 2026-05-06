@@ -466,6 +466,54 @@ namespace Loom {
         q.IndexCount += 6;
     }
 
+    void Renderer2D::DrawText(const std::string& text, const std::shared_ptr<FontAsset>& font,
+                              const glm::mat4& transform, const glm::vec4& color,
+                              float kerning, int entity_id) {
+        if (!font || text.empty()) return;
+        auto atlas = font->GetAtlasTexture();
+        if (!atlas) return;
+
+        float cursor_x = 0.0f;
+        float cursor_y = 0.0f;
+
+        for (char c : text) {
+            if (c == '\n') {
+                cursor_x  = 0.0f;
+                cursor_y -= font->GetLineHeight();
+                continue;
+            }
+
+            GlyphData g;
+            if (!font->GetGlyphData(c, g)) {
+                cursor_x += kerning;
+                continue;
+            }
+
+            float quad_cx = cursor_x + (g.QuadMin.x + g.QuadMax.x) * 0.5f;
+            float quad_cy = cursor_y + (g.QuadMin.y + g.QuadMax.y) * 0.5f;
+            float quad_w  = g.QuadMax.x - g.QuadMin.x;
+            float quad_h  = g.QuadMax.y - g.QuadMin.y;
+
+            glm::mat4 glyph_transform = transform
+                * glm::translate(glm::mat4(1.0f), { quad_cx, quad_cy, 0.0f })
+                * glm::scale(glm::mat4(1.0f), { quad_w, quad_h, 1.0f });
+
+            // Atlas is uploaded without a V-flip, so stb's t0 (top row) sits at a low
+            // GL v-value and t1 (bottom row) at a higher one. Assign t1 to the bottom
+            // quad vertices and t0 to the top so the glyph renders right-side up.
+            const glm::vec2 tex_coords[4] = {
+                { g.s0, g.t1 },  // BL
+                { g.s1, g.t1 },  // BR
+                { g.s1, g.t0 },  // TR
+                { g.s0, g.t0 },  // TL
+            };
+
+            DrawQuad(glyph_transform, atlas, tex_coords, color, entity_id);
+
+            cursor_x += g.Advance + kerning;
+        }
+    }
+
     void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color) {
         DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, color);
     }

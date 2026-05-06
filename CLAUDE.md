@@ -302,7 +302,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
     - Replace scattered `SceneDirty = true` calls with `EditorHistory::MarkSavePoint()` on save; dirty = `history_depth != save_point_depth`
     - Title-bar `*` and "Save Changes?" modal remain behaviorally identical, now driven by history stack depth rather than an ad-hoc boolean
 
-- [ ] **Text / HUD rendering** *(suggestion)*
+- [x] **Text / HUD rendering** *(suggestion)*
   - Add **stb_truetype** (single-header, already in `vendor/stb` family)
   - `FontAsset`: TTF → glyph atlas texture via `stb_truetype`
   - `TextComponent`: font path, text string, size, color

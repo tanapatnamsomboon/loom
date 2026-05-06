@@ -254,6 +254,7 @@ namespace Weaver {
             push_add.template operator()<Loom::LuaScriptComponent>("Lua Script");
             push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
+            push_add.template operator()<Loom::TextComponent>("Text");
             ImGui::EndPopup();
         }
 
@@ -648,6 +649,7 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
+                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
                 }
 
                 // Status + actions row
@@ -945,6 +947,7 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
+                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
                 }
 
                 is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
@@ -960,6 +963,74 @@ namespace Weaver {
 
             if (remove_component) push_remove.template operator()<Loom::AudioSourceComponent>("Audio Source");
         }
+
+        if (entity.HasComponent<Loom::TextComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::TextComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Text");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& tc       = entity.GetComponent<Loom::TextComponent>();
+                bool  is_modified = false;
+
+                // Font path row: label | input (fill) | browse button
+                char font_buffer[512] = {};
+                strncpy(font_buffer, tc.FontPath.c_str(), sizeof(font_buffer) - 1);
+
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Font");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                if (ImGui::InputText("##FontPath", font_buffer, sizeof(font_buffer))) {
+                    tc.FontPath = font_buffer;
+                    is_modified = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("...##FontBrowse", { browse_w, 0.0f })) {
+                    constexpr nfdfilteritem_t filters[] = {
+                        { "TrueType Fonts", "ttf,otf" },
+                        { "All Files",      "*"       },
+                    };
+                    NFD::Guard      guard;
+                    NFD::UniquePath out_path;
+                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
+                        std::filesystem::path picked(out_path.get());
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        tc.FontPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                            ? rel.generic_string() : picked.generic_string();
+                        is_modified = true;
+                    }
+                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+                }
+
+                // Text content (multiline)
+                char text_buffer[2048] = {};
+                strncpy(text_buffer, tc.Text.c_str(), sizeof(text_buffer) - 1);
+                ImGui::TextUnformatted("Text");
+                if (ImGui::InputTextMultiline("##TextContent", text_buffer, sizeof(text_buffer), { -1.0f, 80.0f })) {
+                    tc.Text     = text_buffer;
+                    is_modified = true;
+                }
+
+                is_modified |= ImGui::ColorEdit4("Color",        glm::value_ptr(tc.Color));
+                is_modified |= ImGui::DragFloat("Font Size",    &tc.FontSize,    0.01f,  0.01f, 100.0f, "%.2f");
+                is_modified |= ImGui::DragFloat("Kerning",      &tc.Kerning,     0.005f, -1.0f, 5.0f);
+                is_modified |= ImGui::DragFloat("Line Spacing", &tc.LineSpacing, 0.005f, -1.0f, 5.0f);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::TextComponent>("Text");
+        }
     }
 
     std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture(const Loom::TextureSpecification& spec) {
@@ -971,6 +1042,7 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
+        for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
 
         if (result == NFD_OKAY) {
             return Loom::AssetManager::GetTexture(out_path.get(), spec);

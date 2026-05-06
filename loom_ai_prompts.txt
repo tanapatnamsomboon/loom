@@ -11,58 +11,69 @@ Before writing any code:
 3. Proactively provide a validation/test method.
 Wait for my approval before proceeding.
 
---- 2. Resuming Work After `/compact` (Clearing Context) ---
+--- 2. Go next step
+Please review our current Roadmap in `CLAUDE.md`.
+
+We have successfully completed the previous task. Now, please identify the very next logical task on our roadmap.
+Before writing any massive blocks of code, please:
+1. Tell me what the next task is.
+2. Break it down into 2-3 manageable micro-steps.
+3. Propose your technical approach for the first micro-step.
+
+Wait for my approval before proceeding with the actual implementation.
+
+--- 3. Resuming Work After `/compact` (Clearing Context) ---
 I just ran `/compact` to save context because we successfully completed and committed the previous step.
 Please review `CLAUDE.md` to refresh your memory. CRITICAL REMINDER: Do not access `vendor/`.
 Check our previous micro-step, tell me what the exact next step is, and provide the code. Wait for my confirmation that it compiles before moving to the next file.
 
---- 3. Resuming Work After Hitting Session Limit (New Session) ---
+--- 4. Resuming Work After Hitting Session Limit (New Session) ---
 Please carefully review `CLAUDE.md` first. REMINDER: Do not read `vendor/` files.
 Context: In our previous session, we hit a usage limit while implementing [INSERT_FEATURE_NAME].
 We were in the middle of [BRIEFLY_DESCRIBE_CURRENT_STATE_OR_FILE].
 Do not read vendor files to guess the context. Please continue exactly from where we left off and provide the remaining code to finish this specific micro-step.
 
---- 4. Adding a New Dependency (Git Submodule) ---
+--- 5. Adding a New Dependency (Git Submodule) ---
 I need to add a new library for [INSERT_PURPOSE_E_G_AUDIO_SCRIPTING].
 Please follow our Git Submodules rule:
 1. Give me the `git submodule add` command to bring this into `vendor/`. Wait for me to run it.
 2. After I confirm, provide the exact CMake code needed in `engine/CMakeLists.txt` to link it properly. DO NOT use FetchContent.
 
---- 5. Handling Compilation or Runtime Errors ---
+--- 6. Handling Compilation or Runtime Errors ---
 I got this error during [compilation/runtime]:
 `[PASTE_ERROR_MESSAGE_HERE]`
 Context: I just modified [INSERT_MODIFIED_FILE_NAME].
 Please analyze the error based on our engine's architecture. Give me a step-by-step fix. If it involves modifying a file, output only the necessary code changes.
 
---- 6. Updating CLAUDE.md (Upon Completing a Major System) ---
+--- 7. Updating CLAUDE.md (Upon Completing a Major System) ---
 We have successfully implemented and committed the [INSERT_SYSTEM_NAME] system.
 Please proactively update `CLAUDE.md` to reflect this architectural change. Add any new core classes, design patterns, or testing rules we established during this process. Also, mark this task as completed in the Roadmap.
 
---- 7. Refactoring Code (Safe Approach) ---
+--- 8. Refactoring Code (Safe Approach) ---
 I want to refactor the [INSERT_FILE_OR_CLASS_NAME] to improve [INSERT_REASON_E_G_PERFORMANCE_READABILITY].
 Before writing any code, propose a clear list of what you will change and how it impacts the existing systems (like the ECS or Editor). We will do this in micro-steps. Wait for my approval on the plan.
 
---- 8. Inserting a Quick Task (Midway / Scope Creep) ---
+--- 9. Inserting a Quick Task (Midway / Scope Creep) ---
 Before we continue with the next task on the roadmap, I realized we need [INSERT_NEW_FEATURE_OR_FIX]. Let's quickly implement this first as a micro-step.
 Please outline the plan for this quick task, wait for my approval, and also update the roadmap in `CLAUDE.md` to reflect that we added and completed this midway.
 
---- 9. Major Pivot / Changing the Roadmap ---
+--- 10. Major Pivot / Changing the Roadmap ---
 I want to change our overall direction. Please review `CLAUDE.md` and the current Roadmap.
 We are pausing our current focus. Instead, I want to prioritize [INSERT_NEW_PRIORITY_OR_SYSTEM].
 Please update the Roadmap section in `CLAUDE.md` to reflect this new priority order. Once updated, outline the micro-steps for our new first task and wait for my approval before writing code.
 
---- 10. Brainstorming & Architecture Design (No Code Yet) ---
+--- 11. Brainstorming & Architecture Design (No Code Yet) ---
 I am planning to build the [INSERT_SYSTEM_NAME] system for the engine.
 Before writing any actual code or updating the roadmap, let's discuss the architecture. Based on our existing codebase and ECS, how should this be structured?
 Please propose 2-3 design approaches with pros and cons. DO NOT write the implementation code yet; let's agree on the design first.
 
---- 11. Rubber Ducking (Logic Bug / No Error Message) ---
+--- 12. Rubber Ducking (Logic Bug / No Error Message) ---
 I have a logic bug in [INSERT_SYSTEM_NAME]. The code compiles fine, but it's not behaving as expected.
 - Current behavior: [DESCRIBE_WHAT_IS_HAPPENING]
 - Expected behavior: [DESCRIBE_WHAT_SHOULD_HAPPEN]
 Please analyze the logic. Ask me clarifying questions if you need more details. Do not rewrite the whole file, just pinpoint the potential logical flaw and suggest a targeted fix.
 
---- 12. Roadmap Grooming & Refinement ---
+--- 13. Roadmap Grooming & Refinement ---
 I want to review and groom our current Roadmap in `CLAUDE.md`.
 Please analyze the current list of tasks and do the following:
 1. Clean up: Identify tasks that are already fully completed and suggest archiving them or marking them clearly.

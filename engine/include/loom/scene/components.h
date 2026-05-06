@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/uuid.h"
+#include "loom/renderer/font_asset.h"
 #include "loom/renderer/texture.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
@@ -164,6 +165,20 @@ namespace Loom {
 
         AnimationComponent()                          = default;
         AnimationComponent(const AnimationComponent&) = default;
+    };
+
+    struct TextComponent {
+        // Path relative to asset directory (serialized); Font is the live runtime handle.
+        std::string                 FontPath;
+        std::shared_ptr<FontAsset>  Font;        // runtime cache — not serialized
+        std::string                 Text        = "Text";
+        glm::vec4                   Color       = { 1.0f, 1.0f, 1.0f, 1.0f };
+        float                       FontSize    = 1.0f;
+        float                       Kerning     = 0.0f;
+        float                       LineSpacing = 0.0f;
+
+        TextComponent()                     = default;
+        TextComponent(const TextComponent&) = default;
     };
 
     struct AudioSourceComponent {

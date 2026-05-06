@@ -18,4 +18,12 @@ namespace Loom {
         }
     }
 
+    std::shared_ptr<Texture2D> Texture2D::Create(uint32_t width, uint32_t height,
+                                                   const TextureSpecification& spec) {
+        switch (RendererAPI::GetAPI()) {
+            case RendererAPI::API::OpenGL:  return std::make_shared<OpenGLTexture2D>(width, height, spec);
+            default: return nullptr;
+        }
+    }
+
 } // namespace Loom

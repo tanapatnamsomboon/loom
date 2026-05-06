@@ -2,6 +2,7 @@
 
 #include "loom/renderer/camera.h"
 #include "loom/renderer/editor_camera.h"
+#include "loom/renderer/font_asset.h"
 #include "loom/renderer/orthographic_camera.h"
 #include "loom/renderer/subtexture_2d.h"
 #include "loom/renderer/texture.h"
@@ -43,6 +44,10 @@ namespace Loom {
         static void DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness = 1.0f, float fade = 0.005f, int entity_id = -1);
 
         static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entity_id = -1);
+
+        static void DrawText(const std::string& text, const std::shared_ptr<FontAsset>& font,
+                             const glm::mat4& transform, const glm::vec4& color,
+                             float kerning = 0.0f, int entity_id = -1);
 
     private:
         static void NextBatch();

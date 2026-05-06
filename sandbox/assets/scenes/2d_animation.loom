@@ -1,8 +1,8 @@
 Scene: 2d_animation
 EditorCamera:
-  Position: [-2.2423444, 1.5616583, 5.912926]
-  Pitch: 0.26100013
-  Yaw: 0.22499998
+  Position: [0.100831136, 2.4340732, 8.02323]
+  Pitch: 0.19200009
+  Yaw: -0.093000166
 Entities:
   - Entity: 647933478549646723
     TagComponent:
@@ -87,6 +87,22 @@ Entities:
       Restitution: 0
       RestitutionThreshold: 0.5
       IsSensor: false
+  - Entity: 12506160264741729473
+    TagComponent:
+      Tag: Text
+    TransformComponent:
+      Translation: [1, 1.4, 0.1]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    LuaScriptComponent:
+      ScriptPath: scripts/time.lua
+    TextComponent:
+      FontPath: C:/Users/phukao/Work/loom/resources/fonts/noto_sans_thai/noto_sans_thai_regular.ttf
+      Text: "Time: 0"
+      Color: [1, 1, 1, 1]
+      FontSize: 0.3
+      Kerning: 0
+      LineSpacing: 0
   - Entity: 14772537176877521806
     TagComponent:
       Tag: GameManager

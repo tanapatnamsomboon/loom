@@ -80,6 +80,22 @@ namespace Loom {
         glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
+    OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height, const TextureSpecification& spec)
+        : mWidth(width), mHeight(height), mSpec(spec) {
+        mInternalFormat = GL_RGBA8;
+        mDataFormat     = GL_RGBA;
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
+        glTextureStorage2D(mRendererID, 1, mInternalFormat, mWidth, mHeight);
+
+        GLenum filter = (spec.Filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
+        GLenum wrap   = (spec.Wrap == WrapMode::Clamp) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER, filter);
+        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, filter);
+        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_S, wrap);
+        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_T, wrap);
+    }
+
     OpenGLTexture2D::~OpenGLTexture2D() {
         glDeleteTextures(1, &mRendererID);
     }

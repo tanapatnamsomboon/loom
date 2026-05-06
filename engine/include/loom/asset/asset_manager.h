@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/core.h"
+#include "loom/renderer/font_asset.h"
 #include "loom/renderer/shader.h"
 #include "loom/renderer/texture.h"
 #include <memory>
@@ -13,7 +14,8 @@ namespace Loom {
     public:
         static std::shared_ptr<Texture2D> GetTexture(const std::string& path,
                                                       const TextureSpecification& spec = {});
-        static std::shared_ptr<Shader> GetShader(const std::string& path);
+        static std::shared_ptr<Shader>    GetShader(const std::string& path);
+        static std::shared_ptr<FontAsset> GetFont(const std::string& path);
 
         static void Trim();
         static void Clear();
@@ -27,5 +29,6 @@ namespace Loom {
 
         static std::unordered_map<std::string, std::weak_ptr<Texture2D>> sTextureCache;
         static std::unordered_map<std::string, std::weak_ptr<Shader>>    sShaderCache;
+        static std::unordered_map<std::string, std::weak_ptr<FontAsset>> sFontCache;
     };
 } // namespace Loom

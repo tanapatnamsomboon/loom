@@ -19,6 +19,7 @@ set(ENGINE_SOURCES
 
   src/renderer/buffer.cpp
   src/renderer/editor_camera.cpp
+  src/renderer/font_asset.cpp
   src/renderer/framebuffer.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp

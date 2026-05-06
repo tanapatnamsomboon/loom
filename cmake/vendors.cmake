@@ -32,7 +32,7 @@ add_subdirectory(vendor/glm)
 # -----------------------------------------------------------------------------
 # stb
 # -----------------------------------------------------------------------------
-add_library(stb STATIC vendor/stb/stb_image.cpp)
+add_library(stb STATIC vendor/stb/stb_image.cpp vendor/stb/stb_truetype.cpp)
 target_include_directories(stb PUBLIC vendor/stb)
 
 # -----------------------------------------------------------------------------

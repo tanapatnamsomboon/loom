@@ -87,6 +87,18 @@ namespace {
             AudioEngine::SetPitch(handle.GetComponent<AudioSourceComponent>(), p);
         }
 
+        // --- Text API ---
+
+        std::string GetText() {
+            if (!handle.HasComponent<TextComponent>()) return {};
+            return handle.GetComponent<TextComponent>().Text;
+        }
+
+        void SetText(const std::string& text) {
+            if (!handle.HasComponent<TextComponent>()) return;
+            handle.GetComponent<TextComponent>().Text = text;
+        }
+
         // --- Physics API ---
 
         void SetLinearVelocity(glm::vec2 v) {
@@ -191,6 +203,9 @@ namespace {
             "IsAudioPlaying",     &LuaEntityWrapper::IsAudioPlaying,
             "SetVolume",          &LuaEntityWrapper::SetVolume,
             "SetPitch",           &LuaEntityWrapper::SetPitch,
+            // Text
+            "GetText",            &LuaEntityWrapper::GetText,
+            "SetText",            &LuaEntityWrapper::SetText,
             // Physics
             "SetLinearVelocity",  &LuaEntityWrapper::SetLinearVelocity,
             "GetLinearVelocity",  &LuaEntityWrapper::GetLinearVelocity,

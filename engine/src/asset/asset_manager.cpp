@@ -8,6 +8,7 @@ namespace Loom {
     std::mutex AssetManager::sMutex;
     std::unordered_map<std::string, std::weak_ptr<Texture2D>> AssetManager::sTextureCache;
     std::unordered_map<std::string, std::weak_ptr<Shader>>    AssetManager::sShaderCache;
+    std::unordered_map<std::string, std::weak_ptr<FontAsset>> AssetManager::sFontCache;
 
     // Lazily constructed; lives for the lifetime of the process.
     static FileWatcher& GetWatcher() {
@@ -54,15 +55,33 @@ namespace Loom {
         return asset;
     }
 
+    std::shared_ptr<FontAsset> AssetManager::GetFont(const std::string& path) {
+        std::lock_guard<std::mutex> lock(sMutex);
+
+        auto it = sFontCache.find(path);
+        if (it != sFontCache.end()) {
+            if (auto asset = it->second.lock())
+                return asset;
+        }
+
+        LOOM_CORE_TRACE("AssetManager: loading font '{}'", path);
+        auto asset = FontAsset::Create(path);
+        if (asset)
+            sFontCache[path] = asset;
+        return asset;
+    }
+
     void AssetManager::Trim() {
         std::lock_guard<std::mutex> lock(sMutex);
 
         for (auto it = sTextureCache.begin(); it != sTextureCache.end(); ) {
             it = it->second.expired() ? sTextureCache.erase(it) : ++it;
         }
-
         for (auto it = sShaderCache.begin(); it != sShaderCache.end(); ) {
             it = it->second.expired() ? sShaderCache.erase(it) : ++it;
+        }
+        for (auto it = sFontCache.begin(); it != sFontCache.end(); ) {
+            it = it->second.expired() ? sFontCache.erase(it) : ++it;
         }
     }
 
@@ -70,6 +89,7 @@ namespace Loom {
         std::lock_guard<std::mutex> lock(sMutex);
         sTextureCache.clear();
         sShaderCache.clear();
+        sFontCache.clear();
     }
 
     void AssetManager::ReloadChanged() {

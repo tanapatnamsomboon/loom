@@ -66,6 +66,7 @@ namespace Loom {
         }
 
         CopyComponent<LuaScriptComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<TextComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<AudioSourceComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
@@ -242,6 +243,19 @@ namespace Loom {
             auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
             glm::mat4 world = GetWorldTransform({ entity, this });
             DrawSprite(mRegistry, entity, world, sprite);
+        }
+
+        auto text_view = mRegistry.view<TransformComponent, TextComponent>();
+        for (auto entity : text_view) {
+            auto& text_comp = text_view.get<TextComponent>(entity);
+            if (text_comp.FontPath.empty() || text_comp.Text.empty()) continue;
+            std::string abs_path = Project::GetAssetFileSystemPath(text_comp.FontPath).generic_string();
+            if (!text_comp.Font || text_comp.Font->GetPath() != abs_path)
+                text_comp.Font = AssetManager::GetFont(abs_path);
+            if (!text_comp.Font) continue;
+            glm::mat4 world = GetWorldTransform({ entity, this })
+                              * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
+            Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color, text_comp.Kerning, (int)entt::to_entity(entity));
         }
 
         auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
@@ -466,6 +480,19 @@ namespace Loom {
                 auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
                 glm::mat4 world = GetWorldTransform({ entity, this });
                 DrawSprite(mRegistry, entity, world, sprite);
+            }
+
+            auto text_view = mRegistry.view<TransformComponent, TextComponent>();
+            for (auto entity : text_view) {
+                auto& text_comp = text_view.get<TextComponent>(entity);
+                if (text_comp.FontPath.empty() || text_comp.Text.empty()) continue;
+                std::string abs_path = Project::GetAssetFileSystemPath(text_comp.FontPath).generic_string();
+                if (!text_comp.Font || text_comp.Font->GetPath() != abs_path)
+                    text_comp.Font = AssetManager::GetFont(abs_path);
+                if (!text_comp.Font) continue;
+                glm::mat4 world = GetWorldTransform({ entity, this })
+                                  * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
+                Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color, text_comp.Kerning, (int)entt::to_entity(entity));
             }
 
             RenderPhysicsColliders();

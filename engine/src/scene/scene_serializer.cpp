@@ -279,6 +279,20 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Text Component
+        if (entity.HasComponent<TextComponent>()) {
+            out << YAML::Key << "TextComponent";
+            out << YAML::BeginMap;
+            auto& tc = entity.GetComponent<TextComponent>();
+            out << YAML::Key << "FontPath"    << YAML::Value << ToRelativeAssetPath(tc.FontPath);
+            out << YAML::Key << "Text"        << YAML::Value << tc.Text;
+            out << YAML::Key << "Color"       << YAML::Value << tc.Color;
+            out << YAML::Key << "FontSize"    << YAML::Value << tc.FontSize;
+            out << YAML::Key << "Kerning"     << YAML::Value << tc.Kerning;
+            out << YAML::Key << "LineSpacing" << YAML::Value << tc.LineSpacing;
+            out << YAML::EndMap;
+        }
+
         // Relationship Component — only serialize the parent UUID; children are implied
         if (entity.HasComponent<RelationshipComponent>()) {
             Entity parent = entity.GetParent();
@@ -514,6 +528,17 @@ namespace Loom {
                 asc.Pan       = YAML_GET(asc_node["Pan"],       float,       0.0f);
                 asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
                 asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
+            }
+
+            // Text Component
+            if (auto tc_node = entity_node["TextComponent"]) {
+                auto& tc      = entity.AddComponent<TextComponent>();
+                tc.FontPath    = YAML_GET(tc_node["FontPath"],    std::string, "");
+                tc.Text        = YAML_GET(tc_node["Text"],        std::string, "Text");
+                tc.Color       = YAML_GET(tc_node["Color"],       glm::vec4,   glm::vec4(1.0f));
+                tc.FontSize    = YAML_GET(tc_node["FontSize"],    float,       1.0f);
+                tc.Kerning     = YAML_GET(tc_node["Kerning"],     float,       0.0f);
+                tc.LineSpacing = YAML_GET(tc_node["LineSpacing"], float,       0.0f);
             }
         }
 
