@@ -6,12 +6,22 @@
 #include <loom/scene/script_registry.h>
 #include <nfd.hpp>
 #include <imgui.h>
+#include <GLFW/glfw3.h>
+#include <loom/core/application.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <loom/project/project.h>
 #include <loom/scripting/scripting_engine.h>
+#include <algorithm>
 #include <filesystem>
 
 namespace Weaver {
+
+    static void NfdRestoreFocus() {
+        auto* w = (GLFWwindow*)Loom::Application::Get().GetWindow().GetNativeWindow();
+        glfwFocusWindow(w);
+        ImGui::GetIO().ClearInputMouse();
+    }
+
     SceneHierarchyPanel::SceneHierarchyPanel(const std::shared_ptr<Loom::Scene>& context) {
         SetContext(context);
     }
@@ -255,6 +265,7 @@ namespace Weaver {
             push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
             push_add.template operator()<Loom::TextComponent>("Text");
+            push_add.template operator()<Loom::TilemapComponent>("Tilemap");
             ImGui::EndPopup();
         }
 
@@ -649,7 +660,7 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+                    NfdRestoreFocus();
                 }
 
                 // Status + actions row
@@ -947,7 +958,7 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+                    NfdRestoreFocus();
                 }
 
                 is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
@@ -1008,7 +1019,7 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+                    NfdRestoreFocus();
                 }
 
                 // Text content (multiline)
@@ -1031,6 +1042,177 @@ namespace Weaver {
 
             if (remove_component) push_remove.template operator()<Loom::TextComponent>("Text");
         }
+
+        if (entity.HasComponent<Loom::TilemapComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::TilemapComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Tilemap");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& tm      = entity.GetComponent<Loom::TilemapComponent>();
+                bool is_modified = false;
+
+                // Ensure Tiles is always correctly sized (guards freshly-added components)
+                int expected = tm.Columns * tm.Rows;
+                if ((int)tm.Tiles.size() != expected) {
+                    tm.Tiles.resize(expected, -1);
+                    is_modified = true;
+                }
+
+                // Spritesheet path row
+                char ss_buffer[512] = {};
+                strncpy(ss_buffer, tm.SpritesheetPath.c_str(), sizeof(ss_buffer) - 1);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Spritesheet");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                if (ImGui::InputText("##TMSSPath", ss_buffer, sizeof(ss_buffer))) {
+                    tm.SpritesheetPath = ss_buffer;
+                    tm.Spritesheet     = nullptr;
+                    is_modified        = true;
+                }
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                        std::filesystem::path picked = std::filesystem::path((const char*)payload->Data);
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        tm.SpritesheetPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                                           ? rel.generic_string() : picked.generic_string();
+                        tm.Spritesheet = nullptr;
+                        is_modified    = true;
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("...##TMSSBrowse", { browse_w, 0.0f })) {
+                    constexpr nfdfilteritem_t filters[] = {
+                        { "Images",    "png,jpg,jpeg,bmp,tga" },
+                        { "All Files", "*"                    },
+                    };
+                    NFD::Guard      guard;
+                    NFD::UniquePath out_path;
+
+                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
+                        std::filesystem::path picked(out_path.get());
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        tm.SpritesheetPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                                           ? rel.generic_string() : picked.generic_string();
+                        tm.Spritesheet = nullptr;
+                        is_modified    = true;
+                    }
+                    NfdRestoreFocus();
+                }
+
+                // Grid dimensions
+                int grid[2] = { tm.Columns, tm.Rows };
+                if (ImGui::DragInt2("Grid (W x H)", grid, 1, 1, 256)) {
+                    tm.Columns = std::max(1, grid[0]);
+                    tm.Rows    = std::max(1, grid[1]);
+                    tm.Tiles.resize(tm.Columns * tm.Rows, -1);
+                    is_modified = true;
+                }
+
+                // Tile size
+                float tile_sz[2] = { tm.TileWidth, tm.TileHeight };
+                if (ImGui::DragFloat2("Tile Size", tile_sz, 0.05f, 0.01f, 64.0f, "%.2f")) {
+                    tm.TileWidth  = std::max(0.01f, tile_sz[0]);
+                    tm.TileHeight = std::max(0.01f, tile_sz[1]);
+                    is_modified   = true;
+                }
+
+                // Spritesheet layout
+                int sheet[2] = { tm.SheetColumns, tm.SheetRows };
+                if (ImGui::DragInt2("Sheet (cols x rows)", sheet, 1, 1, 64)) {
+                    tm.SheetColumns = std::max(1, sheet[0]);
+                    tm.SheetRows    = std::max(1, sheet[1]);
+                    is_modified     = true;
+                }
+
+                // Tile painter
+                if (ImGui::CollapsingHeader("Tile Painter", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    static int s_paint_index = 0;
+                    int total_sheet_tiles = tm.SheetColumns * tm.SheetRows;
+
+                    ImGui::Text("Paint tile: %d", s_paint_index);
+                    ImGui::SameLine();
+                    if (ImGui::ArrowButton("##TMPrev", ImGuiDir_Left))
+                        s_paint_index = (s_paint_index - 1 + total_sheet_tiles) % total_sheet_tiles;
+                    ImGui::SameLine();
+                    if (ImGui::ArrowButton("##TMNext", ImGuiDir_Right))
+                        s_paint_index = (s_paint_index + 1) % total_sheet_tiles;
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Erase")) s_paint_index = -1;
+
+                    constexpr float cell_sz  = 20.0f;
+                    float canvas_w  = (float)tm.Columns * cell_sz;
+                    float canvas_h  = (float)tm.Rows    * cell_sz;
+                    float avail_w   = ImGui::GetContentRegionAvail().x;
+                    float scroll_h  = (canvas_w > avail_w) ? ImGui::GetStyle().ScrollbarSize : 0.0f;
+                    float child_h   = std::min(canvas_h, 200.0f) + scroll_h;
+                    ImGui::BeginChild("##TileGrid", { 0.0f, child_h },
+                                      false, ImGuiWindowFlags_HorizontalScrollbar);
+
+                    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                    ImVec2      origin    = ImGui::GetCursorScreenPos();
+                    ImGui::InvisibleButton("##GridCanvas", { canvas_w, canvas_h });
+
+                    bool   grid_hovered = ImGui::IsItemHovered();
+                    ImVec2 mouse_pos    = ImGui::GetMousePos();
+
+                    for (int row = 0; row < tm.Rows; ++row) {
+                        for (int col = 0; col < tm.Columns; ++col) {
+                            int    idx      = tm.Tiles[row * tm.Columns + col];
+                            ImVec2 cell_min = { origin.x + col * cell_sz, origin.y + row * cell_sz };
+                            ImVec2 cell_max = { cell_min.x + cell_sz,     cell_min.y + cell_sz };
+
+                            ImU32 bg = (idx < 0) ? IM_COL32(40, 40, 40, 255)
+                                                 : IM_COL32(60, 120, 200, 255);
+                            draw_list->AddRectFilled(cell_min, cell_max, bg);
+                            draw_list->AddRect(cell_min, cell_max, IM_COL32(100, 100, 100, 200));
+
+                            if (idx >= 0) {
+                                char label[8];
+                                snprintf(label, sizeof(label), "%d", idx);
+                                draw_list->AddText({ cell_min.x + 2.0f, cell_min.y + 3.0f },
+                                                   IM_COL32(255, 255, 255, 255), label);
+                            }
+
+                            if (grid_hovered && ImGui::IsMouseDown(0)) {
+                                if (mouse_pos.x >= cell_min.x && mouse_pos.x < cell_max.x &&
+                                    mouse_pos.y >= cell_min.y && mouse_pos.y < cell_max.y) {
+                                    int& tile = tm.Tiles[row * tm.Columns + col];
+                                    if (tile != s_paint_index) {
+                                        tile        = s_paint_index;
+                                        is_modified = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ImGui::EndChild();
+
+                    if (ImGui::Button("Clear All##TilemapClear")) {
+                        std::fill(tm.Tiles.begin(), tm.Tiles.end(), -1);
+                        is_modified = true;
+                    }
+                }
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::TilemapComponent>("Tilemap");
+        }
     }
 
     std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture(const Loom::TextureSpecification& spec) {
@@ -1042,7 +1224,7 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-        for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             return Loom::AssetManager::GetTexture(out_path.get(), spec);

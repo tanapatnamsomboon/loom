@@ -7,9 +7,16 @@
 #include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
 #include <nfd.hpp>
+#include <GLFW/glfw3.h>
 #include <filesystem>
 
 namespace Weaver {
+
+    static void NfdRestoreFocus() {
+        auto* w = (GLFWwindow*)Loom::Application::Get().GetWindow().GetNativeWindow();
+        glfwFocusWindow(w);
+        NfdRestoreFocus();
+    }
 
     SceneManager::SceneManager(EditorContext& ctx)
         : mContext(ctx) {}
@@ -49,6 +56,7 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
+        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             OpenScene(out_path.get());
@@ -112,6 +120,7 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::SaveDialog(out_path, filters, 2, nullptr, "scene.loom");
+        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             std::filesystem::path path = out_path.get();

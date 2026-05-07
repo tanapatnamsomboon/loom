@@ -8,6 +8,7 @@
 #include "loom/renderer/texture.h"
 
 #include <memory>
+#include <vector>
 
 namespace Loom {
 
@@ -48,6 +49,14 @@ namespace Loom {
         static void DrawText(const std::string& text, const std::shared_ptr<FontAsset>& font,
                              const glm::mat4& transform, const glm::vec4& color,
                              float kerning = 0.0f, int entity_id = -1);
+
+        static void DrawTilemap(const std::shared_ptr<Texture2D>& spritesheet,
+                                const glm::mat4& transform,
+                                int columns, int rows,
+                                float tile_width, float tile_height,
+                                int sheet_columns, int sheet_rows,
+                                const std::vector<int>& tiles,
+                                int entity_id = -1);
 
     private:
         static void NextBatch();

@@ -66,6 +66,7 @@ namespace Loom {
         }
 
         CopyComponent<LuaScriptComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<TilemapComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<TextComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<AudioSourceComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
@@ -232,17 +233,39 @@ namespace Loom {
             Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(e));
     }
 
+    static void DrawTilemapEntity(Scene* scene, entt::registry& registry, entt::entity e, TilemapComponent& tc) {
+        if (tc.SpritesheetPath.empty() || tc.Tiles.empty()) return;
+        std::string abs_path = Project::GetAssetFileSystemPath(tc.SpritesheetPath).generic_string();
+        if (!tc.Spritesheet || tc.Spritesheet->GetPath() != abs_path)
+            tc.Spritesheet = AssetManager::GetTexture(abs_path);
+        if (!tc.Spritesheet) return;
+        glm::mat4 world = scene->GetWorldTransform({ e, scene });
+        Renderer2D::DrawTilemap(tc.Spritesheet, world,
+            tc.Columns, tc.Rows, tc.TileWidth, tc.TileHeight,
+            tc.SheetColumns, tc.SheetRows, tc.Tiles, (int)entt::to_entity(e));
+    }
+
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
         Renderer2D::BeginScene(camera);
 
-        auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
-        group.sort<TransformComponent>([](const auto& lhs, const auto& rhs) {
-            return lhs.Translation.z < rhs.Translation.z;
-        });
-        for (auto entity : group) {
-            auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-            glm::mat4 world = GetWorldTransform({ entity, this });
-            DrawSprite(mRegistry, entity, world, sprite);
+        struct DrawCmd { float z; entt::entity e; bool tilemap; };
+        std::vector<DrawCmd> draw_list;
+
+        for (auto e : mRegistry.view<TransformComponent, SpriteRendererComponent>())
+            draw_list.push_back({ mRegistry.get<TransformComponent>(e).Translation.z, e, false });
+        for (auto e : mRegistry.view<TilemapComponent, TransformComponent>())
+            draw_list.push_back({ mRegistry.get<TransformComponent>(e).Translation.z, e, true });
+
+        std::sort(draw_list.begin(), draw_list.end(),
+            [](const DrawCmd& a, const DrawCmd& b) { return a.z < b.z; });
+
+        for (auto& cmd : draw_list) {
+            if (cmd.tilemap) {
+                DrawTilemapEntity(this, mRegistry, cmd.e, mRegistry.get<TilemapComponent>(cmd.e));
+            } else {
+                glm::mat4 world = GetWorldTransform({ cmd.e, this });
+                DrawSprite(mRegistry, cmd.e, world, mRegistry.get<SpriteRendererComponent>(cmd.e));
+            }
         }
 
         auto text_view = mRegistry.view<TransformComponent, TextComponent>();
@@ -472,14 +495,24 @@ namespace Loom {
         if (main_camera) {
             Renderer2D::BeginScene(*main_camera, camera_transform);
 
-            auto group = mRegistry.group<TransformComponent>(entt::get<SpriteRendererComponent>);
-            group.sort<TransformComponent>([](const auto& lhs, const auto& rhs) {
-                return lhs.Translation.z < rhs.Translation.z;
-            });
-            for (auto entity : group) {
-                auto [transform, sprite] = group.get<TransformComponent, SpriteRendererComponent>(entity);
-                glm::mat4 world = GetWorldTransform({ entity, this });
-                DrawSprite(mRegistry, entity, world, sprite);
+            struct DrawCmd { float z; entt::entity e; bool tilemap; };
+            std::vector<DrawCmd> draw_list;
+
+            for (auto e : mRegistry.view<TransformComponent, SpriteRendererComponent>())
+                draw_list.push_back({ mRegistry.get<TransformComponent>(e).Translation.z, e, false });
+            for (auto e : mRegistry.view<TilemapComponent, TransformComponent>())
+                draw_list.push_back({ mRegistry.get<TransformComponent>(e).Translation.z, e, true });
+
+            std::sort(draw_list.begin(), draw_list.end(),
+                [](const DrawCmd& a, const DrawCmd& b) { return a.z < b.z; });
+
+            for (auto& cmd : draw_list) {
+                if (cmd.tilemap) {
+                    DrawTilemapEntity(this, mRegistry, cmd.e, mRegistry.get<TilemapComponent>(cmd.e));
+                } else {
+                    glm::mat4 world = GetWorldTransform({ cmd.e, this });
+                    DrawSprite(mRegistry, cmd.e, world, mRegistry.get<SpriteRendererComponent>(cmd.e));
+                }
             }
 
             auto text_view = mRegistry.view<TransformComponent, TextComponent>();

@@ -514,6 +514,48 @@ namespace Loom {
         }
     }
 
+    void Renderer2D::DrawTilemap(const std::shared_ptr<Texture2D>& spritesheet,
+                                 const glm::mat4& transform,
+                                 int columns, int rows,
+                                 float tile_width, float tile_height,
+                                 int sheet_columns, int sheet_rows,
+                                 const std::vector<int>& tiles,
+                                 int entity_id) {
+        if (!spritesheet || columns <= 0 || rows <= 0 || sheet_columns <= 0 || sheet_rows <= 0) return;
+        if ((int)tiles.size() != columns * rows) return;
+
+        const float inv_sc = 1.0f / (float)sheet_columns;
+        const float inv_sr = 1.0f / (float)sheet_rows;
+
+        for (int row = 0; row < rows; ++row) {
+            for (int col = 0; col < columns; ++col) {
+                int tile_idx = tiles[row * columns + col];
+                if (tile_idx < 0) continue;
+
+                float x_c = (col + 0.5f - columns * 0.5f) * tile_width;
+                float y_c = (rows * 0.5f - row - 0.5f) * tile_height;
+
+                int sheet_col = tile_idx % sheet_columns;
+                int sheet_row = tile_idx / sheet_columns;
+
+                float u0 = (float)sheet_col * inv_sc;
+                float u1 = (float)(sheet_col + 1) * inv_sc;
+                float v0 = 1.0f - (float)(sheet_row + 1) * inv_sr; // GL bottom
+                float v1 = 1.0f - (float)sheet_row * inv_sr;        // GL top
+
+                const glm::vec2 tex_coords[4] = {
+                    { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 }
+                };
+
+                glm::mat4 tile_transform = transform
+                    * glm::translate(glm::mat4(1.0f), { x_c, y_c, 0.0f })
+                    * glm::scale(glm::mat4(1.0f), { tile_width, tile_height, 1.0f });
+
+                DrawQuad(tile_transform, spritesheet, tex_coords, glm::vec4(1.0f), entity_id);
+            }
+        }
+    }
+
     void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size, float rotation, const glm::vec4& color) {
         DrawRotatedQuad({ position.x, position.y, 0.0f }, size, rotation, color);
     }

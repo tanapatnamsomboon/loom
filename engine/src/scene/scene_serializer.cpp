@@ -293,6 +293,24 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Tilemap Component
+        if (entity.HasComponent<TilemapComponent>()) {
+            out << YAML::Key << "TilemapComponent";
+            out << YAML::BeginMap;
+            auto& tm = entity.GetComponent<TilemapComponent>();
+            out << YAML::Key << "SpritesheetPath" << YAML::Value << ToRelativeAssetPath(tm.SpritesheetPath);
+            out << YAML::Key << "Columns"         << YAML::Value << tm.Columns;
+            out << YAML::Key << "Rows"            << YAML::Value << tm.Rows;
+            out << YAML::Key << "TileWidth"       << YAML::Value << tm.TileWidth;
+            out << YAML::Key << "TileHeight"      << YAML::Value << tm.TileHeight;
+            out << YAML::Key << "SheetColumns"    << YAML::Value << tm.SheetColumns;
+            out << YAML::Key << "SheetRows"       << YAML::Value << tm.SheetRows;
+            out << YAML::Key << "Tiles" << YAML::Value << YAML::Flow << YAML::BeginSeq;
+            for (int t : tm.Tiles) out << t;
+            out << YAML::EndSeq;
+            out << YAML::EndMap;
+        }
+
         // Relationship Component — only serialize the parent UUID; children are implied
         if (entity.HasComponent<RelationshipComponent>()) {
             Entity parent = entity.GetParent();
@@ -540,6 +558,24 @@ namespace Loom {
                 tc.Kerning     = YAML_GET(tc_node["Kerning"],     float,       0.0f);
                 tc.LineSpacing = YAML_GET(tc_node["LineSpacing"], float,       0.0f);
             }
+
+            // Tilemap Component
+            if (auto tm_node = entity_node["TilemapComponent"]) {
+                auto& tm        = entity.AddComponent<TilemapComponent>();
+                tm.SpritesheetPath = YAML_GET(tm_node["SpritesheetPath"], std::string, "");
+                tm.Columns      = YAML_GET(tm_node["Columns"],      int,   10);
+                tm.Rows         = YAML_GET(tm_node["Rows"],         int,   10);
+                tm.TileWidth    = YAML_GET(tm_node["TileWidth"],    float, 1.0f);
+                tm.TileHeight   = YAML_GET(tm_node["TileHeight"],   float, 1.0f);
+                tm.SheetColumns = YAML_GET(tm_node["SheetColumns"], int,   4);
+                tm.SheetRows    = YAML_GET(tm_node["SheetRows"],    int,   4);
+                if (auto tiles_node = tm_node["Tiles"]) {
+                    tm.Tiles.reserve(tiles_node.size());
+                    for (auto t : tiles_node)
+                        tm.Tiles.push_back(t.as<int>());
+                }
+                tm.Tiles.resize(tm.Columns * tm.Rows, -1);
+            }
         }
 
         // Second pass: wire up parent-child relationships
@@ -709,6 +745,23 @@ namespace Loom {
             asc.Pan       = YAML_GET(asc_node["Pan"],       float,       0.0f);
             asc.Loop      = YAML_GET(asc_node["Loop"],      bool,        false);
             asc.AutoPlay  = YAML_GET(asc_node["AutoPlay"],  bool,        false);
+        }
+
+        if (auto tm_node = data["TilemapComponent"]) {
+            auto& tm        = entity.AddComponent<TilemapComponent>();
+            tm.SpritesheetPath = YAML_GET(tm_node["SpritesheetPath"], std::string, "");
+            tm.Columns      = YAML_GET(tm_node["Columns"],      int,   10);
+            tm.Rows         = YAML_GET(tm_node["Rows"],         int,   10);
+            tm.TileWidth    = YAML_GET(tm_node["TileWidth"],    float, 1.0f);
+            tm.TileHeight   = YAML_GET(tm_node["TileHeight"],   float, 1.0f);
+            tm.SheetColumns = YAML_GET(tm_node["SheetColumns"], int,   4);
+            tm.SheetRows    = YAML_GET(tm_node["SheetRows"],    int,   4);
+            if (auto tiles_node = tm_node["Tiles"]) {
+                tm.Tiles.reserve(tiles_node.size());
+                for (auto t : tiles_node)
+                    tm.Tiles.push_back(t.as<int>());
+            }
+            tm.Tiles.resize(tm.Columns * tm.Rows, -1);
         }
 
         return entity;

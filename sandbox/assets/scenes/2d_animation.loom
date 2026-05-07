@@ -1,8 +1,8 @@
 Scene: 2d_animation
 EditorCamera:
-  Position: [0.100831136, 2.4340732, 8.02323]
-  Pitch: 0.19200009
-  Yaw: -0.093000166
+  Position: [-1.0787995, 0.6741764, 11.170368]
+  Pitch: 0.024000091
+  Yaw: 0.05099518
 Entities:
   - Entity: 647933478549646723
     TagComponent:
@@ -66,16 +66,9 @@ Entities:
     TagComponent:
       Tag: Platform
     TransformComponent:
-      Translation: [-9.313226e-10, -0.3, -2.3283064e-10]
+      Translation: [0, -0.3, 0]
       Rotation: [0, 0, 0]
-      Scale: [4, 0.4, 1]
-    SpriteRendererComponent:
-      Color: [0.44224423, 0.18390355, 0, 1]
-      Texture: ""
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
+      Scale: [0.5, 0.5, 1]
     Rigidbody2DComponent:
       BodyType: 0
       FixedRotation: false
@@ -87,6 +80,15 @@ Entities:
       Restitution: 0
       RestitutionThreshold: 0.5
       IsSensor: false
+    TilemapComponent:
+      SpritesheetPath: textures/floor_tile1.png
+      Columns: 10
+      Rows: 1
+      TileWidth: 1
+      TileHeight: 1
+      SheetColumns: 9
+      SheetRows: 18
+      Tiles: [0, 1, 1, 1, 1, 1, 1, 1, 1, 2]
   - Entity: 12506160264741729473
     TagComponent:
       Tag: Text
@@ -142,7 +144,7 @@ Entities:
     TagComponent:
       Tag: Sprite
     TransformComponent:
-      Translation: [0, 0.3, 0.1]
+      Translation: [0, 0.3, 2]
       Rotation: [0, 0, 0]
       Scale: [0.8, 0.64, 1]
     SpriteRendererComponent:

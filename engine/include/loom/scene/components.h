@@ -181,6 +181,25 @@ namespace Loom {
         TextComponent(const TextComponent&) = default;
     };
 
+    struct TilemapComponent {
+        // Spritesheet path relative to asset directory
+        std::string               SpritesheetPath;
+        std::shared_ptr<Texture2D> Spritesheet;   // runtime handle — not serialized
+
+        int   Columns      = 10;   // map grid width in tiles
+        int   Rows         = 10;   // map grid height in tiles
+        float TileWidth    = 1.0f; // world-space tile width
+        float TileHeight   = 1.0f; // world-space tile height
+        int   SheetColumns = 4;    // spritesheet tile columns
+        int   SheetRows    = 4;    // spritesheet tile rows
+
+        // Flat row-major array; -1 = empty, >= 0 = 0-based sheet tile index
+        std::vector<int> Tiles; // size = Columns * Rows
+
+        TilemapComponent()                        = default;
+        TilemapComponent(const TilemapComponent&) = default;
+    };
+
     struct AudioSourceComponent {
         std::string AssetPath;
         float Volume   = 1.0f;
