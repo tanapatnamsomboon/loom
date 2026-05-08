@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editor_context.h"
+#include <functional>
 #include <string>
 
 namespace Weaver {
@@ -12,8 +13,8 @@ namespace Weaver {
         void NewScene();
         void OpenScene();
         void OpenScene(const std::string& filepath);
-        void SaveScene();
-        void SaveSceneAs();
+        void SaveScene  (std::function<void()> on_complete = nullptr);
+        void SaveSceneAs(std::function<void()> on_complete = nullptr);
         void RequestQuit();
 
         void OnScenePlay();

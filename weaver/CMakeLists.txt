@@ -12,10 +12,11 @@ add_executable(Weaver
   src/editor/scene_manager.cpp
   src/editor/project_manager.cpp
   src/editor/editor_prefs.cpp
+  src/editor/file_dialog.cpp
   src/scripts/player_controller.cpp
 )
 
-target_link_libraries(Weaver PRIVATE Loom nfd)
+target_link_libraries(Weaver PRIVATE Loom imguifiledialog)
 
 target_include_directories(Weaver PRIVATE src)
 

@@ -77,9 +77,15 @@ target_include_directories(imguizmo PUBLIC ${IMGUIZMO_DIR})
 target_link_libraries(imguizmo PRIVATE imgui)
 
 # -----------------------------------------------------------------------------
-# nativefiledialog-extended
+# ImGuiFileDialog
 # -----------------------------------------------------------------------------
-add_subdirectory(vendor/nativefiledialog-extended)
+set(IMGUIFILEDIALOG_DIR ${CMAKE_SOURCE_DIR}/vendor/imguifiledialog)
+
+add_library(imguifiledialog STATIC
+    ${IMGUIFILEDIALOG_DIR}/ImGuiFileDialog.cpp
+)
+target_include_directories(imguifiledialog PUBLIC ${IMGUIFILEDIALOG_DIR})
+target_link_libraries(imguifiledialog PUBLIC imgui)
 
 # -----------------------------------------------------------------------------
 # Box2D

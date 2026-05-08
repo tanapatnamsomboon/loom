@@ -32,8 +32,6 @@ namespace Weaver {
         void DrawEntityNode(Loom::Entity entity);
         void DrawComponents(Loom::Entity entity);
 
-        std::shared_ptr<Loom::Texture2D> LoadTexture(const Loom::TextureSpecification& spec = {});
-
     private:
         std::shared_ptr<Loom::Scene> mContext;
         Loom::Entity                 mSelectionContext;

@@ -1,12 +1,11 @@
 #include "scene_hierarchy_panel.h"
 #include "editor/commands.h"
+#include "editor/file_dialog.h"
 #include <loom/asset/asset_manager.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_serializer.h>
 #include <loom/scene/script_registry.h>
-#include <nfd.hpp>
 #include <imgui.h>
-#include <GLFW/glfw3.h>
 #include <loom/core/application.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <loom/project/project.h>
@@ -151,16 +150,17 @@ namespace Weaver {
                 }
             }
             if (ImGui::MenuItem("Save as Prefab...")) {
-                constexpr nfdfilteritem_t filters[] = { { "Loom Prefab", "lprefab" } };
-                NFD::Guard      guard;
-                NFD::UniquePath out_path;
-                nfdresult_t result = NFD::SaveDialog(out_path, filters, 1, nullptr, entity.GetComponent<Loom::TagComponent>().Tag.c_str());
-                if (result == NFD_OKAY) {
-                    std::string path = out_path.get();
-                    if (std::filesystem::path(path).extension() != ".lprefab")
-                        path += ".lprefab";
-                    Loom::SceneSerializer(mContext).SerializePrefab(path, entity);
-                }
+                auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                auto scene    = mContext;
+                auto tag      = entity.GetComponent<Loom::TagComponent>().Tag;
+                FileDialog::Save("SaveAsPrefab", "Save as Prefab", ".lprefab", tag + ".lprefab",
+                    [uuid, scene](const std::string& picked) {
+                        std::filesystem::path path = picked;
+                        if (path.extension() != ".lprefab") path += ".lprefab";
+                        Loom::Entity e = scene->GetEntityByUUID(uuid);
+                        if (!e) return;
+                        Loom::SceneSerializer(scene).SerializePrefab(path.string(), e);
+                    });
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Delete Entity"))
@@ -342,11 +342,20 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button(label_text.c_str(), ImVec2(150, 0))) {
-                    auto new_texture = LoadTexture(src.TexSpec);
-                    if (new_texture) {
-                        texture = new_texture;
-                        is_modified = true;
-                    }
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    auto spec     = src.TexSpec;
+                    FileDialog::Open("BrowseSpriteTex", "Choose Texture", ".png,.jpg,.jpeg,.bmp,.tga",
+                        [uuid, scene, modified, spec](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::SpriteRendererComponent>()) return;
+                            auto new_texture = Loom::AssetManager::GetTexture(abs_path, spec);
+                            if (new_texture) {
+                                e.GetComponent<Loom::SpriteRendererComponent>().Texture = new_texture;
+                                if (modified) modified();
+                            }
+                        });
                 }
 
                 if (texture) {
@@ -639,21 +648,16 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("...##LuaScriptBrowse", { browse_w, 0.0f })) {
-                    constexpr nfdfilteritem_t filters[] = {
-                        { "Lua Scripts", "lua" },
-                        { "All Files",   "*"   },
-                    };
-                    NFD::Guard      guard;
-                    NFD::UniquePath out_path;
-                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
-                        std::filesystem::path picked(out_path.get());
-                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
-                        std::error_code       ec;
-                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
-                        ls.ScriptPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
-                            ? rel.generic_string() : picked.generic_string();
-                        is_modified = true;
-                    }
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    FileDialog::Open("BrowseLuaScript", "Choose Lua Script", ".lua",
+                        [uuid, scene, modified](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::LuaScriptComponent>()) return;
+                            e.GetComponent<Loom::LuaScriptComponent>().ScriptPath = FileDialog::MakeAssetRelative(abs_path);
+                            if (modified) modified();
+                        });
                 }
 
                 // Status + actions row
@@ -936,21 +940,16 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("...##AudioBrowse", { browse_w, 0.0f })) {
-                    constexpr nfdfilteritem_t filters[] = {
-                        { "Audio Files", "wav,mp3,ogg,flac" },
-                        { "All Files",   "*"                },
-                    };
-                    NFD::Guard      guard;
-                    NFD::UniquePath out_path;
-                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
-                        std::filesystem::path picked(out_path.get());
-                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
-                        std::error_code       ec;
-                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
-                        asc.AssetPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
-                            ? rel.generic_string() : picked.generic_string();
-                        is_modified = true;
-                    }
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    FileDialog::Open("BrowseAudio", "Choose Audio", ".wav,.mp3,.ogg,.flac",
+                        [uuid, scene, modified](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::AudioSourceComponent>()) return;
+                            e.GetComponent<Loom::AudioSourceComponent>().AssetPath = FileDialog::MakeAssetRelative(abs_path);
+                            if (modified) modified();
+                        });
                 }
 
                 is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
@@ -996,21 +995,16 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("...##FontBrowse", { browse_w, 0.0f })) {
-                    constexpr nfdfilteritem_t filters[] = {
-                        { "TrueType Fonts", "ttf,otf" },
-                        { "All Files",      "*"       },
-                    };
-                    NFD::Guard      guard;
-                    NFD::UniquePath out_path;
-                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
-                        std::filesystem::path picked(out_path.get());
-                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
-                        std::error_code       ec;
-                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
-                        tc.FontPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
-                            ? rel.generic_string() : picked.generic_string();
-                        is_modified = true;
-                    }
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    FileDialog::Open("BrowseFont", "Choose Font", ".ttf,.otf",
+                        [uuid, scene, modified](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::TextComponent>()) return;
+                            e.GetComponent<Loom::TextComponent>().FontPath = FileDialog::MakeAssetRelative(abs_path);
+                            if (modified) modified();
+                        });
                 }
 
                 // Text content (multiline)
@@ -1083,23 +1077,18 @@ namespace Weaver {
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("...##TMSSBrowse", { browse_w, 0.0f })) {
-                    constexpr nfdfilteritem_t filters[] = {
-                        { "Images",    "png,jpg,jpeg,bmp,tga" },
-                        { "All Files", "*"                    },
-                    };
-                    NFD::Guard      guard;
-                    NFD::UniquePath out_path;
-
-                    if (NFD::OpenDialog(out_path, filters, 2) == NFD_OKAY) {
-                        std::filesystem::path picked(out_path.get());
-                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
-                        std::error_code       ec;
-                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
-                        tm.SpritesheetPath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
-                                           ? rel.generic_string() : picked.generic_string();
-                        tm.Spritesheet = nullptr;
-                        is_modified    = true;
-                    }
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    FileDialog::Open("BrowseTilemapSheet", "Choose Spritesheet", ".png,.jpg,.jpeg,.bmp,.tga",
+                        [uuid, scene, modified](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::TilemapComponent>()) return;
+                            auto& t = e.GetComponent<Loom::TilemapComponent>();
+                            t.SpritesheetPath = FileDialog::MakeAssetRelative(abs_path);
+                            t.Spritesheet     = nullptr;
+                            if (modified) modified();
+                        });
                 }
 
                 // Grid dimensions
@@ -1203,25 +1192,6 @@ namespace Weaver {
 
             if (remove_component) push_remove.template operator()<Loom::TilemapComponent>("Tilemap");
         }
-    }
-
-    std::shared_ptr<Loom::Texture2D> SceneHierarchyPanel::LoadTexture(const Loom::TextureSpecification& spec) {
-        constexpr nfdfilteritem_t filters[] = {
-            { "Images", "png,jpg,jpeg,bmp,tga" },
-            { "All Files", "*" },
-        };
-
-        NFD::Guard      nfd_guard;
-        NFD::UniquePath out_path;
-        nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-
-        if (result == NFD_OKAY) {
-            return Loom::AssetManager::GetTexture(out_path.get(), spec);
-        } else if (result == NFD_ERROR) {
-            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
-        }
-
-        return nullptr;
     }
 
 } // namespace Weaver

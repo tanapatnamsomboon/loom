@@ -42,7 +42,7 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | Image Loading | stb_image | `stb` |
 | Physics (2D) | Box2D | `box2d` |
 | Serialization | YAML-CPP | `yaml-cpp` |
-| File Dialogs | nativefiledialog-extended | `nfd` |
+| File Dialogs | ImGuiFileDialog | `imguifiledialog` |
 | Scripting VM | Lua 5.4 | `lua` |
 | Lua C++ Bindings | sol2 v3.5.0 | `sol2` |
 
@@ -172,6 +172,15 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 
 # 9. Validation & Testing
 - **Validation & Testing:** Whenever you complete a feature, system, or a logical chunk of work, you MUST proactively provide a concrete way for me to test and validate those changes. This could be a short code snippet to insert into the `sandbox/` application, a specific UI action to perform in `weaver/`, or a simple debug log statement using `spdlog`. Do not leave me guessing how to verify the code.
+
+# 9.5. Communication Style
+- **No code previews when proposing edits:** Do NOT paste multi-line code blocks showing what you are *about to* write. Describe the change at a high level (file, intent, key symbols/dependencies) and then execute it — the `Edit`/`Write` tool call already surfaces the diff. Previewing the precise contents before writing is redundant and verbose.
+
+# 9.6. Debugging Session Log
+
+A short ledger of multi-session debugging efforts that resulted in significant architectural pivots. New entries go at the top. Keep entries terse — one paragraph, no rehashed code.
+
+- **2026-05-08 — Dropped NFD (nativefiledialog-extended) in favor of ImGuiFileDialog.** Multiple sessions of trying to fix an `ImGuizmo` state-corruption bug caused by NFD stealing OS focus and blocking the main thread (symptoms: phantom mouse-down latched after dialog closed, gizmo handles becoming unresponsive). Workarounds attempted and discarded: `glfwFocusWindow` post-call, `ImGui::GetIO().ClearInputMouse()`, modified `ImGuiLayer::BlockEvents` ordering. Root cause is fundamental: NFD blocks the GLFW main thread and the OS dialog sits on top of the editor as a separate native window, so input events are dropped without ImGui ever seeing the press/release pair. Fix: replaced NFD with `ImGuiFileDialog` (vendor/imguifiledialog) — fully in-process ImGui modal, no thread blocking, no focus loss. The async API is wrapped by `Weaver::FileDialog` (`weaver/src/editor/file_dialog.{h,cpp}`): `Open / Save / PickFolder` register a callback, `Render()` polled once per frame from `EditorLayer::OnImGuiRender` dispatches the callback when the user clicks OK. Inspector callbacks capture entity by `UUID + scene shared_ptr` (not raw entity handle) so a scene swap mid-dialog is safe. `SceneManager::SaveScene/SaveSceneAs` gained an optional `on_complete` callback so the "Save Changes?" modal's pending action only fires after an async save resolves.
 
 # 10. Development Roadmap
 

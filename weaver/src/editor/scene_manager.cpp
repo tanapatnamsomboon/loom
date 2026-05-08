@@ -1,4 +1,5 @@
 #include "scene_manager.h"
+#include "file_dialog.h"
 #include <imgui.h>
 #include <loom/core/application.h>
 #include <loom/core/log.h>
@@ -6,8 +7,6 @@
 #include <loom/scene/components.h>
 #include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
-#include <nfd.hpp>
-#include <GLFW/glfw3.h>
 #include <filesystem>
 
 namespace Weaver {
@@ -42,20 +41,8 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void SceneManager::OpenScene() {
-        constexpr nfdfilteritem_t filters[] = {
-            { "Loom Scene", "loom" },
-            { "All Files", "*" },
-        };
-
-        NFD::Guard      nfd_guard;
-        NFD::UniquePath out_path;
-        nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-
-        if (result == NFD_OKAY) {
-            OpenScene(out_path.get());
-        } else if (result == NFD_ERROR) {
-            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
-        }
+        FileDialog::Open("OpenScene", "Open Scene", ".loom",
+            [this](const std::string& path) { OpenScene(path); });
     }
 
     void SceneManager::OpenScene(const std::string& filepath) {
@@ -93,51 +80,44 @@ namespace Weaver {
     // Save Scene
     // -------------------------------------------------------------------------
 
-    void SceneManager::SaveScene() {
+    void SceneManager::SaveScene(std::function<void()> on_complete) {
         if (mContext.CurrentScenePath.empty()) {
-            SaveSceneAs();
+            SaveSceneAs(std::move(on_complete));
             return;
         }
         Loom::SceneSerializer serializer(mContext.ActiveScene);
         serializer.Serialize(mContext.CurrentScenePath, &mContext.EditorCamera);
         mContext.SceneDirty = false;
         mContext.History.MarkSavePoint();
+        if (on_complete) on_complete();
     }
 
-    void SceneManager::SaveSceneAs() {
-        constexpr nfdfilteritem_t filters[] = {
-            { "Loom Scene", "loom" },
-            { "All Files", "*" },
-        };
+    void SceneManager::SaveSceneAs(std::function<void()> on_complete) {
+        FileDialog::Save("SaveScene", "Save Scene", ".loom", "scene.loom",
+            [this, on_complete = std::move(on_complete)](const std::string& picked) {
+                std::filesystem::path path = picked;
+                if (path.extension() != ".loom")
+                    path += ".loom";
 
-        NFD::Guard      nfd_guard;
-        NFD::UniquePath out_path;
-        nfdresult_t     result = NFD::SaveDialog(out_path, filters, 2, nullptr, "scene.loom");
+                std::filesystem::create_directories(path.parent_path());
 
-        if (result == NFD_OKAY) {
-            std::filesystem::path path = out_path.get();
-            if (path.extension() != ".loom")
-                path += ".loom";
+                Loom::SceneSerializer serializer(mContext.ActiveScene);
+                serializer.Serialize(path.string(), &mContext.EditorCamera);
+                mContext.CurrentScenePath = path.string();
+                mContext.SceneDirty       = false;
+                mContext.History.MarkSavePoint();
 
-            std::filesystem::create_directories(path.parent_path());
+                // Set the project's start scene if it hasn't been assigned yet
+                auto active_project = Loom::Project::GetActive();
+                if (active_project && active_project->GetConfig().StartScene.empty()) {
+                    std::filesystem::path asset_dir            = Loom::Project::GetAssetDirectory();
+                    std::filesystem::path relative_scene_path  = std::filesystem::relative(path, asset_dir);
+                    active_project->GetConfig().StartScene     = relative_scene_path;
+                    LOOM_CORE_INFO("Set project StartScene to {}", relative_scene_path.string());
+                }
 
-            Loom::SceneSerializer serializer(mContext.ActiveScene);
-            serializer.Serialize(path.string(), &mContext.EditorCamera);
-            mContext.CurrentScenePath = path.string();
-            mContext.SceneDirty       = false;
-            mContext.History.MarkSavePoint();
-
-            // Set the project's start scene if it hasn't been assigned yet
-            auto active_project = Loom::Project::GetActive();
-            if (active_project && active_project->GetConfig().StartScene.empty()) {
-                std::filesystem::path asset_dir            = Loom::Project::GetAssetDirectory();
-                std::filesystem::path relative_scene_path  = std::filesystem::relative(path, asset_dir);
-                active_project->GetConfig().StartScene     = relative_scene_path;
-                LOOM_CORE_INFO("Set project StartScene to {}", relative_scene_path.string());
-            }
-        } else if (result == NFD_ERROR) {
-            LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
-        }
+                if (on_complete) on_complete();
+            });
     }
 
     // -------------------------------------------------------------------------
@@ -245,27 +225,32 @@ namespace Weaver {
             ImGui::Text("You have unsaved changes in the current scene.\nDo you want to save them?");
             ImGui::Separator();
 
-            auto dispatch_pending = [this]() {
+            // Capture the pending action so it can fire after the (possibly async) save completes.
+            auto consume_pending = [this]() -> std::function<void()> {
                 PendingAction action = mPendingAction;
+                std::string   path   = mPendingPath;
                 mPendingAction = PendingAction::None;
-                if (action == PendingAction::Open) OpenSceneImpl(mPendingPath);
-                if (action == PendingAction::New)  NewSceneImpl();
-                if (action == PendingAction::Quit) Loom::Application::Get().Close();
+                mPendingPath.clear();
+                return [this, action, path]() {
+                    if (action == PendingAction::Open) OpenSceneImpl(path);
+                    if (action == PendingAction::New)  NewSceneImpl();
+                    if (action == PendingAction::Quit) Loom::Application::Get().Close();
+                };
             };
 
             if (ImGui::Button("Save", ImVec2(100, 0))) {
-                SaveScene();
-                dispatch_pending();
+                SaveScene(consume_pending());
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
             if (ImGui::Button("Don't Save", ImVec2(100, 0))) {
-                dispatch_pending();
+                consume_pending()();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
             if (ImGui::Button("Cancel", ImVec2(100, 0))) {
                 mPendingAction = PendingAction::None;
+                mPendingPath.clear();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();

@@ -1,11 +1,10 @@
 #include "project_manager.h"
+#include "file_dialog.h"
 #include <imgui.h>
 #include <loom/core/application.h>
 #include <loom/core/log.h>
 #include <loom/project/project.h>
 #include <loom/project/project_serializer.h>
-#include <nfd.hpp>
-#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <filesystem>
 
@@ -31,20 +30,8 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void ProjectManager::OpenProject() {
-        constexpr nfdfilteritem_t filters[] = {
-            { "Loom Project", "loomproj" },
-            { "All Files", "*" },
-        };
-
-        NFD::Guard      nfd_guard;
-        NFD::UniquePath out_path;
-        nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-
-        if (result == NFD_OKAY) {
-            OpenProject(out_path.get());
-        } else if (result == NFD_ERROR) {
-            LOOM_CORE_ERROR("NFD OpenDialog error: {}", NFD::GetError());
-        }
+        FileDialog::Open("OpenProject", "Open Project", ".loomproj",
+            [this](const std::string& path) { OpenProject(path); });
     }
 
     void ProjectManager::OpenProject(const std::string& filepath) {
@@ -88,27 +75,18 @@ namespace Weaver {
     void ProjectManager::SaveProjectAs() {
         if (!Loom::Project::GetActive()) return;
 
-        constexpr nfdfilteritem_t filters[] = {
-            { "Loom Project", "loomproj" },
-            { "All Files", "*" },
-        };
+        FileDialog::Save("SaveProjectAs", "Save Project As", ".loomproj", "MyProject.loomproj",
+            [](const std::string& picked) {
+                if (!Loom::Project::GetActive()) return;
+                std::filesystem::path path = picked;
+                if (path.extension() != ".loomproj")
+                    path += ".loomproj";
 
-        NFD::Guard      nfd_guard;
-        NFD::UniquePath out_path;
-        nfdresult_t     result = NFD::SaveDialog(out_path, filters, 2, nullptr, "MyProject.loomproj");
+                std::filesystem::create_directories(path.parent_path());
 
-        if (result == NFD_OKAY) {
-            std::filesystem::path path = out_path.get();
-            if (path.extension() != ".loomproj")
-                path += ".loomproj";
-
-            std::filesystem::create_directories(path.parent_path());
-
-            Loom::ProjectSerializer serializer(Loom::Project::GetActive());
-            serializer.Serialize(path.string());
-        } else if (result == NFD_ERROR) {
-            LOOM_CORE_ERROR("NFD SaveDialog error: {}", NFD::GetError());
-        }
+                Loom::ProjectSerializer serializer(Loom::Project::GetActive());
+                serializer.Serialize(path.string());
+            });
     }
 
     // -------------------------------------------------------------------------
@@ -168,19 +146,12 @@ namespace Weaver {
                 ImGui::InputText("##StartScene", mSettingsStartScene, sizeof(mSettingsStartScene));
                 ImGui::SameLine();
                 if (ImGui::Button("...##BrowseStartScene", { browse_w, 0.0f })) {
-                    constexpr nfdfilteritem_t filters[] = { { "Loom Scene", "loom" } };
-                    NFD::Guard      guard;
-                    NFD::UniquePath out_path;
-                    nfdresult_t browse_result = NFD::OpenDialog(out_path, filters, 1);
-                    if (browse_result == NFD_OKAY) {
-                        std::filesystem::path picked(out_path.get());
-                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
-                        std::error_code ec;
-                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
-                        std::string rel_str = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
-                            ? rel.generic_string() : picked.generic_string();
-                        strncpy(mSettingsStartScene, rel_str.c_str(), sizeof(mSettingsStartScene) - 1);
-                    }
+                    FileDialog::Open("BrowseStartScene", "Select Start Scene", ".loom",
+                        [this](const std::string& picked) {
+                            std::string rel = FileDialog::MakeAssetRelative(picked);
+                            strncpy(mSettingsStartScene, rel.c_str(), sizeof(mSettingsStartScene) - 1);
+                            mSettingsStartScene[sizeof(mSettingsStartScene) - 1] = '\0';
+                        });
                 }
                 ImGui::TextDisabled("  Relative to asset directory");
 
@@ -247,11 +218,8 @@ namespace Weaver {
         ImGui::Text("Location: %s", mProjectPath.empty() ? "Not Selected" : mProjectPath.c_str());
         ImGui::SameLine();
         if (ImGui::Button("Browse...")) {
-            NFD::Guard      nfd_guard;
-            NFD::UniquePath out_path;
-            nfdresult_t folder_result = NFD::PickFolder(out_path);
-            if (folder_result == NFD_OKAY)
-                mProjectPath = out_path.get();
+            FileDialog::PickFolder("WizardProjectLocation", "Choose Project Location",
+                [this](const std::string& folder) { mProjectPath = folder; });
         }
 
         ImGui::Spacing();

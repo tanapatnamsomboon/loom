@@ -1,4 +1,5 @@
 #include "editor_layer.h"
+#include "editor/file_dialog.h"
 #include <imgui.h>
 // clang-format off
 #include <ImGuizmo.h>
@@ -231,6 +232,8 @@ namespace Weaver {
 
         mViewportPanel.OnImGuiRender();
         mToolbarPanel.OnImGuiRender(); // must come after viewport (needs updated ViewportBounds)
+
+        FileDialog::Render(); // poll active ImGuiFileDialog instances; fires callbacks on OK
 
         ImGui::End();
     }

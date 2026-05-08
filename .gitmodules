@@ -20,9 +20,6 @@
 [submodule "vendor/yaml-cpp"]
 	path = vendor/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp
-[submodule "vendor/nativefiledialog-extended"]
-	path = vendor/nativefiledialog-extended
-	url = https://github.com/btzy/nativefiledialog-extended
 [submodule "vendor/box2d"]
 	path = vendor/box2d
 	url = https://github.com/erincatto/box2d.git
@@ -35,3 +32,6 @@
 [submodule "vendor/miniaudio"]
 	path = vendor/miniaudio
 	url = https://github.com/mackron/miniaudio
+[submodule "ImGuiFileDialog"]
+	path = vendor/imguifiledialog
+	url = https://github.com/aiekick/ImGuiFileDialog.git
