@@ -11,12 +11,6 @@
 
 namespace Weaver {
 
-    static void NfdRestoreFocus() {
-        auto* w = (GLFWwindow*)Loom::Application::Get().GetWindow().GetNativeWindow();
-        glfwFocusWindow(w);
-        NfdRestoreFocus();
-    }
-
     ProjectManager::ProjectManager(EditorContext& ctx, ContentBrowserPanel& contentBrowser, SceneManager& sceneManager)
         : mContext(ctx)
         , mContentBrowser(contentBrowser)
@@ -45,7 +39,6 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             OpenProject(out_path.get());
@@ -103,7 +96,6 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::SaveDialog(out_path, filters, 2, nullptr, "MyProject.loomproj");
-        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             std::filesystem::path path = out_path.get();
@@ -179,7 +171,8 @@ namespace Weaver {
                     constexpr nfdfilteritem_t filters[] = { { "Loom Scene", "loom" } };
                     NFD::Guard      guard;
                     NFD::UniquePath out_path;
-                    if (NFD::OpenDialog(out_path, filters, 1) == NFD_OKAY) {
+                    nfdresult_t browse_result = NFD::OpenDialog(out_path, filters, 1);
+                    if (browse_result == NFD_OKAY) {
                         std::filesystem::path picked(out_path.get());
                         std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
                         std::error_code ec;
@@ -188,7 +181,6 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         strncpy(mSettingsStartScene, rel_str.c_str(), sizeof(mSettingsStartScene) - 1);
                     }
-                    NfdRestoreFocus();
                 }
                 ImGui::TextDisabled("  Relative to asset directory");
 
@@ -257,9 +249,9 @@ namespace Weaver {
         if (ImGui::Button("Browse...")) {
             NFD::Guard      nfd_guard;
             NFD::UniquePath out_path;
-            if (NFD::PickFolder(out_path) == NFD_OKAY)
+            nfdresult_t folder_result = NFD::PickFolder(out_path);
+            if (folder_result == NFD_OKAY)
                 mProjectPath = out_path.get();
-            NfdRestoreFocus();
         }
 
         ImGui::Spacing();

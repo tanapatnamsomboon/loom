@@ -16,12 +16,6 @@
 
 namespace Weaver {
 
-    static void NfdRestoreFocus() {
-        auto* w = (GLFWwindow*)Loom::Application::Get().GetWindow().GetNativeWindow();
-        glfwFocusWindow(w);
-        ImGui::GetIO().ClearInputMouse();
-    }
-
     SceneHierarchyPanel::SceneHierarchyPanel(const std::shared_ptr<Loom::Scene>& context) {
         SetContext(context);
     }
@@ -160,8 +154,8 @@ namespace Weaver {
                 constexpr nfdfilteritem_t filters[] = { { "Loom Prefab", "lprefab" } };
                 NFD::Guard      guard;
                 NFD::UniquePath out_path;
-                if (NFD::SaveDialog(out_path, filters, 1, nullptr,
-                        entity.GetComponent<Loom::TagComponent>().Tag.c_str()) == NFD_OKAY) {
+                nfdresult_t result = NFD::SaveDialog(out_path, filters, 1, nullptr, entity.GetComponent<Loom::TagComponent>().Tag.c_str());
+                if (result == NFD_OKAY) {
                     std::string path = out_path.get();
                     if (std::filesystem::path(path).extension() != ".lprefab")
                         path += ".lprefab";
@@ -660,7 +654,6 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    NfdRestoreFocus();
                 }
 
                 // Status + actions row
@@ -958,7 +951,6 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    NfdRestoreFocus();
                 }
 
                 is_modified |= ImGui::SliderFloat("Volume", &asc.Volume, 0.0f, 1.0f);
@@ -1019,7 +1011,6 @@ namespace Weaver {
                             ? rel.generic_string() : picked.generic_string();
                         is_modified = true;
                     }
-                    NfdRestoreFocus();
                 }
 
                 // Text content (multiline)
@@ -1109,7 +1100,6 @@ namespace Weaver {
                         tm.Spritesheet = nullptr;
                         is_modified    = true;
                     }
-                    NfdRestoreFocus();
                 }
 
                 // Grid dimensions
@@ -1224,7 +1214,6 @@ namespace Weaver {
         NFD::Guard      nfd_guard;
         NFD::UniquePath out_path;
         nfdresult_t     result = NFD::OpenDialog(out_path, filters, 2);
-        NfdRestoreFocus();
 
         if (result == NFD_OKAY) {
             return Loom::AssetManager::GetTexture(out_path.get(), spec);
