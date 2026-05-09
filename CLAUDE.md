@@ -64,41 +64,24 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
   - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec2`, `Vec3`, `Entity` (transform/tag/audio/physics accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
 
 ### Lua Script API (for `LuaScriptComponent` scripts)
-Each script runs in an isolated `sol::environment`. The global `entity` is a handle to the owning entity.
-```lua
-function OnCreate()  end        -- called once at runtime start
-function OnUpdate(ts) end       -- called every frame; ts = delta time (seconds)
-function OnDestroy() end        -- called at runtime stop
-function OnCollisionBegin(other) end  -- called when this entity's collider first touches another
-function OnCollisionEnd(other) end    -- called when this entity's collider stops touching another
-function OnSensorBegin(other) end     -- called when another entity enters this entity's sensor collider
-function OnSensorEnd(other) end       -- called when another entity exits this entity's sensor collider
+Each script runs in an isolated `sol::environment`. The global `entity` is a handle to the owning entity. Authoritative bindings live in `lua_scripting_backend.cpp` — this is just the surface.
 
--- Available globals: entity, Input, Key, Mouse, Log, Vec2, Vec3, Scene
--- entity:GetTranslation() / SetTranslation(vec3)
--- entity:GetRotation()    / SetRotation(vec3)
--- entity:GetScale()       / SetScale(vec3)
--- entity:GetTag() -> string
--- entity:FindByTag(tag) -> entity
--- entity:Spawn() -> entity          (creates a new blank entity in the same scene)
--- entity:Destroy()                  (destroys this entity)
--- entity:Instantiate(path) -> entity (instantiates a .lprefab file)
--- Input.IsKeyPressed(Key.W), Input.GetMouseX(), etc.
--- Physics.Raycast(origin_vec3, dir_vec3, distance) -> { hit, point, normal, entity }
--- Physics.OverlapCircle(center_vec2, radius) -> array of entities
--- Physics.OverlapBox(center_vec2, half_extents_vec2) -> array of entities
--- Scene transitions (queued end-of-frame; path is relative to asset directory):
---   Scene.Load("scenes/level2.loom")  -- load a different scene file
---   Scene.Reload()                    -- restart the current scene from its last saved state
--- Audio (requires AudioSourceComponent):
---   entity:PlayAudio()              entity:StopAudio()
---   entity:IsAudioPlaying() -> bool
---   entity:SetVolume(v)             entity:SetPitch(p)
--- Physics body (requires Rigidbody2DComponent):
---   entity:SetLinearVelocity(vec2)  entity:GetLinearVelocity() -> vec2
---   entity:ApplyForce(vec2)         entity:ApplyImpulse(vec2)
--- Collision callbacks (no component requirement beyond the collider itself):
---   OnCollisionBegin(other_entity)  / OnCollisionEnd(other_entity)  -- both entities notified
+```lua
+-- Lifecycle (define what you need):
+function OnCreate()  end                      function OnUpdate(ts) end
+function OnDestroy() end
+function OnCollisionBegin(other) end          function OnCollisionEnd(other) end
+function OnSensorBegin(other) end             function OnSensorEnd(other) end
+
+-- Globals: entity, Input, Key, Mouse, Log, Physics, Scene, Vec2, Vec3
+-- entity:  GetTranslation/SetTranslation, GetRotation/SetRotation, GetScale/SetScale
+--          GetTag, FindByTag(tag), Spawn(), Destroy(), Instantiate(path)
+--          PlayAudio/StopAudio/IsAudioPlaying/SetVolume/SetPitch     -- AudioSourceComponent
+--          SetLinearVelocity/GetLinearVelocity/ApplyForce/ApplyImpulse  -- Rigidbody2DComponent
+-- Input:   IsKeyPressed(Key.W), GetMouseX(), ...
+-- Physics: Raycast(origin, dir, dist) -> {hit, point, normal, entity}
+--          OverlapCircle(center, radius) | OverlapBox(center, half_extents)
+-- Scene:   Load("scenes/x.loom"), Reload()    -- queued, fires end-of-frame
 ```
 
 ## `weaver/` — Editor Application
@@ -167,8 +150,9 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 - Do not use commands like `cat`, `grep`, `rg`, or `ls` on `vendor/`.
 - Assume all third-party libraries in `vendor/` work correctly according to their standard public APIs. Do not waste context window reading their source code.
 
-# 8. CLAUDE.md Maintenance
-- **Auto-Update CLAUDE.md:** Continuously monitor the project's architectural changes, new vendor libraries, and coding conventions. Whenever a significant change occurs (e.g., integrating a new scripting language, adding a major core system, or changing architecture patterns), proactively update this `CLAUDE.md` file to reflect the current and accurate state of the Loom Engine. Do not wait to be asked.
+# 8. Documentation Maintenance
+- **CLAUDE.md auto-update:** Continuously monitor architectural changes, new vendor libraries, and coding conventions. Whenever a significant change occurs (new scripting language, major core system, changed architecture pattern), proactively update this file. Do not wait to be asked.
+- **README maintenance:** Upon completing a major roadmap milestone (Audio, Physics, WeaverRuntime, etc.), review and propose updates to `README.md`. Keep "Features", "Current State", and "Dependencies" aligned with the codebase. Do NOT update `README.md` for minor bug fixes, UI tweaks, or micro-steps.
 
 # 9. Validation & Testing
 - **Validation & Testing:** Whenever you complete a feature, system, or a logical chunk of work, you MUST proactively provide a concrete way for me to test and validate those changes. This could be a short code snippet to insert into the `sandbox/` application, a specific UI action to perform in `weaver/`, or a simple debug log statement using `spdlog`. Do not leave me guessing how to verify the code.
@@ -397,48 +381,27 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 ---
 
-## Documentation Protocol
-- **README Maintenance:** Upon completing a major roadmap milestone (e.g., implementing a new core system like Audio, Physics, or WeaverRuntime), you must automatically review and propose updates to `README.md`.
-- Ensure the "Features", "Current State", and "Dependencies" sections are always aligned with our actual codebase.
-- Do NOT update `README.md` for minor bug fixes, UI tweaks, or micro-steps.
-
 ## Completed
 
-- **Tilemap component** — `TilemapComponent` struct (`SpritesheetPath`, `Spritesheet` runtime handle, `Columns`/`Rows` grid dims, `TileWidth`/`TileHeight` world-space tile size, `SheetColumns`/`SheetRows` spritesheet layout, `std::vector<int> Tiles` flat row-major array, -1 = empty); `Renderer2D::DrawTilemap(...)` iterates the tile array and submits per-tile quads with computed UV rects into the existing quad batch (all tiles share the same texture slot); render loop wired in both `Scene::OnUpdateEditor` and `Scene::OnUpdateRuntime` via `DrawTilemapEntity` helper; YAML serialization round-trips all fields plus the tile array as a compact flow sequence; inspector block in `SceneHierarchyPanel` exposes spritesheet drag-slot, grid dims, tile size, sheet layout, and a scrollable click-to-paint tile grid with paint-index selector (arrow buttons) and Clear All; no new CMake source files required.
-- **Text / HUD rendering** — `stb_truetype` (single-header, already in `vendor/stb` family) used to rasterize TTF glyphs into an atlas texture; `FontAsset` loads a TTF file and produces a `Texture2D` glyph atlas with per-glyph UV/advance metrics; `TextComponent` stores font path, text string, size, and color; `Renderer2D::DrawText(...)` submits batched quads from the glyph atlas into the existing sprite batch pipeline; inspector UI (font drag-slot, text field, size/color widgets) + YAML serialization round-trip.
-- **ProjectManager null-safety & state** — Every `Project::GetActive()` dereference guarded against null (missing active project can no longer silently corrupt state); recently opened projects list persisted to `editor_prefs.yaml` in the user config directory; list surfaced in the editor for quick re-open.
-- **Undo / Redo system (Command Pattern)** — `IEditorCommand` / `EditorHistory` (50-step deque with save-point tracking) live in `weaver/src/editor/`; six concrete commands: `EntityCreateCommand` (re-uses UUID on redo), `EntityDeleteCommand` (snapshots to YAML for UUID-preserving restore), `AddComponentCommand<T>`, `RemoveComponentCommand<T>` (captures data before removal), `TransformEditCommand` (committed on gizmo mouse-up), `PropertyEditCommand<T>` (generic before/after with setter lambda); `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` wired in `EditorLayer`; `SceneHierarchyPanel` routes all create/delete/add-component/remove-component/transform/property edits through `mCommandCallback`; `EditorContext::IsDirty()` ORs `SceneDirty` (non-history edits) with `History.IsDirty()` (history depth vs. save-point depth); save calls `MarkSavePoint()`, new/open call `Clear()`; title-bar `*` and "Save Changes?" modal driven by `IsDirty()`; undo correctly clears the dirty indicator.
-- **WeaverRuntime packaging validation** — Fixed engine resource path resolution: `WeaverRuntime/main.cpp` anchors cwd to the executable directory via `GetModuleFileNameW` before engine init (project path is made absolute first to preserve relative user-supplied args); all `resources/` assets now resolve correctly from any launch directory.
-- **WeaverRuntime standalone executable** — `weaver_runtime/` CMake target added alongside `weaver/`; links only `Loom` (no `nfd`/editor deps); `Application(const WindowProps&)` constructor added to engine (default ctor delegates); `main.cpp` early-deserializes the project config to configure window title/size; `RuntimeLayer` loads start scene via `SceneSerializer`, calls `Scene::OnRuntimeStart/UpdateRuntime/Stop`, handles `WindowResizeEvent` to keep `OnViewportResize` in sync, and polls `SceneLoader` for Lua-driven scene transitions each frame.
-- **Runtime window config + Project Settings** — `WindowTitle`, `WindowWidth`, `WindowHeight` added to `ProjectConfig` and serialized/deserialized by `ProjectSerializer`; `ProjectManager::OpenSettings()` populates temp buffers from the active config; "Project Settings..." modal exposes Name, Start Scene (with NFD browse), Window Title, Width, Height; "Project Settings..." menu item added to File menu (disabled when no project is open); settings round-trip through the `.loomproj` file.
-- **Project schema hardening** — `Version: 1` added to `ProjectConfig`; `ProjectSerializer::Deserialize` validates version (warn if missing/future), errors on missing/non-existent `AssetDirectory`, warns on missing `StartScene`; `ProjectManager` shows a "Project Load Error" modal on deserialization failure instead of silently proceeding.
-- **Editor camera serialization** — `EditorCamera` gains `GetPitch()`, `GetYaw()`, and `SetState(position, pitch, yaw)`; `SceneSerializer::Serialize/Deserialize` accept an optional `EditorCamera*`; saves a top-level `EditorCamera:` block (Position, Pitch, Yaw) in the `.loom` file; `SceneManager::SaveScene`, `SaveSceneAs`, and `OpenSceneImpl` pass `&mContext.EditorCamera`; WeaverRuntime is unaffected (passes `nullptr` by default).
-- **Script Property Exposure System** — `ScriptField` / `ScriptFieldType` added to `engine/include/loom/scripting/script_field.h`; `LuaScriptComponent` gains `Fields` map; `IScriptingBackend` extended with `GetScriptFields`, `ApplyFields`, `TryGetFieldValue`; `LuaScriptingBackend` implements field discovery via sandboxed `sol::state` with path-keyed cache, injects overrides before `OnCreate`, reads live values via `TryGetFieldValue`; `SceneSerializer` round-trips `Fields` block in YAML for both scenes and prefabs; `SceneHierarchyPanel` shows per-type widgets below the script path row, disabled in play mode showing live values; `SceneManager::OnScenePlay/Stop` toggles panel play mode.
-- **Scene transitions** — `SceneLoader` singleton added to `engine/scene/`; Lua `Scene.Load(path)` / `Scene.Reload()` queue transitions end-of-frame; `EditorLayer::OnUpdate` polls `SceneLoader` after `OnUpdateRuntime` and calls `SceneManager::OnRuntimeSceneTransition`; `OnSceneStop` calls `Consume()` to discard stale queued transitions; `RuntimeLayer` polls the same `SceneLoader` queue each frame.
-- **Editor quit / unsaved-changes confirmation** — `Application::Close()` added; event dispatch reordered so layers intercept first; `SceneManager::RequestQuit()` gates close behind the existing "Save Changes?" modal when dirty; `Ctrl+Q` shortcut and `File > Exit` menu item wired; `SceneDirty` callback bug fixed.
-- **Physics scripting — spatial overlap queries** — `Physics.OverlapCircle(center, radius)` and `Physics.OverlapBox(center, half_extents)` added to the Lua `Physics` table; both return a 1-indexed Lua array of `Entity` handles; `Scene::OverlapCircle2D` / `Scene::OverlapBox2D` implemented via `b2World_OverlapCircle` / `b2World_OverlapPolygon` with per-shape callback; deduplication via `std::unordered_set` prevents duplicate entries when an entity holds multiple collider components.
-- **Physics scripting — sensor / trigger colliders** — `IsSensor` bool added to `BoxCollider2DComponent` and `CircleCollider2DComponent`; sensor shapes set `b2ShapeDef.isSensor = true` + `enableSensorEvents = true` (mutually exclusive with `enableContactEvents`); `b2World_GetSensorEvents()` polled after physics step; `ScriptingEngine::OnSensorBegin/End(Entity, Entity)` dispatches to Lua `OnSensorBegin(other)` / `OnSensorEnd(other)` on both entities; `IScriptingBackend` extended with two new pure-virtual methods; inspector checkbox + YAML round-trip.
-- **Physics scripting — collision callbacks** — `b2ShapeDef.enableContactEvents = true` on all shapes; `b2World_GetContactEvents()` polled after each physics step; `ScriptingEngine::OnCollisionBegin/End(Entity, Entity)` dispatches to Lua `OnCollisionBegin(other)` / `OnCollisionEnd(other)` callbacks on both involved entities; `IScriptingBackend` extended with two new pure-virtual methods.
-- **Audio extensions + Lua bindings** — `AudioSourceComponent` extended with `Pitch` and `Pan` fields (miniaudio `ma_sound_set_pitch`/`ma_sound_set_pan`); `AudioEngine::SetVolume/SetPitch/IsPlaying` for runtime control; inspector sliders + YAML round-trip; Lua audio API (`PlayAudio`, `StopAudio`, `IsAudioPlaying`, `SetVolume`, `SetPitch`) and physics API (`SetLinearVelocity`, `GetLinearVelocity`, `ApplyForce`, `ApplyImpulse`) on `entity`; `Vec2` Lua type added.
-- **Asset path normalization** — `ToRelativeAssetPath()` helper in serializer; all component paths (texture, Lua, audio) serialized relative to asset dir using `std::filesystem::relative()`.
-- **Asset hot-reload** — `FileWatcher` embedded in `AssetManager`; `Reload()` on `Texture2D`/`Shader` updates GPU resources in-place; polled each frame from `EditorLayer::OnUpdate`.
-- **Audio system** — `AudioEngine` singleton (miniaudio backend); `AudioSourceComponent` with path, volume, loop, autoplay; scene autoplay on `OnRuntimeStart`; inspector UI + YAML serialization.
-- **Prefab system** — `.lprefab` YAML schema; `SceneSerializer` serialize/deserialize single entity; editor "Save as Prefab"; content browser drag to instantiate; `entity:Instantiate(path)` Lua binding.
+Pre-roadmap and out-of-phase work. Roadmap items use `[x]` markers in the Phase sections above; consult `git log` for full implementation context on any entry below.
+
+- **Editor camera serialization** — `EditorCamera` Position/Pitch/Yaw round-trip in the `.loom` file via an optional `EditorCamera*` parameter on `SceneSerializer`.
+- **Asset path normalization** — all component paths (texture / Lua / audio) serialized relative to the asset dir via a `ToRelativeAssetPath()` helper.
+- **Asset hot-reload** — `FileWatcher` polls disk; `Texture2D::Reload()` and `Shader::Reload()` update GPU resources in-place.
+- **Audio system** — `AudioEngine` singleton (miniaudio); `AudioSourceComponent` with path / volume / loop / autoplay; YAML round-trip.
+- **Prefab system** — `.lprefab` schema; "Save as Prefab" + content-browser drag-instantiate; `entity:Instantiate(path)` Lua binding.
 - **Expanded Lua bindings** — `FindByTag`, `Spawn`, `Destroy`, `Instantiate`; `Physics.Raycast`; multi-arg `Log.*`.
-- **Lua file watcher** — Background thread polls `last_write_time`; hot-reloads `.lua` scripts via `OnFileChanged`.
-- **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; wired into physics, serializer, and inspector.
-- **Entity parent-child hierarchy** — `RelationshipComponent`; world transform via `Scene::GetWorldTransform`; drag-and-drop reparenting in hierarchy panel.
-- **Content browser drag & drop** — Drag images onto texture slot; drag `.loom` onto viewport to open scene.
-- **Viewport mouse-picking fix** — Guard `ImGuizmo::IsOver()` behind entity-selected + gizmo-active check to eliminate stale-frame false positives.
-- **Sprite animation** — Frame-based `AnimationComponent` cycling UV regions at configurable FPS; serialized via YAML.
-- **Spritesheet helper** — Auto-fills animation frames from sheet size, cell size, start row/col, and frame count.
-- **TextureSpecification** — Per-texture `FilterMode`, `WrapMode`, `GenerateMips`; passed into `Texture2D::Create()`.
+- **Lua file watcher** — background-thread polling reloads `.lua` scripts via `OnFileChanged`.
+- **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; physics + serializer + inspector.
+- **Entity parent-child hierarchy** — `RelationshipComponent`; world transform via `Scene::GetWorldTransform`; drag-and-drop reparenting.
+- **Content browser drag & drop** — drag images onto texture slot; drag `.loom` onto viewport to open scene.
+- **Sprite animation** — frame-based `AnimationComponent` cycling UV regions at configurable FPS; YAML round-trip.
+- **Spritesheet helper** — auto-fills animation frames from sheet size + cell size + start row/col + frame count.
+- **TextureSpecification** — per-texture `FilterMode`, `WrapMode`, `GenerateMips`; passed into `Texture2D::Create()`.
 
 # Your Mission
-When generating code, modifying files, or debugging:
-1. **Respect separation of concerns:** Never put OpenGL-specific code in the abstract `engine/renderer/` layer — it belongs in `platform/opengl/`.
-2. **Use existing libraries:** Use `spdlog` macros for logging, `glm` for all math, EnTT for entity queries.
-3. **Editor UI:** Always use `ImGui` for new Weaver panels and windows.
-4. **Build system:** Register every new `.cpp` file in the appropriate `CMakeLists.txt`.
-5. **Patterns:** Follow existing naming conventions, include order, and member variable style before introducing new patterns.
-6. **Never build the project yourself.** Do NOT run `cmake --build`, `ninja`, `make`, or any compiler invocation. After writing code, provide the user with the exact build command to run themselves and wait for them to report errors back.
+
+Sections 4 (Architecture & Conventions) and 5–8 cover the rules. Two stand-alone reminders:
+
+- **Build system:** register every new `.cpp` file in the appropriate `CMakeLists.txt` so the file actually compiles.
+- **Never build yourself:** do NOT run `cmake --build`, `ninja`, `make`, or any compiler invocation. After writing code, provide the exact build command for me to run and wait for me to report errors.
