@@ -82,7 +82,6 @@ target_link_libraries(Loom
     glm::glm-header-only
     stb
     EnTT::EnTT
-    imguizmo
     yaml-cpp
     box2d
   PRIVATE

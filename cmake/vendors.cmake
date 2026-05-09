@@ -66,17 +66,6 @@ target_include_directories(imgui PUBLIC ${IMGUI_DIR})
 target_link_libraries(imgui PRIVATE glfw glad)
 
 # -----------------------------------------------------------------------------
-# ImGuizmo
-# -----------------------------------------------------------------------------
-set(IMGUIZMO_DIR ${CMAKE_SOURCE_DIR}/vendor/imguizmo)
-
-add_library(imguizmo STATIC
-    ${IMGUIZMO_DIR}/ImGuizmo.cpp
-)
-target_include_directories(imguizmo PUBLIC ${IMGUIZMO_DIR})
-target_link_libraries(imguizmo PRIVATE imgui)
-
-# -----------------------------------------------------------------------------
 # ImGuiFileDialog
 # -----------------------------------------------------------------------------
 set(IMGUIFILEDIALOG_DIR ${CMAKE_SOURCE_DIR}/vendor/imguifiledialog)

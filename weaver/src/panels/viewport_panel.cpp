@@ -1,9 +1,6 @@
 #include "viewport_panel.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
-// clang-format off
-#include <ImGuizmo.h>
-// clang-format on
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
@@ -199,8 +196,6 @@ namespace Weaver {
             ImGui::EndDragDropTarget();
         }
 
-        RenderGizmos();
-
         ImGui::End();
         ImGui::PopStyleVar();
     }
@@ -217,78 +212,6 @@ namespace Weaver {
     void ViewportPanel::UpdateViewportSize() {
         ImVec2 content    = ImGui::GetContentRegionAvail();
         mContext.ViewportSize = { content.x, content.y };
-    }
-
-    void ViewportPanel::RenderGizmos() {
-        if (mContext.SceneState != SceneState::Edit)
-            return;
-
-        Loom::Entity selected = mContext.HierarchyPanel->GetSelectedEntity();
-        if (!selected || mContext.GizmoType == -1)
-            return;
-
-        ImGuizmo::SetOrthographic(false);
-        ImGuizmo::SetDrawlist();
-        ImGuizmo::SetRect(
-            mContext.ViewportBounds[0].x, mContext.ViewportBounds[0].y,
-            mContext.ViewportBounds[1].x - mContext.ViewportBounds[0].x,
-            mContext.ViewportBounds[1].y - mContext.ViewportBounds[0].y
-        );
-
-        const glm::mat4& proj      = mContext.EditorCamera.GetProjectionMatrix();
-        glm::mat4        view      = mContext.EditorCamera.GetViewMatrix();
-        auto&            tc        = selected.GetComponent<Loom::TransformComponent>();
-
-        // Gizmo operates in world space
-        glm::mat4 world_transform = mContext.ActiveScene->GetWorldTransform(selected);
-
-        bool  snap           = Loom::Input::IsKeyPressed(Loom::Key::LeftControl);
-        float snap_value     = (mContext.GizmoType == ImGuizmo::OPERATION::ROTATE) ? 45.0f : 0.5f;
-        float snap_values[3] = { snap_value, snap_value, snap_value };
-
-        ImGuizmo::Manipulate(
-            glm::value_ptr(view), glm::value_ptr(proj),
-            (ImGuizmo::OPERATION)mContext.GizmoType, (ImGuizmo::MODE)mContext.GizmoMode,
-            glm::value_ptr(world_transform), nullptr, snap ? snap_values : nullptr
-        );
-
-        bool is_using = ImGuizmo::IsUsing();
-
-        // Capture transform state when gizmo drag begins.
-        if (is_using && !mGizmoDragging) {
-            mGizmoDragging    = true;
-            mGizmoDragEntity  = selected.GetComponent<Loom::IDComponent>().ID;
-            mGizmoDragStart   = tc;
-        }
-
-        if (is_using) {
-            // Convert world result back to local space if entity has a parent
-            Loom::Entity parent = selected.GetParent();
-            if (parent) {
-                glm::mat4 parent_world = mContext.ActiveScene->GetWorldTransform(parent);
-                world_transform        = glm::inverse(parent_world) * world_transform;
-            }
-
-            glm::vec3 translation, rotation, scale;
-            Loom::Math::DecomposeTransform(world_transform, translation, rotation, scale);
-
-            glm::vec3 delta_rotation = rotation - tc.Rotation;
-            tc.Translation           = translation;
-            tc.Rotation             += delta_rotation;
-            tc.Scale                 = scale;
-        }
-
-        // Commit a single TransformEditCommand when the gizmo drag ends.
-        if (!is_using && mGizmoDragging) {
-            mGizmoDragging = false;
-            Loom::Entity dragged = mContext.ActiveScene->GetEntityByUUID(mGizmoDragEntity);
-            if (dragged) {
-                auto& final_tc = dragged.GetComponent<Loom::TransformComponent>();
-                mContext.History.Push(std::make_unique<TransformEditCommand>(
-                    mContext.ActiveScene, mGizmoDragEntity,
-                    mGizmoDragStart, final_tc));
-            }
-        }
     }
 
 } // namespace Weaver

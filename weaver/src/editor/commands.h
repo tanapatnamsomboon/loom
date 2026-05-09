@@ -157,41 +157,6 @@ private:
     T           mSavedData;
 };
 
-// ---- TransformEditCommand ----------------------------------------------
-// Committed on gizmo mouse-up with a full before/after TransformComponent.
-
-class TransformEditCommand : public IEditorCommand {
-public:
-    TransformEditCommand(std::shared_ptr<Loom::Scene> scene, Loom::UUID entity_uuid,
-                         Loom::TransformComponent before, Loom::TransformComponent after)
-        : mScene(std::move(scene))
-        , mUUID((uint64_t)entity_uuid)
-        , mBefore(std::move(before))
-        , mAfter(std::move(after)) {}
-
-    void Execute() override {
-        if (auto e = GetEntity())
-            e.GetComponent<Loom::TransformComponent>() = mAfter;
-    }
-
-    void Undo() override {
-        if (auto e = GetEntity())
-            e.GetComponent<Loom::TransformComponent>() = mBefore;
-    }
-
-    std::string GetDescription() const override { return "Transform"; }
-
-private:
-    Loom::Entity GetEntity() const {
-        auto s = mScene.lock();
-        return s ? s->GetEntityByUUID(Loom::UUID(mUUID)) : Loom::Entity{};
-    }
-    std::weak_ptr<Loom::Scene> mScene;
-    uint64_t mUUID;
-    Loom::TransformComponent mBefore;
-    Loom::TransformComponent mAfter;
-};
-
 // ---- PropertyEditCommand<T> --------------------------------------------
 // Generic before/after for any copyable inspector property.
 // Setter: void(Loom::Entity, const T&)

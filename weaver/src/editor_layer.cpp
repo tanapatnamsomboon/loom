@@ -1,10 +1,6 @@
 #include "editor_layer.h"
 #include "editor/file_dialog.h"
 #include <imgui.h>
-// clang-format off
-#include <ImGuizmo.h>
-#include <imgui_internal.h>
-// clang-format on
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
@@ -42,7 +38,6 @@ namespace Weaver {
         void*             user_data;
         Loom::Application::Get().GetImGuiLayer()->GetContextAndAllocators(&context, &alloc_func, &free_func, &user_data);
         ImGui::SetCurrentContext(context);
-        ImGuizmo::SetImGuiContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
 
         mViewportPanel.Init();
@@ -121,25 +116,12 @@ namespace Weaver {
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() != 0 || !mContext.ViewportHovered)
             return false;
-
-        Loom::Entity selected     = mContext.HierarchyPanel->GetSelectedEntity();
-        bool         gizmo_active = selected && mContext.GizmoType != -1 && ImGuizmo::IsOver();
-
-        if (!gizmo_active) {
-            // Gizmo handles are not rendered into the entity ID attachment, so HoveredEntity
-            // is null when the cursor lands on a handle. Guard against accidentally deselecting
-            // when IsOver() is briefly false (one-frame lag on first hover) and the pick
-            // buffer also returns null because the cursor is over a handle.
-            bool gizmo_visible = selected && mContext.GizmoType != -1;
-            if (!gizmo_visible || mContext.HoveredEntity)
-                mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
-        }
+        mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
         return false;
     }
 
     bool EditorLayer::OnKeyPressed(Loom::KeyPressedEvent& event) {
         HandleShortcuts(event);
-        HandleGizmoTypeChange(event);
         return false;
     }
 
@@ -173,26 +155,11 @@ namespace Weaver {
         }
     }
 
-    void EditorLayer::HandleGizmoTypeChange(Loom::KeyPressedEvent& event) {
-        if (Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight))
-            return;
-
-        switch ((Loom::Key)event.GetKeyCode()) {
-            case Loom::Key::Q: mContext.GizmoType = -1;                              break;
-            case Loom::Key::W: mContext.GizmoType = ImGuizmo::OPERATION::TRANSLATE;  break;
-            case Loom::Key::E: mContext.GizmoType = ImGuizmo::OPERATION::ROTATE;     break;
-            case Loom::Key::R: mContext.GizmoType = ImGuizmo::OPERATION::SCALE;      break;
-            default: break;
-        }
-    }
-
 #pragma endregion
 
 #pragma region ImGui Rendering
 
     void EditorLayer::OnImGuiRender() {
-        ImGuizmo::BeginFrame();
-
         static bool dockspace_open = true;
         static bool opt_fullscreen = true;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;

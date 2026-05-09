@@ -1,9 +1,6 @@
 #include "toolbar_panel.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
-// clang-format off
-#include <ImGuizmo.h>
-// clang-format on
 #include <loom/project/project.h>
 
 namespace Weaver {
@@ -35,59 +32,6 @@ namespace Weaver {
         constexpr float kH = 26.0f; // uniform item height
 
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-
-        // ── Gizmo tools (edit mode only) ──────────────────────────────────
-        if (mContext.SceneState == SceneState::Edit) {
-            static const char* k_labels[] = { "Select (Q)", "Move   (W)", "Rotate (E)", "Scale  (R)" };
-            static const int   kValues[] = { -1, ImGuizmo::OPERATION::TRANSLATE,
-                                                 ImGuizmo::OPERATION::ROTATE,
-                                                 ImGuizmo::OPERATION::SCALE };
-
-            int current = 0;
-            for (int i = 0; i < 4; i++) {
-                if (kValues[i] == mContext.GizmoType) { current = i; break; }
-            }
-
-            ImGui::SetNextItemWidth(130.0f);
-            if (ImGui::BeginCombo("##GizmoTool", k_labels[current])) {
-                for (int i = 0; i < 4; i++) {
-                    bool sel = (i == current);
-                    if (ImGui::Selectable(k_labels[i], sel))
-                        mContext.GizmoType = kValues[i];
-                    if (sel) ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Gizmo tool  (Q / W / E / R)");
-
-            ImGui::SameLine(0, 6.0f);
-
-            // Local / World toggle — blue tint when World is active
-            bool is_world = (mContext.GizmoMode == 1);
-            if (is_world) {
-                ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.22f, 0.44f, 0.78f, 0.85f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.52f, 0.86f, 0.90f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.18f, 0.38f, 0.68f, 1.00f));
-            }
-            if (ImGui::Button(is_world ? "World" : "Local", { 58.0f, kH }))
-                mContext.GizmoMode ^= 1;
-            if (is_world) ImGui::PopStyleColor(3);
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Toggle transform space");
-
-            // Vertical separator via draw list (no imgui_internal.h required)
-            ImGui::SameLine(0, 14.0f);
-            {
-                ImVec2 p = ImGui::GetCursorScreenPos();
-                float  h = ImGui::GetFrameHeight();
-                ImGui::GetWindowDrawList()->AddLine(
-                    { p.x, p.y + 3.0f }, { p.x, p.y + h - 3.0f },
-                    IM_COL32(140, 140, 140, 90), 1.0f);
-                ImGui::Dummy({ 1.0f, h });
-            }
-            ImGui::SameLine(0, 14.0f);
-        }
 
         // ── Play / Stop ────────────────────────────────────────────────────
         bool has_project = Loom::Project::GetActive() != nullptr;

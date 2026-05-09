@@ -28,7 +28,6 @@ namespace Weaver {
         bool OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event);
         bool OnKeyPressed(Loom::KeyPressedEvent& event);
         void HandleShortcuts(Loom::KeyPressedEvent& event);
-        void HandleGizmoTypeChange(Loom::KeyPressedEvent& event);
 
         void RenderMainMenuBar();
         void RenderAboutModal();

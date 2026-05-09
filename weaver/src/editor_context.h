@@ -53,10 +53,6 @@ namespace Weaver {
         // Entity picking
         Loom::Entity HoveredEntity;
 
-        // Gizmos
-        int GizmoType = -1;
-        int GizmoMode = 0; // 0 = Local, 1 = World
-
         // Grid visual settings — written by ToolbarPanel, read by ViewportPanel
         GridSettings Grid;
 

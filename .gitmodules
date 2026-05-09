@@ -14,9 +14,6 @@
 [submodule "vendor/entt"]
 	path = vendor/entt
 	url = https://github.com/skypjack/entt.git
-[submodule "vendor/imguizmo"]
-	path = vendor/imguizmo
-	url = https://github.com/cedricguillemet/imguizmo
 [submodule "vendor/yaml-cpp"]
 	path = vendor/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp
@@ -35,3 +32,6 @@
 [submodule "ImGuiFileDialog"]
 	path = vendor/imguifiledialog
 	url = https://github.com/aiekick/ImGuiFileDialog.git
+[submodule "vendor/imguizmo"]
+	path = vendor/imguizmo
+	url = https://github.com/cedricguillemet/imguizmo

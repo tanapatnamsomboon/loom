@@ -173,16 +173,18 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 # 9. Validation & Testing
 - **Validation & Testing:** Whenever you complete a feature, system, or a logical chunk of work, you MUST proactively provide a concrete way for me to test and validate those changes. This could be a short code snippet to insert into the `sandbox/` application, a specific UI action to perform in `weaver/`, or a simple debug log statement using `spdlog`. Do not leave me guessing how to verify the code.
 
-# 9.5. Communication Style
+# 10. Communication Style
 - **No code previews when proposing edits:** Do NOT paste multi-line code blocks showing what you are *about to* write. Describe the change at a high level (file, intent, key symbols/dependencies) and then execute it — the `Edit`/`Write` tool call already surfaces the diff. Previewing the precise contents before writing is redundant and verbose.
 
-# 9.6. Debugging Session Log
+# 11. Debugging Session Log
 
 A short ledger of multi-session debugging efforts that resulted in significant architectural pivots. New entries go at the top. Keep entries terse — one paragraph, no rehashed code.
 
+- **2026-05-09 — Removed the ImGuizmo gizmo integration entirely.** State-corruption symptoms (handles staying active after release / phantom click latching) survived the NFD→ImGuiFileDialog swap and a four-step integration audit (move imguizmo link off the engine DLL boundary, move `BeginFrame()` inside the dockspace `Begin`, pass an explicit `ImGui::GetWindowDrawList()` to `SetDrawlist`, and add `SetGizmoSizeClipSpace(0.1f)` + `AllowAxisFlip(false)`). Decision: rip out all gizmo code (`viewport_panel::RenderGizmos`, `EditorLayer::HandleGizmoTypeChange`, the gizmo-deselect guard in `OnMouseButtonPressed`, `EditorContext::GizmoType/GizmoMode`, `TransformEditCommand`, the toolbar's gizmo combo + World/Local toggle, the `imguizmo` link in `engine/CMakeLists.txt` + `weaver/CMakeLists.txt` + the block in `vendors.cmake`) and start fresh in a future commit. **The visual transform gizmo is disabled.** Translation/rotation/scale can still be edited via the inspector input fields (those route through `PropertyEditCommand<T>` and undo correctly). The `vendor/imguizmo` submodule remains on disk but unreferenced — to be removed in a follow-up commit via `git submodule deinit -f vendor/imguizmo` + `git rm -f vendor/imguizmo`.
+
 - **2026-05-08 — Dropped NFD (nativefiledialog-extended) in favor of ImGuiFileDialog.** Multiple sessions of trying to fix an `ImGuizmo` state-corruption bug caused by NFD stealing OS focus and blocking the main thread (symptoms: phantom mouse-down latched after dialog closed, gizmo handles becoming unresponsive). Workarounds attempted and discarded: `glfwFocusWindow` post-call, `ImGui::GetIO().ClearInputMouse()`, modified `ImGuiLayer::BlockEvents` ordering. Root cause is fundamental: NFD blocks the GLFW main thread and the OS dialog sits on top of the editor as a separate native window, so input events are dropped without ImGui ever seeing the press/release pair. Fix: replaced NFD with `ImGuiFileDialog` (vendor/imguifiledialog) — fully in-process ImGui modal, no thread blocking, no focus loss. The async API is wrapped by `Weaver::FileDialog` (`weaver/src/editor/file_dialog.{h,cpp}`): `Open / Save / PickFolder` register a callback, `Render()` polled once per frame from `EditorLayer::OnImGuiRender` dispatches the callback when the user clicks OK. Inspector callbacks capture entity by `UUID + scene shared_ptr` (not raw entity handle) so a scene swap mid-dialog is safe. `SceneManager::SaveScene/SaveSceneAs` gained an optional `on_complete` callback so the "Save Changes?" modal's pending action only fires after an async save resolves.
 
-# 10. Development Roadmap
+# 12. Development Roadmap
 
 Keep this section current. Mark completed items with `[x]`, update priorities as the project evolves.
 
@@ -323,6 +325,12 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - `Renderer2D::DrawTilemap(...)` — single batched draw call per layer
   - Inspector: tile grid editor (click to paint index)
   - YAML serialization
+
+- [ ] **Gizmo system rewrite** *(blocking — visual transform manipulation is currently disabled)*
+  - The previous ImGuizmo integration was ripped out (see Debugging Session Log 2026-05-09) after a multi-step audit failed to resolve persistent state corruption.
+  - Rebuild: 3D translate/rotate/scale handles in the viewport, world/local mode toggle, screen-constant size, picking via screen-space proximity for axes + ray-vs-plane intersection for plane handles. Render via `ImGui::GetWindowDrawList()` (no Renderer3D dependency).
+  - Reintroduce a `TransformEditCommand` (the previous one was deleted with ImGuizmo) committed on drag-end so undo batches per drag rather than per frame.
+  - Until rebuilt: T/R/S editing happens only through the inspector input fields.
 
 - [ ] **Particle system** *(suggestion, lower priority)*
   - `ParticleComponent`: emitter shape, spawn rate, lifetime, velocity range, size/color over lifetime

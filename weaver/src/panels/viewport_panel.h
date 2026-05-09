@@ -1,14 +1,11 @@
 #pragma once
 
 #include "editor_context.h"
-#include "editor/commands.h"
 #include <loom/core/timestep.h>
-#include <loom/core/uuid.h>
 #include <loom/renderer/buffer.h>
 #include <loom/renderer/framebuffer.h>
 #include <loom/renderer/shader.h>
 #include <loom/renderer/vertex_array.h>
-#include <loom/scene/components.h>
 #include <filesystem>
 #include <functional>
 
@@ -34,7 +31,6 @@ namespace Weaver {
         void HandleViewportResize();
         void UpdateViewportBounds();
         void UpdateViewportSize();
-        void RenderGizmos();
 
         EditorContext& mContext;
 
@@ -50,11 +46,6 @@ namespace Weaver {
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;
         std::shared_ptr<Loom::Shader>       mGridShader;
-
-        // Gizmo drag state for TransformEditCommand
-        bool                     mGizmoDragging = false;
-        Loom::UUID               mGizmoDragEntity;
-        Loom::TransformComponent mGizmoDragStart;
     };
 
 } // namespace Weaver
