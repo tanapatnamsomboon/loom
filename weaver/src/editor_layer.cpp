@@ -1,6 +1,7 @@
 #include "editor_layer.h"
 #include "editor/file_dialog.h"
 #include <imgui.h>
+#include <loom/asset/font_manager.h>
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
@@ -207,58 +208,65 @@ namespace Weaver {
     }
 
     void EditorLayer::RenderMainMenuBar() {
-        if (!ImGui::BeginMainMenuBar()) return;
-
-        if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New Project..."))  mProjectManager.NewProject();
-            if (ImGui::MenuItem("Open Project...")) mProjectManager.OpenProject();
-            ImGui::BeginDisabled(!Loom::Project::GetActive());
-            if (ImGui::MenuItem("Save Project As...")) mProjectManager.SaveProjectAs();
-            ImGui::EndDisabled();
-            {
-                const auto& recent = mProjectManager.GetRecentProjects();
-                if (recent.empty()) {
-                    ImGui::BeginDisabled(true);
-                    ImGui::MenuItem("Open Recent");
-                    ImGui::EndDisabled();
-                } else {
-                    if (ImGui::BeginMenu("Open Recent")) {
-                        for (const auto& path : recent) {
-                            auto label = std::filesystem::path(path).stem().string();
-                            if (ImGui::MenuItem(label.c_str()))
-                                mProjectManager.OpenProject(path);
-                            if (ImGui::IsItemHovered())
-                                ImGui::SetTooltip("%s", path.c_str());
+        float font_size = ImGui::GetFontSize();
+        float padding_y = (24.0f - font_size) / 2.0f;
+        Loom::FontManager::Push(Loom::FontType::MediumBold);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 0.0f));
+        if (ImGui::BeginMainMenuBar()) {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("New Project..."))  mProjectManager.NewProject();
+                if (ImGui::MenuItem("Open Project...")) mProjectManager.OpenProject();
+                ImGui::BeginDisabled(!Loom::Project::GetActive());
+                if (ImGui::MenuItem("Save Project As...")) mProjectManager.SaveProjectAs();
+                ImGui::EndDisabled();
+                {
+                    const auto& recent = mProjectManager.GetRecentProjects();
+                    if (recent.empty()) {
+                        ImGui::BeginDisabled(true);
+                        ImGui::MenuItem("Open Recent");
+                        ImGui::EndDisabled();
+                    } else {
+                        if (ImGui::BeginMenu("Open Recent")) {
+                            for (const auto& path : recent) {
+                                auto label = std::filesystem::path(path).stem().string();
+                                if (ImGui::MenuItem(label.c_str()))
+                                    mProjectManager.OpenProject(path);
+                                if (ImGui::IsItemHovered())
+                                    ImGui::SetTooltip("%s", path.c_str());
+                            }
+                            ImGui::EndMenu();
                         }
-                        ImGui::EndMenu();
                     }
                 }
+                ImGui::BeginDisabled(!Loom::Project::GetActive());
+                if (ImGui::MenuItem("Project Settings...")) mProjectManager.OpenSettings();
+                ImGui::EndDisabled();
+                ImGui::Separator();
+                if (ImGui::MenuItem("New",        "Ctrl+N"))       mSceneManager.NewScene();
+                if (ImGui::MenuItem("Open...",    "Ctrl+O"))       mSceneManager.OpenScene();
+                if (ImGui::MenuItem("Save",       "Ctrl+S"))       mSceneManager.SaveScene();
+                if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) mSceneManager.SaveSceneAs();
+                ImGui::Separator();
+                if (ImGui::MenuItem("Exit",       "Ctrl+Q"))       mSceneManager.RequestQuit();
+                ImGui::EndMenu();
             }
-            ImGui::BeginDisabled(!Loom::Project::GetActive());
-            if (ImGui::MenuItem("Project Settings...")) mProjectManager.OpenSettings();
-            ImGui::EndDisabled();
-            ImGui::Separator();
-            if (ImGui::MenuItem("New",        "Ctrl+N"))       mSceneManager.NewScene();
-            if (ImGui::MenuItem("Open...",    "Ctrl+O"))       mSceneManager.OpenScene();
-            if (ImGui::MenuItem("Save",       "Ctrl+S"))       mSceneManager.SaveScene();
-            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) mSceneManager.SaveSceneAs();
-            ImGui::Separator();
-            if (ImGui::MenuItem("Exit",       "Ctrl+Q"))       mSceneManager.RequestQuit();
-            ImGui::EndMenu();
-        }
 
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowSceneHierarchyPanel);
-            ImGui::MenuItem("Content Browser", nullptr, &mShowContentBrowserPanel);
-            ImGui::EndMenu();
-        }
+            if (ImGui::BeginMenu("View")) {
+                ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowSceneHierarchyPanel);
+                ImGui::MenuItem("Content Browser", nullptr, &mShowContentBrowserPanel);
+                ImGui::EndMenu();
+            }
 
-        if (ImGui::BeginMenu("About")) {
-            if (ImGui::MenuItem("About Weaver")) mShowAboutModal = true;
-            ImGui::EndMenu();
-        }
+            if (ImGui::BeginMenu("About")) {
+                if (ImGui::MenuItem("About Weaver")) mShowAboutModal = true;
+                ImGui::EndMenu();
+            }
 
-        ImGui::EndMainMenuBar();
+            ImGui::EndMainMenuBar();
+        }
+        ImGui::PopStyleVar(1);
+        Loom::FontManager::Pop();
     }
 
     void EditorLayer::RenderAboutModal() {

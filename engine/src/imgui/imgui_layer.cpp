@@ -1,4 +1,5 @@
 #include "loom/imgui/imgui_layer.h"
+#include "loom/asset/font_manager.h"
 #include "loom/core/application.h"
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
@@ -13,34 +14,20 @@ namespace Loom {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        (void)io;
-
-        constexpr float font_size = 22.0f;
-
-        // GetGlyphRangesThai() covers: 0x0020–0x00FF (Latin + Latin-1 Supplement, includes ×),
-        // 0x2010–0x205E (punctuation), and 0x0E00–0x0E7F (Thai).
-        static const ImWchar* base_ranges = io.Fonts->GetGlyphRangesThai();
-        io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_regular.ttf", font_size, nullptr, base_ranges); // default
-        io.Fonts->AddFontFromFileTTF("resources/fonts/ibm_plex_sans_thai/ibm_plex_sans_thai_bold.ttf",    font_size, nullptr, base_ranges); // Fonts[1]
 
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-        // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
         ImGui::StyleColorsDark();
-
-        ImGuiStyle& style = ImGui::GetStyle();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            style.WindowRounding              = 0.0f;
-            style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-        }
 
         Application& app    = Application::Get();
         GLFWwindow*  window = (GLFWwindow*)app.GetWindow().GetNativeWindow();
 
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 460");
+
+        FontManager::Init();
     }
 
     void ImGuiLayer::OnDetach() {

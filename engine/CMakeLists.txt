@@ -2,6 +2,7 @@ project(Loom)
 
 set(ENGINE_SOURCES
   src/asset/asset_manager.cpp
+  src/asset/font_manager.cpp
 
   src/core/application.cpp
   src/core/input.cpp
