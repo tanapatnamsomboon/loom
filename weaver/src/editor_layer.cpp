@@ -41,6 +41,7 @@ namespace Weaver {
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
 
         mViewportPanel.Init();
+        mToolbarPanel.Init();
 
         mContentBrowserPanel.Init();
         mContentBrowserPanel.SetSceneOpenCallback([this](const std::filesystem::path& path) {

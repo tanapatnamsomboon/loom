@@ -9,6 +9,8 @@ namespace Weaver {
     public:
         explicit ToolbarPanel(EditorContext& ctx);
 
+        void Init();
+
         void SetOnPlayPressed(std::function<void()> cb) { mOnPlayPressed = std::move(cb); }
         void SetOnStopPressed(std::function<void()> cb) { mOnStopPressed = std::move(cb); }
 
@@ -21,6 +23,9 @@ namespace Weaver {
 
         std::function<void()> mOnPlayPressed;
         std::function<void()> mOnStopPressed;
+
+        std::shared_ptr<Loom::Texture2D> mPlayButtonIcon;
+        std::shared_ptr<Loom::Texture2D> mStopButtonIcon;
     };
 
 } // namespace Weaver

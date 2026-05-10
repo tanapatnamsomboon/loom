@@ -70,6 +70,7 @@ namespace Loom {
         glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
         mWindow = glfwCreateWindow((int)props.Width, (int)props.Height, mData.Title.c_str(), nullptr, nullptr);
+        glfwSetWindowSizeLimits(mWindow, 1366, 768, GLFW_DONT_CARE, GLFW_DONT_CARE);
         mContext = std::make_unique<OpenGLContext>(mWindow);
         mContext->Init();
         glfwSetWindowUserPointer(mWindow, &mData);

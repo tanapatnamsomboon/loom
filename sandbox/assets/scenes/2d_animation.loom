@@ -1,8 +1,8 @@
 Scene: 2d_animation
 EditorCamera:
-  Position: [-1.0787995, 0.6741764, 11.170368]
-  Pitch: 0.024000091
-  Yaw: 0.05099518
+  Position: [-5.1878653, 1.1991913, 6.766637]
+  Pitch: 0.13500018
+  Yaw: 0.5219945
 Entities:
   - Entity: 647933478549646723
     TagComponent:
@@ -74,7 +74,7 @@ Entities:
       FixedRotation: false
     BoxCollider2DComponent:
       Offset: [0, 0]
-      Size: [0.5, 0.5]
+      Size: [5, 0.5]
       Density: 1
       Friction: 0.5
       Restitution: 0
