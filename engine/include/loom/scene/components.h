@@ -200,6 +200,66 @@ namespace Loom {
         TilemapComponent(const TilemapComponent&) = default;
     };
 
+    struct ParticleComponent {
+        enum class EmitterShape    { Point = 0, Box = 1, Circle = 2 };
+        enum class SimulationSpace { World = 0, Local = 1 };
+
+        // Emitter
+        EmitterShape    Shape       = EmitterShape::Point;
+        glm::vec2       ShapeSize   = { 1.0f, 1.0f }; // Box: half-extents; Circle: radius (x); ignored for Point
+        SimulationSpace Space       = SimulationSpace::World;
+        bool            Emitting    = true;
+        float           SpawnRate   = 20.0f;          // particles per second
+
+        // Particle initial state
+        float     LifetimeMin   = 0.5f;
+        float     LifetimeMax   = 1.5f;
+        glm::vec2 VelocityMin   = { -1.0f, -1.0f };
+        glm::vec2 VelocityMax   = {  1.0f,  1.0f };
+        glm::vec2 Gravity       = {  0.0f, -9.8f };
+        float     GravityScale  = 0.0f;               // 0 disables gravity by default
+        float     RotationSpeed = 0.0f;               // radians/sec, applied to particle local rotation
+
+        // Animated over normalized lifetime [0..1]
+        glm::vec4 ColorBegin = { 1.0f, 1.0f, 1.0f, 1.0f };
+        glm::vec4 ColorEnd   = { 1.0f, 1.0f, 1.0f, 0.0f };
+        float     SizeBegin  = 0.2f;
+        float     SizeEnd    = 0.0f;
+
+        int MaxParticles = 256;
+
+        // Optional texture (1x1 white when empty). Path relative to asset directory.
+        std::string                TexturePath;
+        std::shared_ptr<Texture2D> Texture; // runtime cache — not serialized
+
+        // Runtime particle pool — not serialized.
+        // World-space mode: Position is stored in world coords.
+        // Local-space mode: Position is stored in emitter-local coords; transformed at draw time.
+        struct ParticleInstance {
+            glm::vec2 Position;
+            glm::vec2 Velocity;
+            float     Rotation;
+            float     Age;
+            float     Lifetime;
+        };
+        std::vector<ParticleInstance> Live;
+        float SpawnAccumulator = 0.0f;
+
+        ParticleComponent() = default;
+        ParticleComponent(const ParticleComponent& other)
+            : Shape(other.Shape), ShapeSize(other.ShapeSize), Space(other.Space)
+            , Emitting(other.Emitting), SpawnRate(other.SpawnRate)
+            , LifetimeMin(other.LifetimeMin), LifetimeMax(other.LifetimeMax)
+            , VelocityMin(other.VelocityMin), VelocityMax(other.VelocityMax)
+            , Gravity(other.Gravity), GravityScale(other.GravityScale)
+            , RotationSpeed(other.RotationSpeed)
+            , ColorBegin(other.ColorBegin), ColorEnd(other.ColorEnd)
+            , SizeBegin(other.SizeBegin), SizeEnd(other.SizeEnd)
+            , MaxParticles(other.MaxParticles)
+            , TexturePath(other.TexturePath)
+            , Texture(nullptr), Live{}, SpawnAccumulator(0.0f) {}
+    };
+
     struct AudioSourceComponent {
         std::string AssetPath;
         float Volume   = 1.0f;

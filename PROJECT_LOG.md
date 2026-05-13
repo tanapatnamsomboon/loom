@@ -8,6 +8,8 @@ Dedicated tracker for project history and forward planning. AI instructions live
 
 A chronological ledger of multi-session debugging efforts that resulted in significant architectural pivots, and notable manual implementations worth recording for future context. New entries go at the top. Keep entries terse — one paragraph, no rehashed code.
 
+- **2026-05-14 — CPU particle system added.** New `ParticleComponent` (engine/include/loom/scene/components.h) carries emitter config (Point/Box/Circle shape, world-vs-local sim space, spawn rate, lifetime/velocity/gravity ranges, color/size over normalized lifetime, max-particle cap, optional texture) plus a per-emitter `Live` pool and `SpawnAccumulator` of runtime state (not serialized). All sim + render logic lives as inline static helpers in `scene.cpp` (`TickParticles`, `DrawParticles`, `UpdateAndDrawParticleEntity`) wired into both `OnUpdateEditor` and `OnUpdateRuntime` — particles tick in the editor too so the Game Developer gets a live FX preview without entering Play. Rendering reuses the existing `Renderer2D::DrawQuad` matrix overloads (one quad per particle, batched by the existing renderer); no new entry point. World-space mode keeps particles flat at the emitter's Z and ignores emitter rotation/scale; local-space mode multiplies by the full emitter world matrix so particles inherit movement. `Live` is cleared on `OnRuntimeStart` and `OnRuntimeStop` so editor preview state never leaks across mode transitions. Inspector UI is left to a follow-up commit per division of labor.
+
 - **2026-05-13 — Manually implemented a custom Font Manager for the editor UI.** Pulled all font loading out of `ImGuiLayer::OnAttach` and into a dedicated `Loom::FontManager` singleton (`engine/include/loom/asset/font_manager.h` + `engine/src/asset/font_manager.cpp`). `FontType` enum covers the editor's typography slots: `Small`, `Medium`, `MediumBold`, `Large`, `LargeBold`, and `Monospace`. Public static API: `Init(dpi_scale)` builds the atlas (called once during ImGui setup), `Get(FontType)` returns the `ImFont*`, and `Push`/`Pop` wrap `ImGui::PushFont`/`PopFont` for scoped overrides. Each UI font merges Inter (Latin) with Noto Sans Thai (`resources/fonts/inter/`, `resources/fonts/noto_sans_thai/`); the monospace slot uses Roboto Mono. Decouples font asset management from `ImGuiLayer` and gives panels a single, type-safe entry point for picking fonts.
 
 - **2026-05-09 — Removed the ImGuizmo gizmo integration entirely.** State-corruption symptoms (handles staying active after release / phantom click latching) survived the NFD→ImGuiFileDialog swap and a four-step integration audit (move imguizmo link off the engine DLL boundary, move `BeginFrame()` inside the dockspace `Begin`, pass an explicit `ImGui::GetWindowDrawList()` to `SetDrawlist`, and add `SetGizmoSizeClipSpace(0.1f)` + `AllowAxisFlip(false)`). Decision: rip out all gizmo code (`viewport_panel::RenderGizmos`, `EditorLayer::HandleGizmoTypeChange`, the gizmo-deselect guard in `OnMouseButtonPressed`, `EditorContext::GizmoType/GizmoMode`, `TransformEditCommand`, the toolbar's gizmo combo + World/Local toggle, the `imguizmo` link in `engine/CMakeLists.txt` + `weaver/CMakeLists.txt` + the block in `vendors.cmake`) and start fresh in a future commit. **The visual transform gizmo is disabled.** Translation/rotation/scale can still be edited via the inspector input fields (those route through `PropertyEditCommand<T>` and undo correctly). The `vendor/imguizmo` submodule remains on disk but unreferenced — to be removed in a follow-up commit via `git submodule deinit -f vendor/imguizmo` + `git rm -f vendor/imguizmo`.
@@ -164,10 +166,11 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Reintroduce a `TransformEditCommand` (the previous one was deleted with ImGuizmo) committed on drag-end so undo batches per drag rather than per frame.
   - Until rebuilt: T/R/S editing happens only through the inspector input fields.
 
-- [ ] **Particle system** *(suggestion, lower priority)*
-  - `ParticleComponent`: emitter shape, spawn rate, lifetime, velocity range, size/color over lifetime
-  - CPU-simulated, rendered via batched `Renderer2D` quads
-  - Inspector UI + YAML
+- [x] **Particle system**
+  - `ParticleComponent`: Point/Box/Circle emitter shape, world-vs-local simulation space, spawn rate, lifetime range, velocity range, gravity + scale, rotation speed, color/size over normalized lifetime, max-particle cap, optional texture
+  - CPU-simulated inside `Scene::OnUpdate{Editor,Runtime}` (live preview in the editor); rendered via batched `Renderer2D::DrawQuad`
+  - YAML round-trip in scene + prefab paths; runtime pool cleared on `OnRuntimeStart`/`OnRuntimeStop`
+  - Inspector UI is the Game Developer's responsibility (per current division of labor)
 
 ---
 

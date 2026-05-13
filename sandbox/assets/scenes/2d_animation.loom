@@ -1,8 +1,8 @@
 Scene: 2d_animation
 EditorCamera:
-  Position: [-5.1878653, 1.1991913, 6.766637]
-  Pitch: 0.13500018
-  Yaw: 0.5219945
+  Position: [-2.2040966, 1.441163, 8.975726]
+  Pitch: 0.10200018
+  Yaw: 0.24299268
 Entities:
   - Entity: 647933478549646723
     TagComponent:
@@ -31,6 +31,32 @@ Entities:
       Restitution: 0
       RestitutionThreshold: 0.5
       IsSensor: false
+  - Entity: 4955960341444618522
+    TagComponent:
+      Tag: Particle
+    TransformComponent:
+      Translation: [0, 1, -0.5]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    ParticleComponent:
+      Shape: 2
+      ShapeSize: [1, 1]
+      Space: 0
+      Emitting: true
+      SpawnRate: 20
+      LifetimeMin: 0.5
+      LifetimeMax: 1.5
+      VelocityMin: [-1, -1]
+      VelocityMax: [1, 1]
+      Gravity: [0, -9.8]
+      GravityScale: 0
+      RotationSpeed: 0
+      ColorBegin: [0, 0.8911917, 1, 1]
+      ColorEnd: [0, 0.39378262, 1, 0]
+      SizeBegin: 0.2
+      SizeEnd: 0
+      MaxParticles: 256
+      TexturePath: ""
   - Entity: 9047455008060296161
     TagComponent:
       Tag: Sun

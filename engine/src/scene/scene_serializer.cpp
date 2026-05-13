@@ -293,6 +293,32 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Particle Component
+        if (entity.HasComponent<ParticleComponent>()) {
+            out << YAML::Key << "ParticleComponent";
+            out << YAML::BeginMap;
+            auto& pc = entity.GetComponent<ParticleComponent>();
+            out << YAML::Key << "Shape"         << YAML::Value << (int)pc.Shape;
+            out << YAML::Key << "ShapeSize"     << YAML::Value << pc.ShapeSize;
+            out << YAML::Key << "Space"         << YAML::Value << (int)pc.Space;
+            out << YAML::Key << "Emitting"      << YAML::Value << pc.Emitting;
+            out << YAML::Key << "SpawnRate"     << YAML::Value << pc.SpawnRate;
+            out << YAML::Key << "LifetimeMin"   << YAML::Value << pc.LifetimeMin;
+            out << YAML::Key << "LifetimeMax"   << YAML::Value << pc.LifetimeMax;
+            out << YAML::Key << "VelocityMin"   << YAML::Value << pc.VelocityMin;
+            out << YAML::Key << "VelocityMax"   << YAML::Value << pc.VelocityMax;
+            out << YAML::Key << "Gravity"       << YAML::Value << pc.Gravity;
+            out << YAML::Key << "GravityScale"  << YAML::Value << pc.GravityScale;
+            out << YAML::Key << "RotationSpeed" << YAML::Value << pc.RotationSpeed;
+            out << YAML::Key << "ColorBegin"    << YAML::Value << pc.ColorBegin;
+            out << YAML::Key << "ColorEnd"      << YAML::Value << pc.ColorEnd;
+            out << YAML::Key << "SizeBegin"     << YAML::Value << pc.SizeBegin;
+            out << YAML::Key << "SizeEnd"       << YAML::Value << pc.SizeEnd;
+            out << YAML::Key << "MaxParticles"  << YAML::Value << pc.MaxParticles;
+            out << YAML::Key << "TexturePath"   << YAML::Value << ToRelativeAssetPath(pc.TexturePath);
+            out << YAML::EndMap;
+        }
+
         // Tilemap Component
         if (entity.HasComponent<TilemapComponent>()) {
             out << YAML::Key << "TilemapComponent";
@@ -576,6 +602,29 @@ namespace Loom {
                 }
                 tm.Tiles.resize(tm.Columns * tm.Rows, -1);
             }
+
+            // Particle Component
+            if (auto pc_node = entity_node["ParticleComponent"]) {
+                auto& pc = entity.AddComponent<ParticleComponent>();
+                pc.Shape         = (ParticleComponent::EmitterShape)   YAML_GET(pc_node["Shape"], int, 0);
+                pc.ShapeSize     = YAML_GET(pc_node["ShapeSize"],     glm::vec2, glm::vec2(1.0f));
+                pc.Space         = (ParticleComponent::SimulationSpace)YAML_GET(pc_node["Space"], int, 0);
+                pc.Emitting      = YAML_GET(pc_node["Emitting"],      bool,  true);
+                pc.SpawnRate     = YAML_GET(pc_node["SpawnRate"],     float, 20.0f);
+                pc.LifetimeMin   = YAML_GET(pc_node["LifetimeMin"],   float, 0.5f);
+                pc.LifetimeMax   = YAML_GET(pc_node["LifetimeMax"],   float, 1.5f);
+                pc.VelocityMin   = YAML_GET(pc_node["VelocityMin"],   glm::vec2, glm::vec2(-1.0f));
+                pc.VelocityMax   = YAML_GET(pc_node["VelocityMax"],   glm::vec2, glm::vec2( 1.0f));
+                pc.Gravity       = YAML_GET(pc_node["Gravity"],       glm::vec2, glm::vec2(0.0f, -9.8f));
+                pc.GravityScale  = YAML_GET(pc_node["GravityScale"],  float, 0.0f);
+                pc.RotationSpeed = YAML_GET(pc_node["RotationSpeed"], float, 0.0f);
+                pc.ColorBegin    = YAML_GET(pc_node["ColorBegin"],    glm::vec4, glm::vec4(1.0f));
+                pc.ColorEnd      = YAML_GET(pc_node["ColorEnd"],      glm::vec4, glm::vec4(1.0f, 1.0f, 1.0f, 0.0f));
+                pc.SizeBegin     = YAML_GET(pc_node["SizeBegin"],     float, 0.2f);
+                pc.SizeEnd       = YAML_GET(pc_node["SizeEnd"],       float, 0.0f);
+                pc.MaxParticles  = YAML_GET(pc_node["MaxParticles"],  int,   256);
+                pc.TexturePath   = YAML_GET(pc_node["TexturePath"],   std::string, "");
+            }
         }
 
         // Second pass: wire up parent-child relationships
@@ -762,6 +811,28 @@ namespace Loom {
                     tm.Tiles.push_back(t.as<int>());
             }
             tm.Tiles.resize(tm.Columns * tm.Rows, -1);
+        }
+
+        if (auto pc_node = data["ParticleComponent"]) {
+            auto& pc = entity.AddComponent<ParticleComponent>();
+            pc.Shape         = (ParticleComponent::EmitterShape)   YAML_GET(pc_node["Shape"], int, 0);
+            pc.ShapeSize     = YAML_GET(pc_node["ShapeSize"],     glm::vec2, glm::vec2(1.0f));
+            pc.Space         = (ParticleComponent::SimulationSpace)YAML_GET(pc_node["Space"], int, 0);
+            pc.Emitting      = YAML_GET(pc_node["Emitting"],      bool,  true);
+            pc.SpawnRate     = YAML_GET(pc_node["SpawnRate"],     float, 20.0f);
+            pc.LifetimeMin   = YAML_GET(pc_node["LifetimeMin"],   float, 0.5f);
+            pc.LifetimeMax   = YAML_GET(pc_node["LifetimeMax"],   float, 1.5f);
+            pc.VelocityMin   = YAML_GET(pc_node["VelocityMin"],   glm::vec2, glm::vec2(-1.0f));
+            pc.VelocityMax   = YAML_GET(pc_node["VelocityMax"],   glm::vec2, glm::vec2( 1.0f));
+            pc.Gravity       = YAML_GET(pc_node["Gravity"],       glm::vec2, glm::vec2(0.0f, -9.8f));
+            pc.GravityScale  = YAML_GET(pc_node["GravityScale"],  float, 0.0f);
+            pc.RotationSpeed = YAML_GET(pc_node["RotationSpeed"], float, 0.0f);
+            pc.ColorBegin    = YAML_GET(pc_node["ColorBegin"],    glm::vec4, glm::vec4(1.0f));
+            pc.ColorEnd      = YAML_GET(pc_node["ColorEnd"],      glm::vec4, glm::vec4(1.0f, 1.0f, 1.0f, 0.0f));
+            pc.SizeBegin     = YAML_GET(pc_node["SizeBegin"],     float, 0.2f);
+            pc.SizeEnd       = YAML_GET(pc_node["SizeEnd"],       float, 0.0f);
+            pc.MaxParticles  = YAML_GET(pc_node["MaxParticles"],  int,   256);
+            pc.TexturePath   = YAML_GET(pc_node["TexturePath"],   std::string, "");
         }
 
         return entity;

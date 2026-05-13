@@ -8,6 +8,7 @@
 #include "loom/scene/entity.h"
 #include "loom/scripting/scripting_engine.h"
 #include <algorithm>
+#include <random>
 #include <unordered_set>
 #include <box2d/box2d.h>
 
@@ -69,6 +70,7 @@ namespace Loom {
         CopyComponent<TilemapComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<TextComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<AudioSourceComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<ParticleComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
@@ -233,6 +235,129 @@ namespace Loom {
             Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(e));
     }
 
+    static float ParticleRandom01() {
+        thread_local std::mt19937 rng{ std::random_device{}() };
+        thread_local std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+        return dist(rng);
+    }
+
+    static float ParticleRandomRange(float min_v, float max_v) {
+        return min_v + (max_v - min_v) * ParticleRandom01();
+    }
+
+    static glm::vec2 ParticleSampleShape(const ParticleComponent& pc) {
+        switch (pc.Shape) {
+            case ParticleComponent::EmitterShape::Box: {
+                float x = ParticleRandomRange(-pc.ShapeSize.x, pc.ShapeSize.x);
+                float y = ParticleRandomRange(-pc.ShapeSize.y, pc.ShapeSize.y);
+                return { x, y };
+            }
+            case ParticleComponent::EmitterShape::Circle: {
+                // sqrt for uniform area distribution
+                float r     = pc.ShapeSize.x * std::sqrt(ParticleRandom01());
+                float theta = ParticleRandom01() * 6.2831853f;
+                return { r * std::cos(theta), r * std::sin(theta) };
+            }
+            case ParticleComponent::EmitterShape::Point:
+            default:
+                return { 0.0f, 0.0f };
+        }
+    }
+
+    static void TickParticles(ParticleComponent& pc, const glm::mat4& world, float ts) {
+        glm::vec3 emitter_world_pos = glm::vec3(world[3]);
+
+        // 1. Spawn new particles
+        if (pc.Emitting && pc.SpawnRate > 0.0f) {
+            pc.SpawnAccumulator += ts * pc.SpawnRate;
+            int to_spawn = (int)pc.SpawnAccumulator;
+            pc.SpawnAccumulator -= (float)to_spawn;
+
+            int cap = std::max(0, pc.MaxParticles);
+            int free_slots = cap - (int)pc.Live.size();
+            to_spawn = std::clamp(to_spawn, 0, free_slots);
+
+            for (int i = 0; i < to_spawn; ++i) {
+                ParticleComponent::ParticleInstance p;
+                glm::vec2 spawn_offset = ParticleSampleShape(pc);
+                if (pc.Space == ParticleComponent::SimulationSpace::World)
+                    p.Position = glm::vec2(emitter_world_pos) + spawn_offset;
+                else
+                    p.Position = spawn_offset;
+                p.Velocity = { ParticleRandomRange(pc.VelocityMin.x, pc.VelocityMax.x),
+                               ParticleRandomRange(pc.VelocityMin.y, pc.VelocityMax.y) };
+                p.Rotation = 0.0f;
+                p.Age      = 0.0f;
+                p.Lifetime = std::max(0.0001f, ParticleRandomRange(pc.LifetimeMin, pc.LifetimeMax));
+                pc.Live.push_back(p);
+            }
+        } else {
+            pc.SpawnAccumulator = 0.0f;
+        }
+
+        // 2. Integrate motion + age, removing expired in-place
+        glm::vec2 gravity_step = pc.Gravity * pc.GravityScale * ts;
+        size_t write = 0;
+        for (size_t read = 0; read < pc.Live.size(); ++read) {
+            auto& p = pc.Live[read];
+            p.Age += ts;
+            if (p.Age >= p.Lifetime)
+                continue;
+            p.Velocity += gravity_step;
+            p.Position += p.Velocity * ts;
+            p.Rotation += pc.RotationSpeed * ts;
+            if (write != read)
+                pc.Live[write] = p;
+            ++write;
+        }
+        pc.Live.resize(write);
+    }
+
+    static void DrawParticles(ParticleComponent& pc, const glm::mat4& world, int entity_id) {
+        if (pc.Live.empty()) return;
+
+        glm::vec3 emitter_world_pos = glm::vec3(world[3]);
+        bool      is_local          = pc.Space == ParticleComponent::SimulationSpace::Local;
+
+        for (const auto& p : pc.Live) {
+            float t = std::clamp(p.Age / p.Lifetime, 0.0f, 1.0f);
+            glm::vec4 color = glm::mix(pc.ColorBegin, pc.ColorEnd, t);
+            float     size  = glm::mix(pc.SizeBegin,  pc.SizeEnd,  t);
+            if (size <= 0.0f) continue;
+
+            glm::mat4 local = glm::translate(glm::mat4(1.0f), { p.Position.x, p.Position.y, 0.0f })
+                            * glm::rotate(glm::mat4(1.0f), p.Rotation, { 0.0f, 0.0f, 1.0f })
+                            * glm::scale(glm::mat4(1.0f), { size, size, 1.0f });
+
+            glm::mat4 transform = is_local
+                ? world * local
+                // World mode: ignore emitter rotation/scale; keep particles flat at emitter Z.
+                : glm::translate(glm::mat4(1.0f), { p.Position.x, p.Position.y, emitter_world_pos.z })
+                    * glm::rotate(glm::mat4(1.0f), p.Rotation, { 0.0f, 0.0f, 1.0f })
+                    * glm::scale(glm::mat4(1.0f), { size, size, 1.0f });
+
+            if (pc.Texture)
+                Renderer2D::DrawQuad(transform, pc.Texture, color, 1.0f, entity_id);
+            else
+                Renderer2D::DrawQuad(transform, color, entity_id);
+        }
+    }
+
+    static void UpdateAndDrawParticleEntity(Scene* scene, entt::registry& registry,
+                                            entt::entity e, ParticleComponent& pc, float ts) {
+        if (!pc.TexturePath.empty()) {
+            std::string abs_path = Project::GetAssetFileSystemPath(pc.TexturePath).generic_string();
+            if (!pc.Texture || pc.Texture->GetPath() != abs_path)
+                pc.Texture = AssetManager::GetTexture(abs_path);
+        } else {
+            pc.Texture = nullptr;
+        }
+
+        glm::mat4 world = scene->GetWorldTransform({ e, scene });
+        TickParticles(pc, world, ts);
+        DrawParticles(pc, world, (int)entt::to_entity(e));
+    }
+
     static void DrawTilemapEntity(Scene* scene, entt::registry& registry, entt::entity e, TilemapComponent& tc) {
         if (tc.SpritesheetPath.empty() || tc.Tiles.empty()) return;
         std::string abs_path = Project::GetAssetFileSystemPath(tc.SpritesheetPath).generic_string();
@@ -282,6 +407,13 @@ namespace Loom {
                                  text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
         }
 
+        // Particles tick in editor too so the Game Developer gets a live FX preview without entering Play.
+        auto particle_view = mRegistry.view<TransformComponent, ParticleComponent>();
+        for (auto entity : particle_view) {
+            auto& pc = particle_view.get<ParticleComponent>(entity);
+            UpdateAndDrawParticleEntity(this, mRegistry, entity, pc, ts);
+        }
+
         auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
         for (auto entity : camera_view) {
             glm::vec3 world_pos     = glm::vec3(GetWorldTransform({ entity, this })[3]);
@@ -305,6 +437,11 @@ namespace Loom {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
             anim.CurrentFrame = 0;
             anim.ElapsedTime  = 0.0f;
+        });
+
+        mRegistry.view<ParticleComponent>().each([](ParticleComponent& pc) {
+            pc.Live.clear();
+            pc.SpawnAccumulator = 0.0f;
         });
 
         ScriptingEngine::OnRuntimeStart(this);
@@ -530,6 +667,12 @@ namespace Loom {
                                      text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
             }
 
+            auto particle_view = mRegistry.view<TransformComponent, ParticleComponent>();
+            for (auto entity : particle_view) {
+                auto& pc = particle_view.get<ParticleComponent>(entity);
+                UpdateAndDrawParticleEntity(this, mRegistry, entity, pc, ts);
+            }
+
             RenderPhysicsColliders();
 
             Renderer2D::EndScene();
@@ -541,6 +684,11 @@ namespace Loom {
             anim.CurrentFrame = 0;
             anim.ElapsedTime  = 0.0f;
             anim.IsPlaying    = true;
+        });
+
+        mRegistry.view<ParticleComponent>().each([](ParticleComponent& pc) {
+            pc.Live.clear();
+            pc.SpawnAccumulator = 0.0f;
         });
 
         ScriptingEngine::OnRuntimeStop();

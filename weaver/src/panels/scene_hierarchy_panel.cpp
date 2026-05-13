@@ -260,6 +260,7 @@ namespace Weaver {
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
             push_add.template operator()<Loom::TextComponent>("Text");
             push_add.template operator()<Loom::TilemapComponent>("Tilemap");
+            push_add.template operator()<Loom::ParticleComponent>("Particles");
             ImGui::EndPopup();
         }
 
@@ -1191,6 +1192,128 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::TilemapComponent>("Tilemap");
+        }
+
+        if (entity.HasComponent<Loom::ParticleComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::ParticleComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Particles");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& pc          = entity.GetComponent<Loom::ParticleComponent>();
+                bool  is_modified = false;
+
+                ImGui::TextDisabled("Live: %d / %d", (int)pc.Live.size(), pc.MaxParticles);
+
+                // Emitter shape
+                const char* shape_names[] = { "Point", "Box", "Circle" };
+                int shape_idx = (int)pc.Shape;
+                if (ImGui::Combo("Shape", &shape_idx, shape_names, IM_ARRAYSIZE(shape_names))) {
+                    pc.Shape    = (Loom::ParticleComponent::EmitterShape)shape_idx;
+                    is_modified = true;
+                }
+                if (pc.Shape == Loom::ParticleComponent::EmitterShape::Box) {
+                    is_modified |= ImGui::DragFloat2("Box Half-Extents", glm::value_ptr(pc.ShapeSize), 0.05f, 0.0f, 100.0f);
+                } else if (pc.Shape == Loom::ParticleComponent::EmitterShape::Circle) {
+                    is_modified |= ImGui::DragFloat("Circle Radius", &pc.ShapeSize.x, 0.05f, 0.0f, 100.0f);
+                }
+
+                // Simulation space
+                const char* space_names[] = { "World", "Local" };
+                int space_idx = (int)pc.Space;
+                if (ImGui::Combo("Space", &space_idx, space_names, IM_ARRAYSIZE(space_names))) {
+                    pc.Space    = (Loom::ParticleComponent::SimulationSpace)space_idx;
+                    is_modified = true;
+                }
+
+                is_modified |= ImGui::Checkbox("Emitting",   &pc.Emitting);
+                is_modified |= ImGui::DragFloat("Spawn Rate", &pc.SpawnRate, 1.0f, 0.0f, 10000.0f, "%.1f /s");
+
+                ImGui::SeparatorText("Particle");
+
+                // Lifetime range as one DragFloat2 (min, max) with min<=max guard
+                float life_range[2] = { pc.LifetimeMin, pc.LifetimeMax };
+                if (ImGui::DragFloat2("Lifetime (min, max)", life_range, 0.01f, 0.001f, 60.0f, "%.3f")) {
+                    pc.LifetimeMin = std::max(0.001f, life_range[0]);
+                    pc.LifetimeMax = std::max(pc.LifetimeMin, life_range[1]);
+                    is_modified    = true;
+                }
+
+                is_modified |= ImGui::DragFloat2("Velocity Min", glm::value_ptr(pc.VelocityMin), 0.05f);
+                is_modified |= ImGui::DragFloat2("Velocity Max", glm::value_ptr(pc.VelocityMax), 0.05f);
+                is_modified |= ImGui::DragFloat2("Gravity",      glm::value_ptr(pc.Gravity),     0.05f);
+                is_modified |= ImGui::DragFloat ("Gravity Scale", &pc.GravityScale, 0.01f,  0.0f, 10.0f);
+                is_modified |= ImGui::DragFloat ("Rotation Speed", &pc.RotationSpeed, 0.05f, -50.0f, 50.0f, "%.2f rad/s");
+
+                ImGui::SeparatorText("Appearance");
+
+                is_modified |= ImGui::ColorEdit4("Color Begin", glm::value_ptr(pc.ColorBegin));
+                is_modified |= ImGui::ColorEdit4("Color End",   glm::value_ptr(pc.ColorEnd));
+                is_modified |= ImGui::DragFloat ("Size Begin",  &pc.SizeBegin, 0.005f, 0.0f, 100.0f, "%.3f");
+                is_modified |= ImGui::DragFloat ("Size End",    &pc.SizeEnd,   0.005f, 0.0f, 100.0f, "%.3f");
+
+                if (ImGui::DragInt("Max Particles", &pc.MaxParticles, 1.0f, 1, 65536)) {
+                    pc.MaxParticles = std::max(1, pc.MaxParticles);
+                    is_modified     = true;
+                }
+
+                // Texture row (optional — empty path = plain colored quads)
+                char tex_buffer[512] = {};
+                strncpy(tex_buffer, pc.TexturePath.c_str(), sizeof(tex_buffer) - 1);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Texture");
+                ImGui::SameLine();
+                constexpr float browse_w = 28.0f;
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
+                if (ImGui::InputText("##ParticleTexPath", tex_buffer, sizeof(tex_buffer))) {
+                    pc.TexturePath = tex_buffer;
+                    pc.Texture     = nullptr;
+                    is_modified    = true;
+                }
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                        std::filesystem::path picked    = std::filesystem::path((const char*)payload->Data);
+                        std::filesystem::path asset_dir = Loom::Project::GetAssetDirectory();
+                        std::error_code       ec;
+                        auto rel = std::filesystem::relative(picked, asset_dir, ec);
+                        pc.TexturePath = (!ec && !rel.empty() && rel.string().find("..") == std::string::npos)
+                                       ? rel.generic_string() : picked.generic_string();
+                        pc.Texture     = nullptr;
+                        is_modified    = true;
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("...##ParticleTexBrowse", { browse_w, 0.0f })) {
+                    auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                    auto scene    = mContext;
+                    auto modified = mSceneModifiedCallback;
+                    FileDialog::Open("BrowseParticleTex", "Choose Particle Texture", ".png,.jpg,.jpeg,.bmp,.tga",
+                        [uuid, scene, modified](const std::string& abs_path) {
+                            Loom::Entity e = scene->GetEntityByUUID(uuid);
+                            if (!e || !e.HasComponent<Loom::ParticleComponent>()) return;
+                            auto& p = e.GetComponent<Loom::ParticleComponent>();
+                            p.TexturePath = FileDialog::MakeAssetRelative(abs_path);
+                            p.Texture     = nullptr;
+                            if (modified) modified();
+                        });
+                }
+
+                if (ImGui::Button("Clear Live Particles")) {
+                    pc.Live.clear();
+                    pc.SpawnAccumulator = 0.0f;
+                }
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::ParticleComponent>("Particles");
         }
     }
 
