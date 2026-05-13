@@ -24,7 +24,8 @@ std::shared_ptr<FontAsset> FontAsset::Create(const std::string& path) {
     std::array<stbtt_packedchar, 96> packed_chars;
 
     stbtt_pack_context pc;
-    if (!stbtt_PackBegin(&pc, bitmap.data(), AtlasWidth, AtlasHeight, 0, 1, nullptr)) {
+    // Padding must be ≥ oversampling factor to avoid neighbour bleed under linear sampling.
+    if (!stbtt_PackBegin(&pc, bitmap.data(), AtlasWidth, AtlasHeight, 0, 2, nullptr)) {
         LOOM_CORE_ERROR("FontAsset: stbtt_PackBegin failed for '{}'", path);
         return nullptr;
     }
@@ -45,7 +46,7 @@ std::shared_ptr<FontAsset> FontAsset::Create(const std::string& path) {
     }
 
     TextureSpecification spec;
-    spec.Filter       = FilterMode::Nearest;
+    spec.Filter       = FilterMode::Linear;
     spec.Wrap         = WrapMode::Clamp;
     spec.GenerateMips = false;
 

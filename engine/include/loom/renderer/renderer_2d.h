@@ -48,7 +48,7 @@ namespace Loom {
 
         static void DrawText(const std::string& text, const std::shared_ptr<FontAsset>& font,
                              const glm::mat4& transform, const glm::vec4& color,
-                             float kerning = 0.0f, int entity_id = -1);
+                             float kerning = 0.0f, float line_spacing = 0.0f, int entity_id = -1);
 
         static void DrawTilemap(const std::shared_ptr<Texture2D>& spritesheet,
                                 const glm::mat4& transform,

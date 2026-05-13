@@ -278,7 +278,8 @@ namespace Loom {
             if (!text_comp.Font) continue;
             glm::mat4 world = GetWorldTransform({ entity, this })
                               * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
-            Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color, text_comp.Kerning, (int)entt::to_entity(entity));
+            Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color,
+                                 text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
         }
 
         auto camera_view = mRegistry.view<TransformComponent, CameraComponent>();
@@ -525,7 +526,8 @@ namespace Loom {
                 if (!text_comp.Font) continue;
                 glm::mat4 world = GetWorldTransform({ entity, this })
                                   * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
-                Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color, text_comp.Kerning, (int)entt::to_entity(entity));
+                Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color,
+                                     text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
             }
 
             RenderPhysicsColliders();

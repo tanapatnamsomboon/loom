@@ -21,7 +21,9 @@ class LOOM_API FontAsset {
 public:
     static constexpr int AtlasWidth  = 1024;
     static constexpr int AtlasHeight = 1024;
-    static constexpr int BakedSize   = 48;
+    // Baked larger than typical render size so Linear sampling downsamples (sharp) instead of
+    // upsampling (blurry). 72 px fits all 96 ASCII glyphs in a 1024² atlas with padding.
+    static constexpr int BakedSize   = 72;
 
     static std::shared_ptr<FontAsset> Create(const std::string& path);
 

@@ -468,7 +468,7 @@ namespace Loom {
 
     void Renderer2D::DrawText(const std::string& text, const std::shared_ptr<FontAsset>& font,
                               const glm::mat4& transform, const glm::vec4& color,
-                              float kerning, int entity_id) {
+                              float kerning, float line_spacing, int entity_id) {
         if (!font || text.empty()) return;
         auto atlas = font->GetAtlasTexture();
         if (!atlas) return;
@@ -479,7 +479,7 @@ namespace Loom {
         for (char c : text) {
             if (c == '\n') {
                 cursor_x  = 0.0f;
-                cursor_y -= font->GetLineHeight();
+                cursor_y -= font->GetLineHeight() + line_spacing;
                 continue;
             }
 
