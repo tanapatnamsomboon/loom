@@ -157,6 +157,46 @@ private:
     T           mSavedData;
 };
 
+// ---- TransformEditCommand ----------------------------------------------
+// Captures a TransformComponent before/after for a single gizmo drag. The
+// viewport panel snapshots the component on drag-start and pushes one
+// command on drag-end so undo batches per drag, not per frame.
+
+class TransformEditCommand : public IEditorCommand {
+public:
+    TransformEditCommand(std::shared_ptr<Loom::Scene> scene, Loom::UUID entity_uuid,
+                         Loom::TransformComponent before, Loom::TransformComponent after,
+                         std::string description = "Transform")
+        : mScene(std::move(scene))
+        , mUUID((uint64_t)entity_uuid)
+        , mBefore(before)
+        , mAfter(after)
+        , mDescription(std::move(description)) {}
+
+    void Execute() override { Apply(mAfter);  }
+    void Undo()    override { Apply(mBefore); }
+
+    std::string GetDescription() const override { return mDescription; }
+
+private:
+    void Apply(const Loom::TransformComponent& t) {
+        auto s = mScene.lock();
+        if (!s) return;
+        Loom::Entity e = s->GetEntityByUUID(Loom::UUID(mUUID));
+        if (!e || !e.HasComponent<Loom::TransformComponent>()) return;
+        auto& tc = e.GetComponent<Loom::TransformComponent>();
+        tc.Translation = t.Translation;
+        tc.Rotation    = t.Rotation;
+        tc.Scale       = t.Scale;
+    }
+
+    std::weak_ptr<Loom::Scene> mScene;
+    uint64_t                   mUUID;
+    Loom::TransformComponent   mBefore;
+    Loom::TransformComponent   mAfter;
+    std::string                mDescription;
+};
+
 // ---- PropertyEditCommand<T> --------------------------------------------
 // Generic before/after for any copyable inspector property.
 // Setter: void(Loom::Entity, const T&)

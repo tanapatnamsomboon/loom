@@ -118,6 +118,11 @@ namespace Weaver {
     bool EditorLayer::OnMouseButtonPressed(Loom::MouseButtonPressedEvent& event) {
         if (event.GetMouseButton() != 0 || !mContext.ViewportHovered)
             return false;
+
+        // Gizmo takes priority over entity selection.
+        if (mViewportPanel.BeginGizmoDragIfHovered())
+            return true;
+
         mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
         return false;
     }
@@ -130,6 +135,9 @@ namespace Weaver {
     void EditorLayer::HandleShortcuts(Loom::KeyPressedEvent& event) {
         bool ctrl  = Loom::Input::IsKeyPressed(Loom::Key::LeftControl) || Loom::Input::IsKeyPressed(Loom::Key::RightControl);
         bool shift = Loom::Input::IsKeyPressed(Loom::Key::LeftShift)   || Loom::Input::IsKeyPressed(Loom::Key::RightShift);
+
+        // Gizmo shortcuts only fire when no text widget is focused and the viewport has focus.
+        bool gizmo_input_ok = mContext.ViewportFocused && !ImGui::GetIO().WantTextInput;
 
         switch ((Loom::Key)event.GetKeyCode()) {
             case Loom::Key::N:
@@ -151,6 +159,22 @@ namespace Weaver {
                 break;
             case Loom::Key::Q:
                 if (ctrl) { mSceneManager.RequestQuit(); return; }
+                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::None;      return; }
+                break;
+            case Loom::Key::W:
+                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Translate; return; }
+                break;
+            case Loom::Key::E:
+                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Rotate;    return; }
+                break;
+            case Loom::Key::R:
+                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Scale;     return; }
+                break;
+            case Loom::Key::X:
+                if (gizmo_input_ok && !ctrl && !shift) {
+                    mContext.GizmoMode = (mContext.GizmoMode == GizmoSpace::Local) ? GizmoSpace::World : GizmoSpace::Local;
+                    return;
+                }
                 break;
             default:
                 break;

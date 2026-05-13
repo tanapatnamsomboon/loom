@@ -16,6 +16,18 @@ namespace Weaver {
         Play = 1
     };
 
+    enum class GizmoOperation {
+        None      = 0,
+        Translate = 1,
+        Rotate    = 2,
+        Scale     = 3,
+    };
+
+    enum class GizmoSpace {
+        World = 0,
+        Local = 1,
+    };
+
     struct GridSettings {
         float MinorScale     = 1.0f;
         float MajorScale     = 10.0f;
@@ -55,6 +67,10 @@ namespace Weaver {
 
         // Grid visual settings — written by ToolbarPanel, read by ViewportPanel
         GridSettings Grid;
+
+        // Gizmo state — written by ToolbarPanel + keyboard shortcuts, read by ViewportPanel
+        GizmoOperation GizmoOp    = GizmoOperation::Translate;
+        GizmoSpace     GizmoMode  = GizmoSpace::Local;
 
         // Non-owning pointer to the scene hierarchy panel (owned by EditorLayer)
         SceneHierarchyPanel* HierarchyPanel = nullptr;

@@ -62,7 +62,30 @@ namespace Weaver {
 
         if (!has_project) ImGui::EndDisabled();
 
+        ImGui::SameLine(0, 12.0f);
+
+        // ── Gizmo operation (W/E/R + Q for None) ──────────────────────────
+        auto gizmo_btn = [&](const char* label, GizmoOperation op) {
+            bool active = (mContext.GizmoOp == op);
+            if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.55f, 0.90f, 1.0f));
+            if (ImGui::Button(label, { 32.0f, 26.0f })) mContext.GizmoOp = op;
+            if (active) ImGui::PopStyleColor();
+        };
+        gizmo_btn("T", GizmoOperation::Translate); ImGui::SameLine(0, 2.0f);
+        gizmo_btn("R", GizmoOperation::Rotate);    ImGui::SameLine(0, 2.0f);
+        gizmo_btn("S", GizmoOperation::Scale);     ImGui::SameLine(0, 2.0f);
+        gizmo_btn("-", GizmoOperation::None);
+
         ImGui::SameLine(0, 8.0f);
+
+        // ── World / Local toggle ──────────────────────────────────────────
+        {
+            const char* label = (mContext.GizmoMode == GizmoSpace::Local) ? "Local" : "World";
+            if (ImGui::Button(label, { 60.0f, 26.0f }))
+                mContext.GizmoMode = (mContext.GizmoMode == GizmoSpace::Local) ? GizmoSpace::World : GizmoSpace::Local;
+        }
+
+        ImGui::SameLine(0, 12.0f);
 
         // ── Settings ──────────────────────────────────────────────────────
         if (ImGui::Button("Settings", { 80.0f, 26.0f }))

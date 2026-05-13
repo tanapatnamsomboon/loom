@@ -198,6 +198,18 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 
 ---
 
+# 11. Division of Labor
+
+- **Claude (you):** Write all *functional* code, including the editor application. This explicitly includes:
+  - Engine C++ (renderer, ECS, scripting, asset, project, math, platform code).
+  - **All functional ImGui / Editor code** — panel structure, widget logic, event handling, input routing, `ImGui::GetWindowDrawList()` rendering math, interaction state machines, picking / hit-testing, drag logic, modal flows.
+  - All editor business logic (managers, commands, history, serialization wiring).
+  - **Do NOT wait for the human to "wire up the UI side"** — if a feature requires ImGui code to be functional, you write it.
+- **Human (the user):** Owns UX polish only — UX design decisions, layout tweaking, styling, colors, font sizes, spacing, iconography. The human refines the look and feel of UI you have already made functional; they do not implement UI logic.
+- **When in doubt:** if code is needed to make a feature *work*, it belongs to Claude. Human edits sit on top of working code, not in place of it.
+
+---
+
 # Your Mission
 
 Sections 4 (Architecture & Conventions) and 5–8 cover the rules. Two stand-alone reminders:
