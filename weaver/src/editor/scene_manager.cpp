@@ -81,6 +81,10 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void SceneManager::SaveScene(std::function<void()> on_complete) {
+        if (mContext.SceneState == SceneState::Play) {
+            LOOM_CORE_WARN("SceneManager: Save is disabled during Play mode");
+            return;
+        }
         if (mContext.CurrentScenePath.empty()) {
             SaveSceneAs(std::move(on_complete));
             return;
@@ -93,6 +97,10 @@ namespace Weaver {
     }
 
     void SceneManager::SaveSceneAs(std::function<void()> on_complete) {
+        if (mContext.SceneState == SceneState::Play) {
+            LOOM_CORE_WARN("SceneManager: Save As is disabled during Play mode");
+            return;
+        }
         FileDialog::Save("SaveScene", "Save Scene", ".loom", "scene.loom",
             [this, on_complete = std::move(on_complete)](const std::string& picked) {
                 std::filesystem::path path = picked;
@@ -220,7 +228,11 @@ namespace Weaver {
         if (mShowSavePrompt) { ImGui::OpenPopup("Save Changes?"); mShowSavePrompt = false; }
         if (mShowQuitPrompt) { ImGui::OpenPopup("Quit?");         mShowQuitPrompt = false; }
 
+        // Center modals over the main viewport so they land on the active monitor, not the leftmost one.
+        ImVec2 viewport_center = ImGui::GetMainViewport()->GetCenter();
+
         // --- Save Changes? ---
+        ImGui::SetNextWindowPos(viewport_center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Save Changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::Text("You have unsaved changes in the current scene.\nDo you want to save them?");
             ImGui::Separator();
@@ -257,6 +269,7 @@ namespace Weaver {
         }
 
         // --- Quit? ---
+        ImGui::SetNextWindowPos(viewport_center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Quit?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::Text("Are you sure you want to quit?");
             ImGui::Separator();

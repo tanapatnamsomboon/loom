@@ -272,8 +272,10 @@ namespace Weaver {
                 ImGui::Separator();
                 if (ImGui::MenuItem("New",        "Ctrl+N"))       mSceneManager.NewScene();
                 if (ImGui::MenuItem("Open...",    "Ctrl+O"))       mSceneManager.OpenScene();
+                ImGui::BeginDisabled(mContext.SceneState == SceneState::Play);
                 if (ImGui::MenuItem("Save",       "Ctrl+S"))       mSceneManager.SaveScene();
                 if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) mSceneManager.SaveSceneAs();
+                ImGui::EndDisabled();
                 ImGui::Separator();
                 if (ImGui::MenuItem("Exit",       "Ctrl+Q"))       mSceneManager.RequestQuit();
                 ImGui::EndMenu();
