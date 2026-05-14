@@ -4,6 +4,7 @@
 #include "loom/core/input.h"
 #include "loom/core/log.h"
 #include "loom/renderer/renderer_2d.h"
+#include "loom/renderer/renderer_3d.h"
 #include "loom/renderer/render_command.h"
 #include "loom/scripting/scripting_engine.h"
 
@@ -25,8 +26,9 @@ namespace Loom {
 
         mLastFrameTime = std::chrono::high_resolution_clock::now();
 
-        Renderer2D::Init();
         RenderCommand::Init();
+        Renderer2D::Init();
+        Renderer3D::Init();
         ScriptingEngine::Init();
         AudioEngine::Init();
     }
@@ -35,6 +37,7 @@ namespace Loom {
         mLayerStack.Clear();
         AudioEngine::Shutdown();
         ScriptingEngine::Shutdown();
+        Renderer3D::Shutdown();
         Renderer2D::Shutdown();
         AssetManager::Clear();
     }

@@ -173,6 +173,21 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Mesh Renderer Component
+        if (entity.HasComponent<MeshRendererComponent>()) {
+            out << YAML::Key << "MeshRendererComponent";
+            out << YAML::BeginMap;
+            auto& mrc = entity.GetComponent<MeshRendererComponent>();
+            std::string mesh_path    = mrc.Mesh          ? ToRelativeAssetPath(mrc.Mesh->GetPath())          : mrc.MeshPath;
+            std::string albedo_path  = mrc.AlbedoTexture ? ToRelativeAssetPath(mrc.AlbedoTexture->GetPath()) : mrc.AlbedoTexturePath;
+            out << YAML::Key << "MeshPath"          << YAML::Value << mesh_path;
+            out << YAML::Key << "AlbedoColor"       << YAML::Value << mrc.AlbedoColor;
+            out << YAML::Key << "AlbedoTexturePath" << YAML::Value << albedo_path;
+            out << YAML::Key << "Roughness"         << YAML::Value << mrc.Roughness;
+            out << YAML::Key << "Metallic"          << YAML::Value << mrc.Metallic;
+            out << YAML::EndMap;
+        }
+
         // Native Script Component
         if (entity.HasComponent<NativeScriptComponent>()) {
             out << YAML::Key << "NativeScriptComponent";
@@ -485,6 +500,25 @@ namespace Loom {
                 }
             }
 
+            // Mesh Renderer Component
+            if (auto mrc_node = entity_node["MeshRendererComponent"]) {
+                auto& mrc            = entity.AddComponent<MeshRendererComponent>();
+                mrc.MeshPath          = YAML_GET(mrc_node["MeshPath"],          std::string, "");
+                mrc.AlbedoColor       = YAML_GET(mrc_node["AlbedoColor"],       glm::vec4,   glm::vec4(1.0f));
+                mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
+                mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
+                mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
+
+                if (!mrc.MeshPath.empty()) {
+                    std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
+                    mrc.Mesh = AssetManager::GetMesh(mesh_phys.string());
+                }
+                if (!mrc.AlbedoTexturePath.empty()) {
+                    std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
+                    mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string());
+                }
+            }
+
             // Native Script Component
             if (auto nsc_node = entity_node["NativeScriptComponent"]) {
                 auto& nsc         = entity.AddComponent<NativeScriptComponent>();
@@ -712,6 +746,23 @@ namespace Loom {
             if (!texture_path.empty()) {
                 std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
                 src.Texture = AssetManager::GetTexture(physical_path.string(), src.TexSpec);
+            }
+        }
+
+        if (auto mrc_node = data["MeshRendererComponent"]) {
+            auto& mrc            = entity.AddComponent<MeshRendererComponent>();
+            mrc.MeshPath          = YAML_GET(mrc_node["MeshPath"],          std::string, "");
+            mrc.AlbedoColor       = YAML_GET(mrc_node["AlbedoColor"],       glm::vec4,   glm::vec4(1.0f));
+            mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
+            mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
+            mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
+            if (!mrc.MeshPath.empty()) {
+                std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
+                mrc.Mesh = AssetManager::GetMesh(mesh_phys.string());
+            }
+            if (!mrc.AlbedoTexturePath.empty()) {
+                std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
+                mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string());
             }
         }
 

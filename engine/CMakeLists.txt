@@ -22,9 +22,11 @@ set(ENGINE_SOURCES
   src/renderer/editor_camera.cpp
   src/renderer/font_asset.cpp
   src/renderer/framebuffer.cpp
+  src/renderer/mesh_asset.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp
   src/renderer/renderer_2d.cpp
+  src/renderer/renderer_3d.cpp
   src/renderer/renderer_api.cpp
   src/renderer/shader.cpp
   src/renderer/subtexture_2d.cpp
@@ -89,6 +91,7 @@ target_link_libraries(Loom
     lua
     sol2
     miniaudio
+    cgltf
 )
 
 if (WIN32)

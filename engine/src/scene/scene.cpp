@@ -4,6 +4,7 @@
 #include "loom/core/uuid.h"
 #include "loom/project/project.h"
 #include "loom/renderer/renderer_2d.h"
+#include "loom/renderer/renderer_3d.h"
 #include "loom/scene/components.h"
 #include "loom/scene/entity.h"
 #include "loom/scripting/scripting_engine.h"
@@ -50,6 +51,7 @@ namespace Loom {
 
         CopyComponent<TransformComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<SpriteRendererComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<MeshRendererComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<AnimationComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CameraComponent>(dst_registry, src_registry, entt_map);
 
@@ -358,6 +360,27 @@ namespace Loom {
         DrawParticles(pc, world, (int)entt::to_entity(e));
     }
 
+    static void DrawMeshEntity(Scene* scene, entt::registry& /*registry*/, entt::entity e, MeshRendererComponent& mrc) {
+        // Lazy-load mesh
+        if (!mrc.MeshPath.empty()) {
+            std::string abs_path = Project::GetAssetFileSystemPath(mrc.MeshPath).generic_string();
+            if (!mrc.Mesh || mrc.Mesh->GetPath() != abs_path)
+                mrc.Mesh = AssetManager::GetMesh(abs_path);
+        }
+        if (!mrc.Mesh) return;
+
+        // Lazy-load albedo texture
+        if (!mrc.AlbedoTexturePath.empty()) {
+            std::string abs_tex = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath).generic_string();
+            if (!mrc.AlbedoTexture || mrc.AlbedoTexture->GetPath() != abs_tex)
+                mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex);
+        }
+
+        glm::mat4 world = scene->GetWorldTransform({ e, scene });
+        Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture, world,
+                           mrc.Roughness, mrc.Metallic, (int)entt::to_entity(e));
+    }
+
     static void DrawTilemapEntity(Scene* scene, entt::registry& registry, entt::entity e, TilemapComponent& tc) {
         if (tc.SpritesheetPath.empty() || tc.Tiles.empty()) return;
         std::string abs_path = Project::GetAssetFileSystemPath(tc.SpritesheetPath).generic_string();
@@ -371,6 +394,13 @@ namespace Loom {
     }
 
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
+        // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
+        Renderer3D::BeginScene(camera);
+        for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
+            DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
+        }
+        Renderer3D::EndScene();
+
         Renderer2D::BeginScene(camera);
 
         struct DrawCmd { float z; entt::entity e; bool tilemap; };
@@ -631,6 +661,13 @@ namespace Loom {
         }
 
         if (main_camera) {
+            // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
+            Renderer3D::BeginScene(*main_camera, camera_transform);
+            for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
+                DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
+            }
+            Renderer3D::EndScene();
+
             Renderer2D::BeginScene(*main_camera, camera_transform);
 
             struct DrawCmd { float z; entt::entity e; bool tilemap; };

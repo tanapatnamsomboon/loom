@@ -251,6 +251,7 @@ namespace Weaver {
             };
             push_add.template operator()<Loom::CameraComponent>("Camera");
             push_add.template operator()<Loom::SpriteRendererComponent>("Sprite Renderer");
+            push_add.template operator()<Loom::MeshRendererComponent>("Mesh Renderer");
             push_add.template operator()<Loom::NativeScriptComponent>("Script");
             push_add.template operator()<Loom::Rigidbody2DComponent>("Rigidbody 2D");
             push_add.template operator()<Loom::BoxCollider2DComponent>("Box Collider 2D");
@@ -1314,6 +1315,151 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::ParticleComponent>("Particles");
+        }
+
+        if (entity.HasComponent<Loom::MeshRendererComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::MeshRendererComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Mesh Renderer");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& mrc         = entity.GetComponent<Loom::MeshRendererComponent>();
+                bool  is_modified = false;
+
+                // ---- Mesh slot --------------------------------------------------
+                {
+                    std::string mesh_label = mrc.Mesh
+                        ? std::filesystem::path(mrc.Mesh->GetPath()).filename().string()
+                        : "None (Select...)";
+
+                    ImGui::PushID("MeshSlot");
+                    ImGui::TextUnformatted("Mesh");
+                    ImGui::SameLine(120);
+                    if (ImGui::Button(mesh_label.c_str(), ImVec2(180, 0))) {
+                        auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                        auto scene    = mContext;
+                        auto modified = mSceneModifiedCallback;
+                        FileDialog::Open("BrowseMesh", "Choose Mesh", ".glb,.gltf",
+                            [uuid, scene, modified](const std::string& abs_path) {
+                                Loom::Entity e = scene->GetEntityByUUID(uuid);
+                                if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
+                                auto new_mesh = Loom::AssetManager::GetMesh(abs_path);
+                                if (new_mesh) {
+                                    auto& m = e.GetComponent<Loom::MeshRendererComponent>();
+                                    m.Mesh     = new_mesh;
+                                    m.MeshPath = std::filesystem::relative(abs_path,
+                                                    Loom::Project::GetAssetDirectory()).generic_string();
+                                    if (modified) modified();
+                                }
+                            });
+                    }
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                            std::filesystem::path dropped((const char*)payload->Data);
+                            auto ext = dropped.extension();
+                            if (ext == ".glb" || ext == ".gltf") {
+                                auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                                auto new_mesh = Loom::AssetManager::GetMesh(full.generic_string());
+                                if (new_mesh) {
+                                    mrc.Mesh     = new_mesh;
+                                    mrc.MeshPath = dropped.generic_string();
+                                    is_modified = true;
+                                }
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+                    if (mrc.Mesh) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("X##mesh")) {
+                            mrc.Mesh.reset();
+                            mrc.MeshPath.clear();
+                            is_modified = true;
+                        }
+                        ImGui::TextDisabled("  %u verts / %u indices",
+                                            mrc.Mesh->GetVertexCount(), mrc.Mesh->GetIndexCount());
+                    }
+                    ImGui::PopID();
+                }
+
+                ImGui::Separator();
+
+                // ---- Material: albedo color --------------------------------------
+                is_modified |= ImGui::ColorEdit4("Albedo", glm::value_ptr(mrc.AlbedoColor));
+
+                // ---- Material: albedo texture ------------------------------------
+                {
+                    ImTextureID tex_id = (ImTextureID)(uintptr_t)(mrc.AlbedoTexture
+                        ? mrc.AlbedoTexture->GetRendererID()
+                        : mCheckerboard->GetRendererID());
+                    std::string tex_label = mrc.AlbedoTexture
+                        ? std::filesystem::path(mrc.AlbedoTexture->GetPath()).filename().string()
+                        : "None (Select...)";
+
+                    ImGui::PushID("AlbedoTexSlot");
+                    ImGui::Image(tex_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
+                                 ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                            std::filesystem::path dropped((const char*)payload->Data);
+                            auto ext = dropped.extension();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
+                                auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                                auto new_tex = Loom::AssetManager::GetTexture(full.generic_string());
+                                if (new_tex) {
+                                    mrc.AlbedoTexture     = new_tex;
+                                    mrc.AlbedoTexturePath = dropped.generic_string();
+                                    is_modified = true;
+                                }
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(tex_label.c_str(), ImVec2(150, 0))) {
+                        auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                        auto scene    = mContext;
+                        auto modified = mSceneModifiedCallback;
+                        FileDialog::Open("BrowseAlbedoTex", "Choose Albedo Texture", ".png,.jpg,.jpeg,.bmp,.tga",
+                            [uuid, scene, modified](const std::string& abs_path) {
+                                Loom::Entity e = scene->GetEntityByUUID(uuid);
+                                if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
+                                auto new_tex = Loom::AssetManager::GetTexture(abs_path);
+                                if (new_tex) {
+                                    auto& m = e.GetComponent<Loom::MeshRendererComponent>();
+                                    m.AlbedoTexture     = new_tex;
+                                    m.AlbedoTexturePath = std::filesystem::relative(abs_path,
+                                                            Loom::Project::GetAssetDirectory()).generic_string();
+                                    if (modified) modified();
+                                }
+                            });
+                    }
+                    if (mrc.AlbedoTexture) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("X##albedotex")) {
+                            mrc.AlbedoTexture.reset();
+                            mrc.AlbedoTexturePath.clear();
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::PopID();
+                }
+
+                // ---- Material: surface ------------------------------------------
+                is_modified |= ImGui::SliderFloat("Roughness", &mrc.Roughness, 0.0f, 1.0f);
+                is_modified |= ImGui::SliderFloat("Metallic",  &mrc.Metallic,  0.0f, 1.0f);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::MeshRendererComponent>("Mesh Renderer");
         }
     }
 

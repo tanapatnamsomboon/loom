@@ -2,6 +2,7 @@
 
 #include "loom/core/uuid.h"
 #include "loom/renderer/font_asset.h"
+#include "loom/renderer/mesh_asset.h"
 #include "loom/renderer/texture.h"
 #include "loom/scene/scene_camera.h"
 #include "loom/scene/scriptable_entity.h"
@@ -258,6 +259,24 @@ namespace Loom {
             , MaxParticles(other.MaxParticles)
             , TexturePath(other.TexturePath)
             , Texture(nullptr), Live{}, SpawnAccumulator(0.0f) {}
+    };
+
+    struct MeshRendererComponent {
+        // Mesh
+        std::string                MeshPath;          // relative to asset directory
+        std::shared_ptr<MeshAsset> Mesh;              // runtime handle — not serialized
+
+        // Material — albedo
+        glm::vec4                  AlbedoColor       = { 1.0f, 1.0f, 1.0f, 1.0f };
+        std::string                AlbedoTexturePath; // relative to asset directory
+        std::shared_ptr<Texture2D> AlbedoTexture;     // runtime handle — not serialized
+
+        // Material — surface
+        float Roughness = 0.5f;
+        float Metallic  = 0.0f;
+
+        MeshRendererComponent()                             = default;
+        MeshRendererComponent(const MeshRendererComponent&) = default;
     };
 
     struct AudioSourceComponent {

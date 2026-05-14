@@ -23,6 +23,15 @@ namespace Loom {
         return nullptr;
     }
 
+    std::shared_ptr<VertexBuffer> VertexBuffer::Create(const void* data, uint32_t size) {
+        switch (RendererAPI::GetAPI()) {
+            case RendererAPI::API::None:    LOOM_CORE_FATAL("RendererAPI::None is currently not supported!"); return nullptr;
+            case RendererAPI::API::OpenGL:  return std::make_shared<OpenGLVertexBuffer>(data, size);
+        }
+        LOOM_CORE_FATAL("Unknown RendererAPI!");
+        return nullptr;
+    }
+
     std::shared_ptr<IndexBuffer> IndexBuffer::Create(uint32_t* indices, uint32_t count) {
         switch (RendererAPI::GetAPI()) {
             case RendererAPI::API::None:    LOOM_CORE_FATAL("RendererAPI::None is currently not supported!"); return nullptr;

@@ -49,6 +49,7 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | File Dialogs                  | ImGuiFileDialog      | `imguifiledialog`   |
 | Scripting VM                  | Lua 5.4              | `lua`               |
 | Lua C++ Bindings              | sol2 v3.5.0          | `sol2`              |
+| Mesh Loading (GLTF/GLB)       | cgltf                | `cgltf`             |
 
 ---
 
@@ -61,8 +62,13 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
 - `core/`: Application loop, LayerStack, Events system, Input, Window abstraction, Timestep, UUID, and core macros (`LOOM_BIND_EVENT_FN`, `LOOM_CORE_*` log macros).
 - `renderer/`: Abstract Renderer API, Shaders, Textures, Buffers, Framebuffers, VertexArray, Cameras (`OrthographicCamera`, `EditorCamera`), Renderer2D.
 - `scene/`: ECS implementation. Contains `scene.cpp`, `entity.cpp`, `components.h` (all component structs including `LuaScriptComponent`), `scene_serializer`, and `script_registry`.
-- `asset/`: `AssetManager` (centralized loader/cache for shaders and textures) and `FontManager` (UI font atlas, exposes `FontType` slots via static `Get`/`Push`/`Pop`).
-- `project/`: `Project` and `ProjectSerializer` — manage project config (name, asset directory, start scene).
+- `asset/`: `AssetManager` (centralized loader/cache for shaders, textures, fonts, and meshes) and `FontManager` (UI font atlas, exposes `FontType` slots via static `Get`/`Push`/`Pop`). All loaders (`GetTexture`, `GetShader`, `GetFont`, `GetMesh`) take paths **verbatim** — they do not resolve relative paths themselves. The caller is responsible for converting a project-relative path to an absolute filesystem path via the `Project::` helpers below before invoking the loader.
+- `project/`: `Project` and `ProjectSerializer` — manage project config (name, asset directory, start scene). **Asset path resolution helpers** (use these instead of hand-rolling `cwd / relative_path`):
+  - `Project::GetActive()` → `std::shared_ptr<Project>` for the currently loaded project (may be null — guard before deref).
+  - `Project::GetAssetDirectory()` → absolute path to the project's asset root (`<project_dir>/<config.AssetDirectory>`).
+  - `Project::GetAssetFileSystemPath(relative_path)` → resolves a project-relative path (e.g., `"models/box.glb"`) into an absolute filesystem path. **This is the canonical way to load any asset stored on a component.**
+  - `Project::GetEngineAssetFileSystemPath(relative_path)` → same, but rooted at the engine's `resources/` directory (for shaders, editor icons, default fonts, etc.).
+  - Convention: components store project-relative paths (e.g., `SpriteRendererComponent::TexturePath`); the consuming system (scene update, serializer) converts via `Project::GetAssetFileSystemPath` before calling `AssetManager::Get*`.
 - `math/`: Engine math utilities (e.g., `Math::DecomposeTransform`).
 - `platform/`: Platform-specific implementations (e.g., `platform/opengl/` for OpenGL buffer/shader/texture implementations, `platform/windows/` for input and window).
 - `scripting/`: Scripting subsystem.

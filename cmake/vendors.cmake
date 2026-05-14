@@ -118,3 +118,10 @@ target_include_directories(miniaudio INTERFACE vendor/miniaudio)
 if(WIN32)
     target_link_libraries(miniaudio INTERFACE ole32 advapi32)
 endif()
+
+# -----------------------------------------------------------------------------
+# cgltf (single-header C glTF 2.0 / GLB parser)
+# CGLTF_IMPLEMENTATION must be defined in exactly one .cpp (mesh_asset.cpp)
+# -----------------------------------------------------------------------------
+add_library(cgltf INTERFACE)
+target_include_directories(cgltf INTERFACE vendor/cgltf)

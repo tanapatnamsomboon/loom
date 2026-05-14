@@ -25,6 +25,12 @@ namespace Loom {
         glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_STATIC_DRAW);
     }
 
+    OpenGLVertexBuffer::OpenGLVertexBuffer(const void* data, uint32_t size) {
+        glCreateBuffers(1, &mRendererID);
+        glBindBuffer(GL_ARRAY_BUFFER, mRendererID);
+        glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+    }
+
     OpenGLVertexBuffer::~OpenGLVertexBuffer() {
         glDeleteBuffers(1, &mRendererID);
     }
