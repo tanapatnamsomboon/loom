@@ -69,6 +69,16 @@ namespace Loom {
         glUniform1iv(location, count, values);
     }
 
+    void OpenGLShader::UploadUniformFloatArray(const std::string& name, const float* values, uint32_t count) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform1fv(location, count, values);
+    }
+
+    void OpenGLShader::UploadUniformFloat3Array(const std::string& name, const glm::vec3* values, uint32_t count) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform3fv(location, count, glm::value_ptr(values[0]));
+    }
+
     void OpenGLShader::Reload() {
         if (mFilePath.empty()) return;
         std::string vertex_src   = ReadFile(mFilePath + ".vert");

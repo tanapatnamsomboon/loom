@@ -76,6 +76,8 @@ namespace Loom {
         CopyComponent<Rigidbody2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<DirectionalLightComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<PointLightComponent>(dst_registry, src_registry, entt_map);
 
         // Copy relationship structure, remapping entt handles through the UUID map
         auto rel_view = src_registry.view<RelationshipComponent>();
@@ -360,6 +362,37 @@ namespace Loom {
         DrawParticles(pc, world, (int)entt::to_entity(e));
     }
 
+    static void GatherAndUploadLights(Scene* scene, entt::registry& registry) {
+        std::vector<Renderer3D::DirectionalLight> dirs;
+        std::vector<Renderer3D::PointLight>       points;
+
+        dirs.reserve(Renderer3D::kMaxDirectionalLights);
+        points.reserve(Renderer3D::kMaxPointLights);
+
+        for (auto e : registry.view<TransformComponent, DirectionalLightComponent>()) {
+            const auto& dl = registry.get<DirectionalLightComponent>(e);
+            glm::mat4 world = scene->GetWorldTransform({ e, scene });
+            // Light's forward direction is local -Z transformed by rotation only
+            // (w=0 ignores the translation column).
+            glm::vec3 dir = glm::normalize(glm::vec3(world * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+            dirs.push_back({ dir, dl.Color * dl.Intensity });
+            if ((int)dirs.size() >= Renderer3D::kMaxDirectionalLights) break;
+        }
+
+        for (auto e : registry.view<TransformComponent, PointLightComponent>()) {
+            const auto& pl = registry.get<PointLightComponent>(e);
+            glm::mat4 world = scene->GetWorldTransform({ e, scene });
+            glm::vec3 pos = glm::vec3(world[3]);
+            points.push_back({ pos, pl.Color * pl.Intensity, pl.Range });
+            if ((int)points.size() >= Renderer3D::kMaxPointLights) break;
+        }
+
+        Renderer3D::SetLights(
+            dirs.empty()   ? nullptr : dirs.data(),   (int)dirs.size(),
+            points.empty() ? nullptr : points.data(), (int)points.size()
+        );
+    }
+
     static void DrawMeshEntity(Scene* scene, entt::registry& /*registry*/, entt::entity e, MeshRendererComponent& mrc) {
         // Lazy-load mesh
         if (!mrc.MeshPath.empty()) {
@@ -396,6 +429,7 @@ namespace Loom {
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
         // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
+        GatherAndUploadLights(this, mRegistry);
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
             DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
         }
@@ -663,6 +697,7 @@ namespace Loom {
         if (main_camera) {
             // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
             Renderer3D::BeginScene(*main_camera, camera_transform);
+            GatherAndUploadLights(this, mRegistry);
             for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
                 DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
             }

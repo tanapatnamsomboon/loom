@@ -173,6 +173,27 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Directional Light Component
+        if (entity.HasComponent<DirectionalLightComponent>()) {
+            out << YAML::Key << "DirectionalLightComponent";
+            out << YAML::BeginMap;
+            auto& dl = entity.GetComponent<DirectionalLightComponent>();
+            out << YAML::Key << "Color"     << YAML::Value << dl.Color;
+            out << YAML::Key << "Intensity" << YAML::Value << dl.Intensity;
+            out << YAML::EndMap;
+        }
+
+        // Point Light Component
+        if (entity.HasComponent<PointLightComponent>()) {
+            out << YAML::Key << "PointLightComponent";
+            out << YAML::BeginMap;
+            auto& pl = entity.GetComponent<PointLightComponent>();
+            out << YAML::Key << "Color"     << YAML::Value << pl.Color;
+            out << YAML::Key << "Intensity" << YAML::Value << pl.Intensity;
+            out << YAML::Key << "Range"     << YAML::Value << pl.Range;
+            out << YAML::EndMap;
+        }
+
         // Mesh Renderer Component
         if (entity.HasComponent<MeshRendererComponent>()) {
             out << YAML::Key << "MeshRendererComponent";
@@ -500,6 +521,21 @@ namespace Loom {
                 }
             }
 
+            // Directional Light Component
+            if (auto dl_node = entity_node["DirectionalLightComponent"]) {
+                auto& dl     = entity.AddComponent<DirectionalLightComponent>();
+                dl.Color     = YAML_GET(dl_node["Color"],     glm::vec3, glm::vec3(1.0f));
+                dl.Intensity = YAML_GET(dl_node["Intensity"], float,     1.0f);
+            }
+
+            // Point Light Component
+            if (auto pl_node = entity_node["PointLightComponent"]) {
+                auto& pl     = entity.AddComponent<PointLightComponent>();
+                pl.Color     = YAML_GET(pl_node["Color"],     glm::vec3, glm::vec3(1.0f));
+                pl.Intensity = YAML_GET(pl_node["Intensity"], float,     1.0f);
+                pl.Range     = YAML_GET(pl_node["Range"],     float,     10.0f);
+            }
+
             // Mesh Renderer Component
             if (auto mrc_node = entity_node["MeshRendererComponent"]) {
                 auto& mrc            = entity.AddComponent<MeshRendererComponent>();
@@ -747,6 +783,19 @@ namespace Loom {
                 std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
                 src.Texture = AssetManager::GetTexture(physical_path.string(), src.TexSpec);
             }
+        }
+
+        if (auto dl_node = data["DirectionalLightComponent"]) {
+            auto& dl     = entity.AddComponent<DirectionalLightComponent>();
+            dl.Color     = YAML_GET(dl_node["Color"],     glm::vec3, glm::vec3(1.0f));
+            dl.Intensity = YAML_GET(dl_node["Intensity"], float,     1.0f);
+        }
+
+        if (auto pl_node = data["PointLightComponent"]) {
+            auto& pl     = entity.AddComponent<PointLightComponent>();
+            pl.Color     = YAML_GET(pl_node["Color"],     glm::vec3, glm::vec3(1.0f));
+            pl.Intensity = YAML_GET(pl_node["Intensity"], float,     1.0f);
+            pl.Range     = YAML_GET(pl_node["Range"],     float,     10.0f);
         }
 
         if (auto mrc_node = data["MeshRendererComponent"]) {

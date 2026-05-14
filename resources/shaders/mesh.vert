@@ -10,14 +10,19 @@ layout(std140, binding = 0) uniform Camera {
 
 uniform mat4 uModel;
 
+out vec3 vWorldPos;
 out vec3 vWorldNormal;
 out vec2 vTexCoord;
 
 void main() {
-    // Proper normal transform — handles non-uniform scale.
+    vec4 world = uModel * vec4(aPosition, 1.0);
+    vWorldPos  = world.xyz;
+
+    // Proper normal transform - handles non-uniform scale.
     mat3 normal_matrix = transpose(inverse(mat3(uModel)));
     vWorldNormal = normalize(normal_matrix * aNormal);
-    vTexCoord    = aTexCoord;
 
-    gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+    vTexCoord = aTexCoord;
+
+    gl_Position = uViewProjection * world;
 }

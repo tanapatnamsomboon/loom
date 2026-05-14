@@ -252,6 +252,8 @@ namespace Weaver {
             push_add.template operator()<Loom::CameraComponent>("Camera");
             push_add.template operator()<Loom::SpriteRendererComponent>("Sprite Renderer");
             push_add.template operator()<Loom::MeshRendererComponent>("Mesh Renderer");
+            push_add.template operator()<Loom::DirectionalLightComponent>("Directional Light");
+            push_add.template operator()<Loom::PointLightComponent>("Point Light");
             push_add.template operator()<Loom::NativeScriptComponent>("Script");
             push_add.template operator()<Loom::Rigidbody2DComponent>("Rigidbody 2D");
             push_add.template operator()<Loom::BoxCollider2DComponent>("Box Collider 2D");
@@ -1460,6 +1462,55 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::MeshRendererComponent>("Mesh Renderer");
+        }
+
+        if (entity.HasComponent<Loom::DirectionalLightComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::DirectionalLightComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Directional Light");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& dl          = entity.GetComponent<Loom::DirectionalLightComponent>();
+                bool  is_modified = false;
+                is_modified |= ImGui::ColorEdit3("Color",     glm::value_ptr(dl.Color));
+                is_modified |= ImGui::DragFloat ("Intensity", &dl.Intensity, 0.05f, 0.0f, 100.0f);
+                ImGui::TextDisabled("Direction taken from entity rotation (-Z forward).");
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::DirectionalLightComponent>("Directional Light");
+        }
+
+        if (entity.HasComponent<Loom::PointLightComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::PointLightComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Point Light");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& pl          = entity.GetComponent<Loom::PointLightComponent>();
+                bool  is_modified = false;
+                is_modified |= ImGui::ColorEdit3("Color",     glm::value_ptr(pl.Color));
+                is_modified |= ImGui::DragFloat ("Intensity", &pl.Intensity, 0.05f, 0.0f, 100.0f);
+                is_modified |= ImGui::DragFloat ("Range",     &pl.Range,     0.1f,  0.01f, 1000.0f);
+                ImGui::TextDisabled("Position taken from entity translation.");
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::PointLightComponent>("Point Light");
         }
     }
 

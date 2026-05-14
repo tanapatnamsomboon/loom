@@ -279,6 +279,26 @@ namespace Loom {
         MeshRendererComponent(const MeshRendererComponent&) = default;
     };
 
+    struct DirectionalLightComponent {
+        // Direction is taken from the entity's TransformComponent rotation:
+        // the light shines along the entity's local -Z axis after rotation.
+        glm::vec3 Color     = { 1.0f, 0.97f, 0.92f };
+        float     Intensity = 1.0f;
+
+        DirectionalLightComponent()                                 = default;
+        DirectionalLightComponent(const DirectionalLightComponent&) = default;
+    };
+
+    struct PointLightComponent {
+        // Position is taken from the entity's world TransformComponent translation.
+        glm::vec3 Color     = { 1.0f, 1.0f, 1.0f };
+        float     Intensity = 1.0f;
+        float     Range     = 10.0f; // distance at which contribution falls to ~0
+
+        PointLightComponent()                           = default;
+        PointLightComponent(const PointLightComponent&) = default;
+    };
+
     struct AudioSourceComponent {
         std::string AssetPath;
         float Volume   = 1.0f;

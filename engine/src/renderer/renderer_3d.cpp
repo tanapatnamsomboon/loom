@@ -3,6 +3,7 @@
 #include "loom/project/project.h"
 #include "loom/renderer/render_command.h"
 #include "loom/renderer/shader.h"
+#include <algorithm>
 
 namespace Loom {
 
@@ -18,6 +19,18 @@ namespace Loom {
         };
         CameraData                     CameraBuffer;
         std::shared_ptr<UniformBuffer> CameraUniformBuffer;
+
+        glm::vec3 ViewPosition = glm::vec3(0.0f);
+
+        // Scratch storage for SoA upload to the shader.
+        glm::vec3 DirLightDir[Renderer3D::kMaxDirectionalLights];
+        glm::vec3 DirLightColor[Renderer3D::kMaxDirectionalLights];
+        int       DirLightCount = 0;
+
+        glm::vec3 PointLightPos[Renderer3D::kMaxPointLights];
+        glm::vec3 PointLightColor[Renderer3D::kMaxPointLights];
+        float     PointLightRange[Renderer3D::kMaxPointLights];
+        int       PointLightCount = 0;
     };
 
     static Renderer3DStorage sData;
@@ -46,15 +59,40 @@ namespace Loom {
     void Renderer3D::BeginScene(const EditorCamera& camera) {
         sData.CameraBuffer.ViewProjection = camera.GetViewProjectionMatrix();
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
+        sData.ViewPosition = camera.GetPosition();
+
+        // Reset light state; SetLights is called per-frame to refill.
+        sData.DirLightCount   = 0;
+        sData.PointLightCount = 0;
     }
 
     void Renderer3D::BeginScene(const Camera& camera, const glm::mat4& transform) {
         sData.CameraBuffer.ViewProjection = camera.GetProjectionMatrix() * glm::inverse(transform);
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
+        sData.ViewPosition = glm::vec3(transform[3]);
+
+        sData.DirLightCount   = 0;
+        sData.PointLightCount = 0;
     }
 
     void Renderer3D::EndScene() {
         // Nothing to flush — submissions draw immediately.
+    }
+
+    void Renderer3D::SetLights(const DirectionalLight* dir_lights, int dir_count,
+                               const PointLight*       point_lights, int point_count) {
+        sData.DirLightCount = std::min(dir_count, kMaxDirectionalLights);
+        for (int i = 0; i < sData.DirLightCount; ++i) {
+            sData.DirLightDir[i]   = dir_lights[i].Direction;
+            sData.DirLightColor[i] = dir_lights[i].Color;
+        }
+
+        sData.PointLightCount = std::min(point_count, kMaxPointLights);
+        for (int i = 0; i < sData.PointLightCount; ++i) {
+            sData.PointLightPos[i]   = point_lights[i].Position;
+            sData.PointLightColor[i] = point_lights[i].Color;
+            sData.PointLightRange[i] = point_lights[i].Range;
+        }
     }
 
     void Renderer3D::Submit(const std::shared_ptr<MeshAsset>& mesh,
@@ -67,11 +105,28 @@ namespace Loom {
         if (!mesh || !mesh->GetVertexArray()) return;
 
         sData.MeshShader->Bind();
-        sData.MeshShader->UploadUniformMat4("uModel",        transform);
-        sData.MeshShader->UploadUniformFloat4("uAlbedoColor", albedo_color);
-        sData.MeshShader->UploadUniformFloat("uRoughness",    roughness);
-        sData.MeshShader->UploadUniformFloat("uMetallic",     metallic);
-        sData.MeshShader->UploadUniformInt("uEntityID",       entity_id);
+
+        // Per-draw uniforms
+        sData.MeshShader->UploadUniformMat4  ("uModel",        transform);
+        sData.MeshShader->UploadUniformFloat4("uAlbedoColor",  albedo_color);
+        sData.MeshShader->UploadUniformFloat ("uRoughness",    roughness);
+        sData.MeshShader->UploadUniformFloat ("uMetallic",     metallic);
+        sData.MeshShader->UploadUniformInt   ("uEntityID",     entity_id);
+
+        // Per-frame uniforms (cheap to re-upload; keeps Submit self-sufficient
+        // even if SetLights / camera state changes mid-frame).
+        sData.MeshShader->UploadUniformFloat3("uViewPos",      sData.ViewPosition);
+        sData.MeshShader->UploadUniformInt   ("uDirLightCount",   sData.DirLightCount);
+        sData.MeshShader->UploadUniformInt   ("uPointLightCount", sData.PointLightCount);
+        if (sData.DirLightCount > 0) {
+            sData.MeshShader->UploadUniformFloat3Array("uDirLightDir",   sData.DirLightDir,   sData.DirLightCount);
+            sData.MeshShader->UploadUniformFloat3Array("uDirLightColor", sData.DirLightColor, sData.DirLightCount);
+        }
+        if (sData.PointLightCount > 0) {
+            sData.MeshShader->UploadUniformFloat3Array("uPointLightPos",   sData.PointLightPos,   sData.PointLightCount);
+            sData.MeshShader->UploadUniformFloat3Array("uPointLightColor", sData.PointLightColor, sData.PointLightCount);
+            sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
+        }
 
         const auto& tex = albedo_texture ? albedo_texture : sData.WhiteTexture;
         tex->Bind(0);

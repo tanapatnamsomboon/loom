@@ -20,6 +20,8 @@ namespace Loom {
         void UploadUniformFloat3(const std::string& name, const glm::vec3& values) override;
         void UploadUniformInt(const std::string& name, int value) override;
         void UploadUniformIntArray(const std::string& name, int* values, uint32_t count) override;
+        void UploadUniformFloatArray(const std::string& name, const float* values, uint32_t count) override;
+        void UploadUniformFloat3Array(const std::string& name, const glm::vec3* values, uint32_t count) override;
 
         void Reload() override;
 

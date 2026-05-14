@@ -1,15 +1,15 @@
 Scene: 3d_scene
 EditorCamera:
-  Position: [1.6009163, 0.8189634, 3.6762524]
-  Pitch: 0.19500042
-  Yaw: -0.17701705
+  Position: [0.5271677, 3.9404743, 8.516605]
+  Pitch: 0.41399845
+  Yaw: -0.07201668
 Entities:
   - Entity: 12193574333239959351
     TagComponent:
       Tag: Box
     TransformComponent:
       Translation: [0, 0.5, 0]
-      Rotation: [0.2617994, 0.2617994, 0.2617994]
+      Rotation: [0.7853982, 0.87266463, 0.2617994]
       Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
@@ -34,3 +34,14 @@ Entities:
       PerspectiveNear: 0.01
       PerspectiveFar: 200
       ProjectionType: 0
+  - Entity: 15927862867605495400
+    TagComponent:
+      Tag: Light
+    TransformComponent:
+      Translation: [2, 2, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    PointLightComponent:
+      Color: [1, 1, 1]
+      Intensity: 1
+      Range: 10

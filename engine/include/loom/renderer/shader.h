@@ -20,6 +20,8 @@ namespace Loom {
         virtual void UploadUniformFloat3(const std::string& name, const glm::vec3& values) = 0;
         virtual void UploadUniformInt(const std::string& name, int value) = 0;
         virtual void UploadUniformIntArray(const std::string& name, int* values, uint32_t count) = 0;
+        virtual void UploadUniformFloatArray(const std::string& name, const float* values, uint32_t count) = 0;
+        virtual void UploadUniformFloat3Array(const std::string& name, const glm::vec3* values, uint32_t count) = 0;
 
         virtual void Reload() {}
 
