@@ -213,6 +213,21 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Capsule Collider 3D Component
+        if (entity.HasComponent<CapsuleCollider3DComponent>()) {
+            out << YAML::Key << "CapsuleCollider3DComponent";
+            out << YAML::BeginMap;
+            auto& cc = entity.GetComponent<CapsuleCollider3DComponent>();
+            out << YAML::Key << "Offset"      << YAML::Value << cc.Offset;
+            out << YAML::Key << "Radius"      << YAML::Value << cc.Radius;
+            out << YAML::Key << "HalfHeight"  << YAML::Value << cc.HalfHeight;
+            out << YAML::Key << "Density"     << YAML::Value << cc.Density;
+            out << YAML::Key << "Friction"    << YAML::Value << cc.Friction;
+            out << YAML::Key << "Restitution" << YAML::Value << cc.Restitution;
+            out << YAML::Key << "IsSensor"    << YAML::Value << cc.IsSensor;
+            out << YAML::EndMap;
+        }
+
         // Directional Light Component
         if (entity.HasComponent<DirectionalLightComponent>()) {
             out << YAML::Key << "DirectionalLightComponent";
@@ -592,6 +607,18 @@ namespace Loom {
                 sc.IsSensor    = YAML_GET(sc_node["IsSensor"],    bool,      false);
             }
 
+            // Capsule Collider 3D Component
+            if (auto cc_node = entity_node["CapsuleCollider3DComponent"]) {
+                auto& cc       = entity.AddComponent<CapsuleCollider3DComponent>();
+                cc.Offset      = YAML_GET(cc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+                cc.Radius      = YAML_GET(cc_node["Radius"],      float,     0.5f);
+                cc.HalfHeight  = YAML_GET(cc_node["HalfHeight"],  float,     0.5f);
+                cc.Density     = YAML_GET(cc_node["Density"],     float,     1.0f);
+                cc.Friction    = YAML_GET(cc_node["Friction"],    float,     0.5f);
+                cc.Restitution = YAML_GET(cc_node["Restitution"], float,     0.0f);
+                cc.IsSensor    = YAML_GET(cc_node["IsSensor"],    bool,      false);
+            }
+
             // Directional Light Component
             if (auto dl_node = entity_node["DirectionalLightComponent"]) {
                 auto& dl     = entity.AddComponent<DirectionalLightComponent>();
@@ -882,6 +909,17 @@ namespace Loom {
             sc.Friction    = YAML_GET(sc_node["Friction"],    float,     0.5f);
             sc.Restitution = YAML_GET(sc_node["Restitution"], float,     0.0f);
             sc.IsSensor    = YAML_GET(sc_node["IsSensor"],    bool,      false);
+        }
+
+        if (auto cc_node = data["CapsuleCollider3DComponent"]) {
+            auto& cc       = entity.AddComponent<CapsuleCollider3DComponent>();
+            cc.Offset      = YAML_GET(cc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+            cc.Radius      = YAML_GET(cc_node["Radius"],      float,     0.5f);
+            cc.HalfHeight  = YAML_GET(cc_node["HalfHeight"],  float,     0.5f);
+            cc.Density     = YAML_GET(cc_node["Density"],     float,     1.0f);
+            cc.Friction    = YAML_GET(cc_node["Friction"],    float,     0.5f);
+            cc.Restitution = YAML_GET(cc_node["Restitution"], float,     0.0f);
+            cc.IsSensor    = YAML_GET(cc_node["IsSensor"],    bool,      false);
         }
 
         if (auto dl_node = data["DirectionalLightComponent"]) {

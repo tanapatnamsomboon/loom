@@ -20,15 +20,20 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Body/Body.h>
+#include <Jolt/Physics/Collision/ContactListener.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/EActivation.h>
+#include <mutex>
 
 namespace Loom {
     Scene::Scene() {
         std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/camera_icon.png").generic_string();
         mCameraIcon = AssetManager::GetTexture(camera_icon_path);
+        mPhysics3DEvents = std::make_unique<Physics3DEventState>();
     }
 
     Scene::~Scene() {
@@ -93,6 +98,7 @@ namespace Loom {
         CopyComponent<Rigidbody3DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<BoxCollider3DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<SphereCollider3DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<CapsuleCollider3DComponent>(dst_registry, src_registry, entt_map);
 
         // Copy relationship structure, remapping entt handles through the UUID map
         auto rel_view = src_registry.view<RelationshipComponent>();
@@ -512,6 +518,62 @@ namespace Loom {
         Renderer2D::EndScene();
     }
 
+    // ---- Physics3D contact event plumbing ---------------------------------
+
+    struct Physics3DEventState {
+        enum class Kind : uint8_t { Begin, End };
+        struct Event { Kind kind; uint32_t body_a; uint32_t body_b; };
+
+        std::vector<Event>                         events;       // drained on main thread after Update()
+        std::mutex                                 events_mutex; // events[] is written from Jolt worker threads
+        std::unordered_map<uint32_t, entt::entity> body_to_entity;
+    };
+
+    namespace {
+        // Jolt fires these from job threads; we only enqueue. Dispatch happens
+        // post-Update on the main thread via Scene::DispatchPhysics3DEvents.
+        class LoomContactListener3D : public JPH::ContactListener {
+        public:
+            explicit LoomContactListener3D(Physics3DEventState* state) : mState(state) {}
+
+            JPH::ValidateResult OnContactValidate(const JPH::Body&, const JPH::Body&,
+                                                  JPH::RVec3Arg, const JPH::CollideShapeResult&) override {
+                return JPH::ValidateResult::AcceptAllContactsForThisBodyPair;
+            }
+
+            void OnContactAdded(const JPH::Body& a, const JPH::Body& b,
+                                const JPH::ContactManifold&, JPH::ContactSettings&) override {
+                std::lock_guard<std::mutex> lock(mState->events_mutex);
+                mState->events.push_back({
+                    Physics3DEventState::Kind::Begin,
+                    a.GetID().GetIndexAndSequenceNumber(),
+                    b.GetID().GetIndexAndSequenceNumber(),
+                });
+            }
+
+            void OnContactRemoved(const JPH::SubShapeIDPair& pair) override {
+                std::lock_guard<std::mutex> lock(mState->events_mutex);
+                mState->events.push_back({
+                    Physics3DEventState::Kind::End,
+                    pair.GetBody1ID().GetIndexAndSequenceNumber(),
+                    pair.GetBody2ID().GetIndexAndSequenceNumber(),
+                });
+            }
+
+        private:
+            Physics3DEventState* mState;
+        };
+
+        // Sensors fire OnContactAdded/Removed like normal bodies in Jolt; we
+        // route them to OnSensor* if either side has a collider with IsSensor=true.
+        bool IsSensorEntity(Entity e) {
+            if (e.HasComponent<BoxCollider3DComponent>()     && e.GetComponent<BoxCollider3DComponent>().IsSensor)     return true;
+            if (e.HasComponent<SphereCollider3DComponent>()  && e.GetComponent<SphereCollider3DComponent>().IsSensor)  return true;
+            if (e.HasComponent<CapsuleCollider3DComponent>() && e.GetComponent<CapsuleCollider3DComponent>().IsSensor) return true;
+            return false;
+        }
+    }
+
     // ---- Jolt helpers ------------------------------------------------------
     static JPH::Vec3 ToJolt(const glm::vec3& v) { return JPH::Vec3(v.x, v.y, v.z); }
     static JPH::Quat EulerToJolt(const glm::vec3& e) {
@@ -550,6 +612,9 @@ namespace Loom {
             PhysicsEngine3D::GetObjectLayerPairFilter()
         );
         mPhysicsSystem3D->SetGravity(JPH::Vec3(0.0f, -9.81f, 0.0f));
+
+        mContactListener3D = new LoomContactListener3D(mPhysics3DEvents.get());
+        mPhysicsSystem3D->SetContactListener(mContactListener3D);
 
         JPH::BodyInterface& body_interface = mPhysicsSystem3D->GetBodyInterface();
 
@@ -604,6 +669,27 @@ namespace Loom {
                 friction     = sc.Friction;
                 restitution  = sc.Restitution;
                 is_sensor    = sc.IsSensor;
+            } else if (mRegistry.all_of<CapsuleCollider3DComponent>(e)) {
+                auto& cc = mRegistry.get<CapsuleCollider3DComponent>(e);
+
+                // Capsule axis is local Y. Radius scales with the largest XZ axis
+                // so a non-uniform scale doesn't invent an ellipsoid Jolt can't model.
+                float xz_scale          = std::max(transform.Scale.x, transform.Scale.z);
+                float scaled_radius     = std::max(cc.Radius     * xz_scale,         0.05f);
+                float scaled_half_height = std::max(cc.HalfHeight * transform.Scale.y, 0.05f);
+
+                JPH::CapsuleShapeSettings capsule_settings(scaled_half_height, scaled_radius);
+                capsule_settings.SetDensity(cc.Density);
+                auto capsule_result = capsule_settings.Create();
+                if (!capsule_result.IsValid()) {
+                    LOOM_CORE_ERROR("Scene: CapsuleShape creation failed: {}", capsule_result.GetError().c_str());
+                    continue;
+                }
+                shape        = capsule_result.Get();
+                shape_offset = cc.Offset;
+                friction     = cc.Friction;
+                restitution  = cc.Restitution;
+                is_sensor    = cc.IsSensor;
             } else {
                 LOOM_CORE_WARN("Scene: Rigidbody3D entity has no collider; body not created");
                 continue;
@@ -650,6 +736,7 @@ namespace Loom {
                     : JPH::EActivation::Activate);
 
             rb.RuntimeBodyID = body_id.GetIndexAndSequenceNumber();
+            mPhysics3DEvents->body_to_entity[rb.RuntimeBodyID] = e;
         }
 
         // Jolt needs this once after batch body creation for optimal broadphase queries.
@@ -669,8 +756,18 @@ namespace Loom {
             rb.RuntimeBodyID = 0xffffffffu;
         }
 
+        delete mContactListener3D;
+        mContactListener3D = nullptr;
+
         delete mPhysicsSystem3D;
         mPhysicsSystem3D = nullptr;
+
+        // Drop any queued contact events; the bodies they referenced are gone.
+        {
+            std::lock_guard<std::mutex> lock(mPhysics3DEvents->events_mutex);
+            mPhysics3DEvents->events.clear();
+        }
+        mPhysics3DEvents->body_to_entity.clear();
     }
 
     void Scene::OnRuntimeStart() {
@@ -850,6 +947,8 @@ namespace Loom {
             mPhysicsSystem3D->Update(ts, collision_steps,
                                      &PhysicsEngine3D::GetTempAllocator(),
                                      &PhysicsEngine3D::GetJobSystem());
+
+            DispatchPhysics3DEvents();
 
             JPH::BodyInterface& body_interface = mPhysicsSystem3D->GetBodyInterface();
             for (auto e : mRegistry.view<TransformComponent, Rigidbody3DComponent>()) {
@@ -1052,11 +1151,100 @@ namespace Loom {
         Renderer2D::DrawLine(wn[3], wf[3], color, entity_id);
     }
 
+    static void DrawWireCircle3D(const glm::vec3& center, const glm::vec3& basis_a, const glm::vec3& basis_b,
+                                 float radius, int segments, const glm::vec4& color, int entity_id) {
+        glm::vec3 prev = center + basis_a * radius;
+        for (int i = 1; i <= segments; ++i) {
+            float t = (float)i / (float)segments * 6.2831853f;
+            glm::vec3 next = center + (basis_a * std::cos(t) + basis_b * std::sin(t)) * radius;
+            Renderer2D::DrawLine(prev, next, color, entity_id);
+            prev = next;
+        }
+    }
+
+    static void DrawWireBox3D(const glm::vec3& center, const glm::vec3& axis_x, const glm::vec3& axis_y,
+                              const glm::vec3& axis_z, const glm::vec3& half_extents,
+                              const glm::vec4& color, int entity_id) {
+        glm::vec3 corners[8];
+        for (int i = 0; i < 8; ++i) {
+            glm::vec3 s{ (i & 1) ? 1.0f : -1.0f, (i & 2) ? 1.0f : -1.0f, (i & 4) ? 1.0f : -1.0f };
+            corners[i] = center
+                       + axis_x * (s.x * half_extents.x)
+                       + axis_y * (s.y * half_extents.y)
+                       + axis_z * (s.z * half_extents.z);
+        }
+        // 4 edges along X (corners differ only in bit 0), 4 along Y (bit 1), 4 along Z (bit 2)
+        const int edges[12][2] = {
+            {0,1},{2,3},{4,5},{6,7},   // X
+            {0,2},{1,3},{4,6},{5,7},   // Y
+            {0,4},{1,5},{2,6},{3,7},   // Z
+        };
+        for (auto& e : edges)
+            Renderer2D::DrawLine(corners[e[0]], corners[e[1]], color, entity_id);
+    }
+
     void Scene::RenderPhysicsColliders() {
         if (!mShowPhysicsColliders) return;
 
         glm::vec4 collider_color = { 0.1f, 0.9f, 0.1f, 1.0f };
 
+        // ---- 3D colliders (wireframes via Renderer2D::DrawLine) ----
+        for (auto e : mRegistry.view<TransformComponent, BoxCollider3DComponent>()) {
+            auto& transform = mRegistry.get<TransformComponent>(e);
+            auto& bc        = mRegistry.get<BoxCollider3DComponent>(e);
+            glm::quat  q    = glm::quat(transform.Rotation);
+            glm::vec3  ax   = q * glm::vec3(1, 0, 0);
+            glm::vec3  ay   = q * glm::vec3(0, 1, 0);
+            glm::vec3  az   = q * glm::vec3(0, 0, 1);
+            glm::vec3  center = transform.Translation + q * bc.Offset;
+            glm::vec3  half_extents = bc.HalfExtents * transform.Scale;
+            DrawWireBox3D(center, ax, ay, az, half_extents, collider_color, (int)entt::to_entity(e));
+        }
+
+        for (auto e : mRegistry.view<TransformComponent, SphereCollider3DComponent>()) {
+            auto& transform = mRegistry.get<TransformComponent>(e);
+            auto& sc        = mRegistry.get<SphereCollider3DComponent>(e);
+            glm::quat q     = glm::quat(transform.Rotation);
+            glm::vec3 center = transform.Translation + q * sc.Offset;
+            float     radius = sc.Radius * std::max({ transform.Scale.x, transform.Scale.y, transform.Scale.z });
+            // Three world-axis great circles — sphere itself is rotation-invariant.
+            int eid = (int)entt::to_entity(e);
+            DrawWireCircle3D(center, glm::vec3(1,0,0), glm::vec3(0,1,0), radius, 24, collider_color, eid);
+            DrawWireCircle3D(center, glm::vec3(0,1,0), glm::vec3(0,0,1), radius, 24, collider_color, eid);
+            DrawWireCircle3D(center, glm::vec3(1,0,0), glm::vec3(0,0,1), radius, 24, collider_color, eid);
+        }
+
+        for (auto e : mRegistry.view<TransformComponent, CapsuleCollider3DComponent>()) {
+            auto& transform = mRegistry.get<TransformComponent>(e);
+            auto& cc        = mRegistry.get<CapsuleCollider3DComponent>(e);
+            glm::quat q     = glm::quat(transform.Rotation);
+            glm::vec3 ay    = q * glm::vec3(0, 1, 0); // capsule's local Y axis
+            glm::vec3 ax    = q * glm::vec3(1, 0, 0);
+            glm::vec3 az    = q * glm::vec3(0, 0, 1);
+            glm::vec3 center = transform.Translation + q * cc.Offset;
+            float xz_scale = std::max(transform.Scale.x, transform.Scale.z);
+            float radius   = cc.Radius     * xz_scale;
+            float half_h   = cc.HalfHeight * transform.Scale.y;
+            glm::vec3 top    = center + ay * half_h;
+            glm::vec3 bottom = center - ay * half_h;
+            int eid = (int)entt::to_entity(e);
+            // Two end caps + middle ring (around capsule's Y axis)
+            DrawWireCircle3D(top,    ax, az, radius, 24, collider_color, eid);
+            DrawWireCircle3D(bottom, ax, az, radius, 24, collider_color, eid);
+            DrawWireCircle3D(center, ax, az, radius, 24, collider_color, eid);
+            // Two side outlines (cylinder body), one per perpendicular axis
+            Renderer2D::DrawLine(top + ax * radius, bottom + ax * radius, collider_color, eid);
+            Renderer2D::DrawLine(top - ax * radius, bottom - ax * radius, collider_color, eid);
+            Renderer2D::DrawLine(top + az * radius, bottom + az * radius, collider_color, eid);
+            Renderer2D::DrawLine(top - az * radius, bottom - az * radius, collider_color, eid);
+            // Hemispherical end-cap outlines (semicircles in the XY and YZ planes)
+            DrawWireCircle3D(top,    ax, ay, radius, 24, collider_color, eid);
+            DrawWireCircle3D(top,    az, ay, radius, 24, collider_color, eid);
+            DrawWireCircle3D(bottom, ax, ay, radius, 24, collider_color, eid);
+            DrawWireCircle3D(bottom, az, ay, radius, 24, collider_color, eid);
+        }
+
+        // ---- 2D colliders (existing) ----
         auto box_view = mRegistry.view<TransformComponent, BoxCollider2DComponent>();
         for (auto entity : box_view) {
             auto [transform, bc2d] = box_view.get<TransformComponent, BoxCollider2DComponent>(entity);
@@ -1146,6 +1334,37 @@ namespace Loom {
         b2ShapeProxy proxy = b2MakeProxy(&point, 1, radius);
         b2World_OverlapShape(mPhysicsWorld, &proxy, b2DefaultQueryFilter(), OverlapCallback, &context);
         return context.results;
+    }
+
+    void Scene::DispatchPhysics3DEvents() {
+        // Swap out the queue under the lock so dispatch (which can call into Lua,
+        // which can spawn entities, etc.) doesn't hold the mutex.
+        std::vector<Physics3DEventState::Event> drained;
+        {
+            std::lock_guard<std::mutex> lock(mPhysics3DEvents->events_mutex);
+            drained.swap(mPhysics3DEvents->events);
+        }
+
+        auto resolve = [this](uint32_t body_id) -> Entity {
+            auto it = mPhysics3DEvents->body_to_entity.find(body_id);
+            if (it == mPhysics3DEvents->body_to_entity.end()) return {};
+            return Entity{ it->second, this };
+        };
+
+        for (const auto& ev : drained) {
+            Entity a = resolve(ev.body_a);
+            Entity b = resolve(ev.body_b);
+            if (!a || !b) continue;
+
+            bool sensor = IsSensorEntity(a) || IsSensorEntity(b);
+            if (ev.kind == Physics3DEventState::Kind::Begin) {
+                if (sensor) ScriptingEngine::OnSensorBegin(a, b);
+                else        ScriptingEngine::OnCollisionBegin(a, b);
+            } else {
+                if (sensor) ScriptingEngine::OnSensorEnd(a, b);
+                else        ScriptingEngine::OnCollisionEnd(a, b);
+            }
+        }
     }
 
     // ---- 3D physics runtime helpers ---------------------------------------

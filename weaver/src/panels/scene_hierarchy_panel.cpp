@@ -261,6 +261,7 @@ namespace Weaver {
             push_add.template operator()<Loom::Rigidbody3DComponent>("Rigidbody 3D");
             push_add.template operator()<Loom::BoxCollider3DComponent>("Box Collider 3D");
             push_add.template operator()<Loom::SphereCollider3DComponent>("Sphere Collider 3D");
+            push_add.template operator()<Loom::CapsuleCollider3DComponent>("Capsule Collider 3D");
             push_add.template operator()<Loom::LuaScriptComponent>("Lua Script");
             push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
@@ -1599,6 +1600,34 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::SphereCollider3DComponent>("Sphere Collider 3D");
+        }
+
+        if (entity.HasComponent<Loom::CapsuleCollider3DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::CapsuleCollider3DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Capsule Collider 3D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& cc          = entity.GetComponent<Loom::CapsuleCollider3DComponent>();
+                bool  is_modified = false;
+                is_modified |= ImGui::DragFloat3("Offset",      glm::value_ptr(cc.Offset), 0.05f);
+                is_modified |= ImGui::DragFloat ("Radius",      &cc.Radius,      0.05f, 0.001f, 1000.0f);
+                is_modified |= ImGui::DragFloat ("Half Height", &cc.HalfHeight,  0.05f, 0.001f, 1000.0f);
+                is_modified |= ImGui::DragFloat ("Density",     &cc.Density,     0.1f,  0.0f,   100000.0f);
+                is_modified |= ImGui::DragFloat ("Friction",    &cc.Friction,    0.01f, 0.0f,   1.0f);
+                is_modified |= ImGui::DragFloat ("Restitution", &cc.Restitution, 0.01f, 0.0f,   1.0f);
+                is_modified |= ImGui::Checkbox  ("Is Sensor",   &cc.IsSensor);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::CapsuleCollider3DComponent>("Capsule Collider 3D");
         }
     }
 

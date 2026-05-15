@@ -8,11 +8,13 @@
 #include <box2d/id.h>
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace JPH {
     class PhysicsSystem;
+    class ContactListener;
 }
 
 namespace Loom {
@@ -21,6 +23,7 @@ namespace Loom {
 
     struct TransformComponent;
     struct CameraComponent;
+    struct Physics3DEventState; // Pimpl — body→entity map + thread-safe contact event queue (defined in scene.cpp)
 
     class LOOM_API Scene {
     public:
@@ -78,6 +81,7 @@ namespace Loom {
 
         void OnPhysicsStart3D();
         void OnPhysicsStop3D();
+        void DispatchPhysics3DEvents();
 
     private:
         entt::registry mRegistry;
@@ -85,8 +89,10 @@ namespace Loom {
         std::unordered_map<UUID, entt::entity> mEntityMap;
         std::shared_ptr<Texture2D> mCameraIcon;
 
-        b2WorldId           mPhysicsWorld   = b2_nullWorldId;
-        JPH::PhysicsSystem* mPhysicsSystem3D = nullptr;
+        b2WorldId             mPhysicsWorld      = b2_nullWorldId;
+        JPH::PhysicsSystem*   mPhysicsSystem3D   = nullptr;
+        JPH::ContactListener* mContactListener3D = nullptr;
+        std::unique_ptr<Physics3DEventState> mPhysics3DEvents;
 
         bool mShowPhysicsColliders = false;
 

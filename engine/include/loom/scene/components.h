@@ -327,6 +327,23 @@ namespace Loom {
         SphereCollider3DComponent(const SphereCollider3DComponent&) = default;
     };
 
+    struct CapsuleCollider3DComponent {
+        // Capsule is oriented along the local Y axis: a cylinder of length
+        // 2*HalfHeight capped by a hemisphere of Radius on each end. Total
+        // height is 2*(HalfHeight + Radius). Common shape for character bodies.
+        glm::vec3 Offset     = { 0.0f, 0.0f, 0.0f };
+        float     Radius     = 0.5f;
+        float     HalfHeight = 0.5f;
+
+        float Density     = 1.0f;
+        float Friction    = 0.5f;
+        float Restitution = 0.0f;
+        bool  IsSensor    = false;
+
+        CapsuleCollider3DComponent()                                  = default;
+        CapsuleCollider3DComponent(const CapsuleCollider3DComponent&) = default;
+    };
+
     struct DirectionalLightComponent {
         // Direction is taken from the entity's TransformComponent rotation:
         // the light shines along the entity's local -Z axis after rotation.
