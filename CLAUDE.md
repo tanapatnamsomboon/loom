@@ -50,6 +50,7 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | Scripting VM                  | Lua 5.4              | `lua`               |
 | Lua C++ Bindings              | sol2 v3.5.0          | `sol2`              |
 | Mesh Loading (GLTF/GLB)       | cgltf                | `cgltf`             |
+| Physics (3D)                  | Jolt Physics         | `jolt`              |
 
 ---
 
@@ -91,7 +92,8 @@ function OnSensorBegin(other) end             function OnSensorEnd(other) end
 -- entity:  GetTranslation/SetTranslation, GetRotation/SetRotation, GetScale/SetScale
 --          GetTag, FindByTag(tag), Spawn(), Destroy(), Instantiate(path)
 --          PlayAudio/StopAudio/IsAudioPlaying/SetVolume/SetPitch     -- AudioSourceComponent
---          SetLinearVelocity/GetLinearVelocity/ApplyForce/ApplyImpulse  -- Rigidbody2DComponent
+--          SetLinearVelocity/GetLinearVelocity/ApplyForce/ApplyImpulse        -- Rigidbody2DComponent
+--          SetLinearVelocity3D/GetLinearVelocity3D/ApplyForce3D/ApplyImpulse3D -- Rigidbody3DComponent
 -- Input:   IsKeyPressed(Key.W), GetMouseX(), ...
 -- Physics: Raycast(origin, dir, dist) -> {hit, point, normal, entity}
 --          OverlapCircle(center, radius) | OverlapBox(center, half_extents)

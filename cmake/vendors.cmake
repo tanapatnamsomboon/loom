@@ -125,3 +125,15 @@ endif()
 # -----------------------------------------------------------------------------
 add_library(cgltf INTERFACE)
 target_include_directories(cgltf INTERFACE vendor/cgltf)
+
+# -----------------------------------------------------------------------------
+# Jolt Physics (3D rigid body)
+# Disable all of Jolt's optional targets — we only need the library.
+# Build options must be set before add_subdirectory.
+# -----------------------------------------------------------------------------
+set(TARGET_HELLO_WORLD      OFF CACHE INTERNAL "")
+set(TARGET_PERFORMANCE_TEST OFF CACHE INTERNAL "")
+set(TARGET_SAMPLES          OFF CACHE INTERNAL "")
+set(TARGET_UNIT_TESTS       OFF CACHE INTERNAL "")
+set(TARGET_VIEWER           OFF CACHE INTERNAL "")
+add_subdirectory(vendor/jolt/Build Jolt)

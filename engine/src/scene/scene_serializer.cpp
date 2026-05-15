@@ -173,6 +173,46 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Rigidbody 3D Component
+        if (entity.HasComponent<Rigidbody3DComponent>()) {
+            out << YAML::Key << "Rigidbody3DComponent";
+            out << YAML::BeginMap;
+            auto& rb = entity.GetComponent<Rigidbody3DComponent>();
+            out << YAML::Key << "Type"           << YAML::Value << (int)rb.Type;
+            out << YAML::Key << "FixedRotation"  << YAML::Value << rb.FixedRotation;
+            out << YAML::Key << "LinearDamping"  << YAML::Value << rb.LinearDamping;
+            out << YAML::Key << "AngularDamping" << YAML::Value << rb.AngularDamping;
+            out << YAML::EndMap;
+        }
+
+        // Box Collider 3D Component
+        if (entity.HasComponent<BoxCollider3DComponent>()) {
+            out << YAML::Key << "BoxCollider3DComponent";
+            out << YAML::BeginMap;
+            auto& bc = entity.GetComponent<BoxCollider3DComponent>();
+            out << YAML::Key << "Offset"      << YAML::Value << bc.Offset;
+            out << YAML::Key << "HalfExtents" << YAML::Value << bc.HalfExtents;
+            out << YAML::Key << "Density"     << YAML::Value << bc.Density;
+            out << YAML::Key << "Friction"    << YAML::Value << bc.Friction;
+            out << YAML::Key << "Restitution" << YAML::Value << bc.Restitution;
+            out << YAML::Key << "IsSensor"    << YAML::Value << bc.IsSensor;
+            out << YAML::EndMap;
+        }
+
+        // Sphere Collider 3D Component
+        if (entity.HasComponent<SphereCollider3DComponent>()) {
+            out << YAML::Key << "SphereCollider3DComponent";
+            out << YAML::BeginMap;
+            auto& sc = entity.GetComponent<SphereCollider3DComponent>();
+            out << YAML::Key << "Offset"      << YAML::Value << sc.Offset;
+            out << YAML::Key << "Radius"      << YAML::Value << sc.Radius;
+            out << YAML::Key << "Density"     << YAML::Value << sc.Density;
+            out << YAML::Key << "Friction"    << YAML::Value << sc.Friction;
+            out << YAML::Key << "Restitution" << YAML::Value << sc.Restitution;
+            out << YAML::Key << "IsSensor"    << YAML::Value << sc.IsSensor;
+            out << YAML::EndMap;
+        }
+
         // Directional Light Component
         if (entity.HasComponent<DirectionalLightComponent>()) {
             out << YAML::Key << "DirectionalLightComponent";
@@ -521,6 +561,37 @@ namespace Loom {
                 }
             }
 
+            // Rigidbody 3D Component
+            if (auto rb_node = entity_node["Rigidbody3DComponent"]) {
+                auto& rb           = entity.AddComponent<Rigidbody3DComponent>();
+                rb.Type            = (Rigidbody3DComponent::BodyType)YAML_GET(rb_node["Type"], int, 0);
+                rb.FixedRotation   = YAML_GET(rb_node["FixedRotation"],  bool,  false);
+                rb.LinearDamping   = YAML_GET(rb_node["LinearDamping"],  float, 0.05f);
+                rb.AngularDamping  = YAML_GET(rb_node["AngularDamping"], float, 0.05f);
+            }
+
+            // Box Collider 3D Component
+            if (auto bc_node = entity_node["BoxCollider3DComponent"]) {
+                auto& bc      = entity.AddComponent<BoxCollider3DComponent>();
+                bc.Offset      = YAML_GET(bc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+                bc.HalfExtents = YAML_GET(bc_node["HalfExtents"], glm::vec3, glm::vec3(0.5f));
+                bc.Density     = YAML_GET(bc_node["Density"],     float,     1.0f);
+                bc.Friction    = YAML_GET(bc_node["Friction"],    float,     0.5f);
+                bc.Restitution = YAML_GET(bc_node["Restitution"], float,     0.0f);
+                bc.IsSensor    = YAML_GET(bc_node["IsSensor"],    bool,      false);
+            }
+
+            // Sphere Collider 3D Component
+            if (auto sc_node = entity_node["SphereCollider3DComponent"]) {
+                auto& sc      = entity.AddComponent<SphereCollider3DComponent>();
+                sc.Offset      = YAML_GET(sc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+                sc.Radius      = YAML_GET(sc_node["Radius"],      float,     0.5f);
+                sc.Density     = YAML_GET(sc_node["Density"],     float,     1.0f);
+                sc.Friction    = YAML_GET(sc_node["Friction"],    float,     0.5f);
+                sc.Restitution = YAML_GET(sc_node["Restitution"], float,     0.0f);
+                sc.IsSensor    = YAML_GET(sc_node["IsSensor"],    bool,      false);
+            }
+
             // Directional Light Component
             if (auto dl_node = entity_node["DirectionalLightComponent"]) {
                 auto& dl     = entity.AddComponent<DirectionalLightComponent>();
@@ -783,6 +854,34 @@ namespace Loom {
                 std::filesystem::path physical_path = Project::GetAssetFileSystemPath(texture_path);
                 src.Texture = AssetManager::GetTexture(physical_path.string(), src.TexSpec);
             }
+        }
+
+        if (auto rb_node = data["Rigidbody3DComponent"]) {
+            auto& rb           = entity.AddComponent<Rigidbody3DComponent>();
+            rb.Type            = (Rigidbody3DComponent::BodyType)YAML_GET(rb_node["Type"], int, 0);
+            rb.FixedRotation   = YAML_GET(rb_node["FixedRotation"],  bool,  false);
+            rb.LinearDamping   = YAML_GET(rb_node["LinearDamping"],  float, 0.05f);
+            rb.AngularDamping  = YAML_GET(rb_node["AngularDamping"], float, 0.05f);
+        }
+
+        if (auto bc_node = data["BoxCollider3DComponent"]) {
+            auto& bc      = entity.AddComponent<BoxCollider3DComponent>();
+            bc.Offset      = YAML_GET(bc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+            bc.HalfExtents = YAML_GET(bc_node["HalfExtents"], glm::vec3, glm::vec3(0.5f));
+            bc.Density     = YAML_GET(bc_node["Density"],     float,     1.0f);
+            bc.Friction    = YAML_GET(bc_node["Friction"],    float,     0.5f);
+            bc.Restitution = YAML_GET(bc_node["Restitution"], float,     0.0f);
+            bc.IsSensor    = YAML_GET(bc_node["IsSensor"],    bool,      false);
+        }
+
+        if (auto sc_node = data["SphereCollider3DComponent"]) {
+            auto& sc      = entity.AddComponent<SphereCollider3DComponent>();
+            sc.Offset      = YAML_GET(sc_node["Offset"],      glm::vec3, glm::vec3(0.0f));
+            sc.Radius      = YAML_GET(sc_node["Radius"],      float,     0.5f);
+            sc.Density     = YAML_GET(sc_node["Density"],     float,     1.0f);
+            sc.Friction    = YAML_GET(sc_node["Friction"],    float,     0.5f);
+            sc.Restitution = YAML_GET(sc_node["Restitution"], float,     0.0f);
+            sc.IsSensor    = YAML_GET(sc_node["IsSensor"],    bool,      false);
         }
 
         if (auto dl_node = data["DirectionalLightComponent"]) {

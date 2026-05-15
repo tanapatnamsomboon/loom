@@ -11,6 +11,10 @@
 #include <unordered_map>
 #include <vector>
 
+namespace JPH {
+    class PhysicsSystem;
+}
+
 namespace Loom {
 
     class Entity;
@@ -52,6 +56,14 @@ namespace Loom {
         std::vector<entt::entity> OverlapCircle2D(glm::vec2 center, float radius);
         std::vector<entt::entity> OverlapBox2D(glm::vec2 center, glm::vec2 half_extents);
 
+        // 3D physics — operate via Rigidbody3DComponent::RuntimeBodyID. No-ops
+        // when the scene isn't running, the entity has no rigidbody, or its body
+        // hasn't been created. Forces are in Newtons; impulses in N*s.
+        void      SetLinearVelocity3D(Entity entity, const glm::vec3& v);
+        glm::vec3 GetLinearVelocity3D(Entity entity);
+        void      ApplyForce3D       (Entity entity, const glm::vec3& f);
+        void      ApplyImpulse3D     (Entity entity, const glm::vec3& j);
+
         template<typename... Components>
         auto GetAllEntitiesWith() {
             return mRegistry.view<Components...>();
@@ -64,13 +76,17 @@ namespace Loom {
         void DrawCameraFrustum(const glm::mat4& world_transform, const CameraComponent& camera);
         void RenderPhysicsColliders();
 
+        void OnPhysicsStart3D();
+        void OnPhysicsStop3D();
+
     private:
         entt::registry mRegistry;
 
         std::unordered_map<UUID, entt::entity> mEntityMap;
         std::shared_ptr<Texture2D> mCameraIcon;
 
-        b2WorldId mPhysicsWorld = b2_nullWorldId;
+        b2WorldId           mPhysicsWorld   = b2_nullWorldId;
+        JPH::PhysicsSystem* mPhysicsSystem3D = nullptr;
 
         bool mShowPhysicsColliders = false;
 

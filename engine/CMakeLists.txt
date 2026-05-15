@@ -54,6 +54,8 @@ set(ENGINE_SOURCES
 
   src/audio/audio_engine.cpp
 
+  src/physics/physics_engine_3d.cpp
+
   src/scripting/file_watcher.cpp
   src/scripting/scripting_engine.cpp
   src/scripting/backends/lua/lua_scripting_backend.cpp
@@ -92,6 +94,7 @@ target_link_libraries(Loom
     sol2
     miniaudio
     cgltf
+    Jolt
 )
 
 if (WIN32)

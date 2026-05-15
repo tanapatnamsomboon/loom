@@ -129,6 +129,13 @@ namespace {
             if (!b2Body_IsValid(rb.RuntimeBody)) return;
             b2Body_ApplyLinearImpulseToCenter(rb.RuntimeBody, { v.x, v.y }, true);
         }
+
+        // --- Physics API (3D) — delegate to Scene; no-op outside Play. ---
+
+        void      SetLinearVelocity3D(glm::vec3 v) { if (scene) scene->SetLinearVelocity3D(handle, v); }
+        glm::vec3 GetLinearVelocity3D()            { return scene ? scene->GetLinearVelocity3D(handle) : glm::vec3{}; }
+        void      ApplyForce3D       (glm::vec3 v) { if (scene) scene->ApplyForce3D       (handle, v); }
+        void      ApplyImpulse3D     (glm::vec3 v) { if (scene) scene->ApplyImpulse3D     (handle, v); }
     };
 
 } // anonymous namespace
@@ -206,11 +213,16 @@ namespace {
             // Text
             "GetText",            &LuaEntityWrapper::GetText,
             "SetText",            &LuaEntityWrapper::SetText,
-            // Physics
-            "SetLinearVelocity",  &LuaEntityWrapper::SetLinearVelocity,
-            "GetLinearVelocity",  &LuaEntityWrapper::GetLinearVelocity,
-            "ApplyForce",         &LuaEntityWrapper::ApplyForce,
-            "ApplyImpulse",       &LuaEntityWrapper::ApplyImpulse
+            // Physics 2D
+            "SetLinearVelocity",    &LuaEntityWrapper::SetLinearVelocity,
+            "GetLinearVelocity",    &LuaEntityWrapper::GetLinearVelocity,
+            "ApplyForce",           &LuaEntityWrapper::ApplyForce,
+            "ApplyImpulse",         &LuaEntityWrapper::ApplyImpulse,
+            // Physics 3D
+            "SetLinearVelocity3D",  &LuaEntityWrapper::SetLinearVelocity3D,
+            "GetLinearVelocity3D",  &LuaEntityWrapper::GetLinearVelocity3D,
+            "ApplyForce3D",         &LuaEntityWrapper::ApplyForce3D,
+            "ApplyImpulse3D",       &LuaEntityWrapper::ApplyImpulse3D
         );
 
         sol::table input = mLua.create_named_table("Input");

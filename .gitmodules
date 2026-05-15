@@ -38,3 +38,6 @@
 [submodule "vendor/cgltf"]
 	path = vendor/cgltf
 	url = https://github.com/jkuhlmann/cgltf.git
+[submodule "vendor/jolt"]
+	path = vendor/jolt
+	url = https://github.com/jrouwe/JoltPhysics.git

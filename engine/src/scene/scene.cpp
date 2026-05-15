@@ -2,6 +2,7 @@
 #include "loom/asset/asset_manager.h"
 #include "loom/audio/audio_engine.h"
 #include "loom/core/uuid.h"
+#include "loom/physics/physics_engine_3d.h"
 #include "loom/project/project.h"
 #include "loom/renderer/renderer_2d.h"
 #include "loom/renderer/renderer_3d.h"
@@ -12,6 +13,17 @@
 #include <random>
 #include <unordered_set>
 #include <box2d/box2d.h>
+#include <glm/gtc/quaternion.hpp>
+
+// Jolt — only the bits we touch in this TU.
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
+#include <Jolt/Physics/EActivation.h>
 
 namespace Loom {
     Scene::Scene() {
@@ -78,6 +90,9 @@ namespace Loom {
         CopyComponent<CircleCollider2DComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<DirectionalLightComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<PointLightComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<Rigidbody3DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<BoxCollider3DComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<SphereCollider3DComponent>(dst_registry, src_registry, entt_map);
 
         // Copy relationship structure, remapping entt handles through the UUID map
         auto rel_view = src_registry.view<RelationshipComponent>();
@@ -497,6 +512,167 @@ namespace Loom {
         Renderer2D::EndScene();
     }
 
+    // ---- Jolt helpers ------------------------------------------------------
+    static JPH::Vec3 ToJolt(const glm::vec3& v) { return JPH::Vec3(v.x, v.y, v.z); }
+    static JPH::Quat EulerToJolt(const glm::vec3& e) {
+        glm::quat q(e); // XYZ Euler radians -> quat
+        return JPH::Quat(q.x, q.y, q.z, q.w);
+    }
+    static glm::vec3 FromJolt(JPH::Vec3Arg v) { return { v.GetX(), v.GetY(), v.GetZ() }; }
+    static glm::vec3 JoltQuatToEuler(JPH::QuatArg q) {
+        glm::quat g(q.GetW(), q.GetX(), q.GetY(), q.GetZ());
+        return glm::eulerAngles(g);
+    }
+
+    static JPH::EMotionType ToJoltMotion(Rigidbody3DComponent::BodyType t) {
+        switch (t) {
+            case Rigidbody3DComponent::BodyType::Static:    return JPH::EMotionType::Static;
+            case Rigidbody3DComponent::BodyType::Dynamic:   return JPH::EMotionType::Dynamic;
+            case Rigidbody3DComponent::BodyType::Kinematic: return JPH::EMotionType::Kinematic;
+        }
+        return JPH::EMotionType::Static;
+    }
+
+    void Scene::OnPhysicsStart3D() {
+        if (!PhysicsEngine3D::IsInitialized()) {
+            LOOM_CORE_ERROR("Scene::OnPhysicsStart3D called before PhysicsEngine3D::Init");
+            return;
+        }
+
+        mPhysicsSystem3D = new JPH::PhysicsSystem();
+        mPhysicsSystem3D->Init(
+            /*max_bodies*/             1024,
+            /*num_body_mutexes*/          0, // 0 -> Jolt picks based on thread count
+            /*max_body_pairs*/         1024,
+            /*max_contact_constraints*/1024,
+            PhysicsEngine3D::GetBroadPhaseLayerInterface(),
+            PhysicsEngine3D::GetObjectVsBroadPhaseLayerFilter(),
+            PhysicsEngine3D::GetObjectLayerPairFilter()
+        );
+        mPhysicsSystem3D->SetGravity(JPH::Vec3(0.0f, -9.81f, 0.0f));
+
+        JPH::BodyInterface& body_interface = mPhysicsSystem3D->GetBodyInterface();
+
+        for (auto e : mRegistry.view<TransformComponent, Rigidbody3DComponent>()) {
+            auto& transform = mRegistry.get<TransformComponent>(e);
+            auto& rb        = mRegistry.get<Rigidbody3DComponent>(e);
+
+            // Material params + offset come from the collider component.
+            JPH::ShapeRefC shape;
+            glm::vec3      shape_offset = { 0.0f, 0.0f, 0.0f };
+            float          friction     = 0.5f;
+            float          restitution  = 0.0f;
+            bool           is_sensor    = false;
+
+            // Box takes precedence if both colliders are present (an unusual setup, but well-defined).
+            if (mRegistry.all_of<BoxCollider3DComponent>(e)) {
+                auto& bc = mRegistry.get<BoxCollider3DComponent>(e);
+
+                glm::vec3 scaled_extents = bc.HalfExtents * transform.Scale;
+                // Jolt rejects extents below cDefaultConvexRadius (default 0.05). Clamp.
+                scaled_extents = glm::max(scaled_extents, glm::vec3(0.05f));
+
+                JPH::BoxShapeSettings box_settings(ToJolt(scaled_extents));
+                box_settings.SetDensity(bc.Density);
+                auto box_result = box_settings.Create();
+                if (!box_result.IsValid()) {
+                    LOOM_CORE_ERROR("Scene: BoxShape creation failed: {}", box_result.GetError().c_str());
+                    continue;
+                }
+                shape        = box_result.Get();
+                shape_offset = bc.Offset;
+                friction     = bc.Friction;
+                restitution  = bc.Restitution;
+                is_sensor    = bc.IsSensor;
+            } else if (mRegistry.all_of<SphereCollider3DComponent>(e)) {
+                auto& sc = mRegistry.get<SphereCollider3DComponent>(e);
+
+                // Sphere can only scale uniformly in Jolt; use the largest axis so the visual
+                // collider doesn't intersect geometry the artist sees enclosed.
+                float max_scale     = std::max({ transform.Scale.x, transform.Scale.y, transform.Scale.z });
+                float scaled_radius = std::max(sc.Radius * max_scale, 0.05f);
+
+                JPH::SphereShapeSettings sphere_settings(scaled_radius);
+                sphere_settings.SetDensity(sc.Density);
+                auto sphere_result = sphere_settings.Create();
+                if (!sphere_result.IsValid()) {
+                    LOOM_CORE_ERROR("Scene: SphereShape creation failed: {}", sphere_result.GetError().c_str());
+                    continue;
+                }
+                shape        = sphere_result.Get();
+                shape_offset = sc.Offset;
+                friction     = sc.Friction;
+                restitution  = sc.Restitution;
+                is_sensor    = sc.IsSensor;
+            } else {
+                LOOM_CORE_WARN("Scene: Rigidbody3D entity has no collider; body not created");
+                continue;
+            }
+
+            // Wrap in RotatedTranslatedShape if the collider has an offset.
+            if (shape_offset != glm::vec3(0.0f)) {
+                JPH::RotatedTranslatedShapeSettings rt_settings(ToJolt(shape_offset), JPH::Quat::sIdentity(), shape);
+                auto rt_result = rt_settings.Create();
+                if (!rt_result.IsValid()) {
+                    LOOM_CORE_ERROR("Scene: RotatedTranslatedShape creation failed: {}", rt_result.GetError().c_str());
+                    continue;
+                }
+                shape = rt_result.Get();
+            }
+
+            JPH::ObjectLayer layer = (rb.Type == Rigidbody3DComponent::BodyType::Static)
+                                     ? PhysicsLayers3D::NON_MOVING
+                                     : PhysicsLayers3D::MOVING;
+
+            JPH::BodyCreationSettings body_settings(
+                shape,
+                ToJolt(transform.Translation),
+                EulerToJolt(transform.Rotation),
+                ToJoltMotion(rb.Type),
+                layer
+            );
+            body_settings.mFriction       = friction;
+            body_settings.mRestitution    = restitution;
+            body_settings.mLinearDamping  = rb.LinearDamping;
+            body_settings.mAngularDamping = rb.AngularDamping;
+            body_settings.mIsSensor       = is_sensor;
+            body_settings.mUserData       = (uint64_t)entt::to_integral(e);
+            if (rb.FixedRotation) {
+                body_settings.mAllowedDOFs = JPH::EAllowedDOFs::TranslationX
+                                           | JPH::EAllowedDOFs::TranslationY
+                                           | JPH::EAllowedDOFs::TranslationZ;
+            }
+
+            JPH::BodyID body_id = body_interface.CreateAndAddBody(
+                body_settings,
+                rb.Type == Rigidbody3DComponent::BodyType::Static
+                    ? JPH::EActivation::DontActivate
+                    : JPH::EActivation::Activate);
+
+            rb.RuntimeBodyID = body_id.GetIndexAndSequenceNumber();
+        }
+
+        // Jolt needs this once after batch body creation for optimal broadphase queries.
+        mPhysicsSystem3D->OptimizeBroadPhase();
+    }
+
+    void Scene::OnPhysicsStop3D() {
+        if (!mPhysicsSystem3D) return;
+
+        JPH::BodyInterface& body_interface = mPhysicsSystem3D->GetBodyInterface();
+        for (auto e : mRegistry.view<Rigidbody3DComponent>()) {
+            auto& rb = mRegistry.get<Rigidbody3DComponent>(e);
+            if (rb.RuntimeBodyID == 0xffffffffu) continue;
+            JPH::BodyID id(rb.RuntimeBodyID);
+            body_interface.RemoveBody(id);
+            body_interface.DestroyBody(id);
+            rb.RuntimeBodyID = 0xffffffffu;
+        }
+
+        delete mPhysicsSystem3D;
+        mPhysicsSystem3D = nullptr;
+    }
+
     void Scene::OnRuntimeStart() {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
             anim.CurrentFrame = 0;
@@ -590,6 +766,8 @@ namespace Loom {
                 cc2d.RuntimeFixture = b2CreateCircleShape(rb2d.RuntimeBody, &shape_def, &circle);
             }
         }
+
+        OnPhysicsStart3D();
     }
 
     void Scene::OnUpdateRuntime(Timestep ts) {
@@ -663,6 +841,29 @@ namespace Loom {
                 transform.Translation.x = position.x;
                 transform.Translation.y = position.y;
                 transform.Rotation.z = b2Rot_GetAngle(rotation);
+            }
+        }
+
+        // 2b. Update 3D physics
+        if (mPhysicsSystem3D) {
+            const int collision_steps = 1;
+            mPhysicsSystem3D->Update(ts, collision_steps,
+                                     &PhysicsEngine3D::GetTempAllocator(),
+                                     &PhysicsEngine3D::GetJobSystem());
+
+            JPH::BodyInterface& body_interface = mPhysicsSystem3D->GetBodyInterface();
+            for (auto e : mRegistry.view<TransformComponent, Rigidbody3DComponent>()) {
+                auto& rb = mRegistry.get<Rigidbody3DComponent>(e);
+                if (rb.RuntimeBodyID == 0xffffffffu) continue;
+                if (rb.Type == Rigidbody3DComponent::BodyType::Static) continue;
+
+                JPH::BodyID id(rb.RuntimeBodyID);
+                JPH::Vec3   pos = body_interface.GetPosition(id);
+                JPH::Quat   rot = body_interface.GetRotation(id);
+
+                auto& transform     = mRegistry.get<TransformComponent>(e);
+                transform.Translation = FromJolt(pos);
+                transform.Rotation    = JoltQuatToEuler(rot);
             }
         }
 
@@ -781,6 +982,8 @@ namespace Loom {
             b2DestroyWorld(mPhysicsWorld);
             mPhysicsWorld = b2_nullWorldId;
         }
+
+        OnPhysicsStop3D();
     }
 
     void Scene::DrawCameraFrustum(const glm::mat4& world, const CameraComponent& camera_component) {
@@ -943,6 +1146,41 @@ namespace Loom {
         b2ShapeProxy proxy = b2MakeProxy(&point, 1, radius);
         b2World_OverlapShape(mPhysicsWorld, &proxy, b2DefaultQueryFilter(), OverlapCallback, &context);
         return context.results;
+    }
+
+    // ---- 3D physics runtime helpers ---------------------------------------
+
+    static JPH::BodyID ResolveBody3D(Scene* scene, JPH::PhysicsSystem* system, Entity entity) {
+        if (!system || !entity || !entity.HasComponent<Rigidbody3DComponent>())
+            return {};
+        auto& rb = entity.GetComponent<Rigidbody3DComponent>();
+        if (rb.RuntimeBodyID == 0xffffffffu) return {};
+        return JPH::BodyID(rb.RuntimeBodyID);
+    }
+
+    void Scene::SetLinearVelocity3D(Entity entity, const glm::vec3& v) {
+        JPH::BodyID id = ResolveBody3D(this, mPhysicsSystem3D, entity);
+        if (id.IsInvalid()) return;
+        // Wakes the body so the change takes effect immediately.
+        mPhysicsSystem3D->GetBodyInterface().SetLinearVelocity(id, ToJolt(v));
+    }
+
+    glm::vec3 Scene::GetLinearVelocity3D(Entity entity) {
+        JPH::BodyID id = ResolveBody3D(this, mPhysicsSystem3D, entity);
+        if (id.IsInvalid()) return {};
+        return FromJolt(mPhysicsSystem3D->GetBodyInterface().GetLinearVelocity(id));
+    }
+
+    void Scene::ApplyForce3D(Entity entity, const glm::vec3& f) {
+        JPH::BodyID id = ResolveBody3D(this, mPhysicsSystem3D, entity);
+        if (id.IsInvalid()) return;
+        mPhysicsSystem3D->GetBodyInterface().AddForce(id, ToJolt(f));
+    }
+
+    void Scene::ApplyImpulse3D(Entity entity, const glm::vec3& j) {
+        JPH::BodyID id = ResolveBody3D(this, mPhysicsSystem3D, entity);
+        if (id.IsInvalid()) return;
+        mPhysicsSystem3D->GetBodyInterface().AddImpulse(id, ToJolt(j));
     }
 
     std::vector<entt::entity> Scene::OverlapBox2D(glm::vec2 center, glm::vec2 half_extents) {

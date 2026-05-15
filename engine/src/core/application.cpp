@@ -3,6 +3,7 @@
 #include "loom/audio/audio_engine.h"
 #include "loom/core/input.h"
 #include "loom/core/log.h"
+#include "loom/physics/physics_engine_3d.h"
 #include "loom/renderer/renderer_2d.h"
 #include "loom/renderer/renderer_3d.h"
 #include "loom/renderer/render_command.h"
@@ -29,6 +30,7 @@ namespace Loom {
         RenderCommand::Init();
         Renderer2D::Init();
         Renderer3D::Init();
+        PhysicsEngine3D::Init();
         ScriptingEngine::Init();
         AudioEngine::Init();
     }
@@ -37,6 +39,7 @@ namespace Loom {
         mLayerStack.Clear();
         AudioEngine::Shutdown();
         ScriptingEngine::Shutdown();
+        PhysicsEngine3D::Shutdown();
         Renderer3D::Shutdown();
         Renderer2D::Shutdown();
         AssetManager::Clear();

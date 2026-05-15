@@ -258,6 +258,9 @@ namespace Weaver {
             push_add.template operator()<Loom::Rigidbody2DComponent>("Rigidbody 2D");
             push_add.template operator()<Loom::BoxCollider2DComponent>("Box Collider 2D");
             push_add.template operator()<Loom::CircleCollider2DComponent>("Circle Collider 2D");
+            push_add.template operator()<Loom::Rigidbody3DComponent>("Rigidbody 3D");
+            push_add.template operator()<Loom::BoxCollider3DComponent>("Box Collider 3D");
+            push_add.template operator()<Loom::SphereCollider3DComponent>("Sphere Collider 3D");
             push_add.template operator()<Loom::LuaScriptComponent>("Lua Script");
             push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
@@ -1511,6 +1514,91 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::PointLightComponent>("Point Light");
+        }
+
+        if (entity.HasComponent<Loom::Rigidbody3DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::Rigidbody3DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Rigidbody 3D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& rb          = entity.GetComponent<Loom::Rigidbody3DComponent>();
+                bool  is_modified = false;
+
+                static const char* k_body_type_labels[] = { "Static", "Dynamic", "Kinematic" };
+                int type_idx = (int)rb.Type;
+                if (ImGui::Combo("Body Type", &type_idx, k_body_type_labels, 3)) {
+                    rb.Type = (Loom::Rigidbody3DComponent::BodyType)type_idx;
+                    is_modified = true;
+                }
+                is_modified |= ImGui::Checkbox("Fixed Rotation",  &rb.FixedRotation);
+                is_modified |= ImGui::DragFloat("Linear Damping",  &rb.LinearDamping,  0.005f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat("Angular Damping", &rb.AngularDamping, 0.005f, 0.0f, 1.0f);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::Rigidbody3DComponent>("Rigidbody 3D");
+        }
+
+        if (entity.HasComponent<Loom::BoxCollider3DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::BoxCollider3DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Box Collider 3D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& bc          = entity.GetComponent<Loom::BoxCollider3DComponent>();
+                bool  is_modified = false;
+                is_modified |= ImGui::DragFloat3("Offset",       glm::value_ptr(bc.Offset),      0.05f);
+                is_modified |= ImGui::DragFloat3("Half Extents", glm::value_ptr(bc.HalfExtents), 0.05f, 0.001f, 1000.0f);
+                is_modified |= ImGui::DragFloat ("Density",      &bc.Density,      0.1f, 0.0f, 100000.0f);
+                is_modified |= ImGui::DragFloat ("Friction",     &bc.Friction,     0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat ("Restitution",  &bc.Restitution,  0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::Checkbox  ("Is Sensor",    &bc.IsSensor);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::BoxCollider3DComponent>("Box Collider 3D");
+        }
+
+        if (entity.HasComponent<Loom::SphereCollider3DComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::SphereCollider3DComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Sphere Collider 3D");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& sc          = entity.GetComponent<Loom::SphereCollider3DComponent>();
+                bool  is_modified = false;
+                is_modified |= ImGui::DragFloat3("Offset",      glm::value_ptr(sc.Offset), 0.05f);
+                is_modified |= ImGui::DragFloat ("Radius",      &sc.Radius,      0.05f, 0.001f, 1000.0f);
+                is_modified |= ImGui::DragFloat ("Density",     &sc.Density,     0.1f, 0.0f, 100000.0f);
+                is_modified |= ImGui::DragFloat ("Friction",    &sc.Friction,    0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::DragFloat ("Restitution", &sc.Restitution, 0.01f, 0.0f, 1.0f);
+                is_modified |= ImGui::Checkbox  ("Is Sensor",   &sc.IsSensor);
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::SphereCollider3DComponent>("Sphere Collider 3D");
         }
     }
 

@@ -279,6 +279,54 @@ namespace Loom {
         MeshRendererComponent(const MeshRendererComponent&) = default;
     };
 
+    struct Rigidbody3DComponent {
+        enum class BodyType { Static = 0, Dynamic = 1, Kinematic = 2 };
+        BodyType Type           = BodyType::Static;
+        bool     FixedRotation  = false;
+        float    LinearDamping  = 0.05f;
+        float    AngularDamping = 0.05f;
+
+        // Storage for the runtime Jolt body. UINT32_MAX (== JPH::BodyID::cInvalidBodyID)
+        // means no body has been created yet. Stored as a raw integer so this header
+        // does not need to include any Jolt types.
+        uint32_t RuntimeBodyID = 0xffffffffu;
+
+        Rigidbody3DComponent()                                  = default;
+        Rigidbody3DComponent(const Rigidbody3DComponent& o)
+            : Type(o.Type), FixedRotation(o.FixedRotation)
+            , LinearDamping(o.LinearDamping), AngularDamping(o.AngularDamping)
+            , RuntimeBodyID(0xffffffffu) {} // never alias runtime handles on copy
+    };
+
+    struct BoxCollider3DComponent {
+        glm::vec3 Offset      = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 HalfExtents = { 0.5f, 0.5f, 0.5f }; // Jolt uses half-extents
+
+        // Density is in "game units" (mirrors Box2D's mental model), not kg/m^3.
+        // 1.0 keeps masses small enough that scripted impulses feel responsive.
+        float Density     = 1.0f;
+        float Friction    = 0.5f;
+        float Restitution = 0.0f;
+        bool  IsSensor    = false;
+
+        BoxCollider3DComponent()                              = default;
+        BoxCollider3DComponent(const BoxCollider3DComponent&) = default;
+    };
+
+    struct SphereCollider3DComponent {
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        // Default 1.0 matches common sphere assets (Blender UV Sphere etc.).
+        float     Radius = 1.0f;
+
+        float Density     = 1.0f;
+        float Friction    = 0.5f;
+        float Restitution = 0.0f;
+        bool  IsSensor    = false;
+
+        SphereCollider3DComponent()                                 = default;
+        SphereCollider3DComponent(const SphereCollider3DComponent&) = default;
+    };
+
     struct DirectionalLightComponent {
         // Direction is taken from the entity's TransformComponent rotation:
         // the light shines along the entity's local -Z axis after rotation.
