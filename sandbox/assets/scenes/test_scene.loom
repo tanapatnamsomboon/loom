@@ -10,7 +10,7 @@ Entities:
     TransformComponent:
       Translation: [0, 0, 0]
       Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Scale: [0.8, 0.64, 1]
     SpriteRendererComponent:
       Color: [1, 1, 1, 1]
       Texture: textures/sprite_sheet.png
@@ -23,6 +23,8 @@ Entities:
     AnimationComponent:
       CurrentClip: Idle
       IsPlaying: true
+      PickerCellWidth: 80
+      PickerCellHeight: 64
       Clips:
         - Name: Idle
           FrameDuration: 0.1

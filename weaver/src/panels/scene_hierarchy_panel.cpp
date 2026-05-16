@@ -932,66 +932,149 @@ namespace Weaver {
                             is_modified = true;
                         }
 
-                        // Spritesheet helper — static state shared across clips since it's pure
-                        // authoring scratch; "Generate" appends to or replaces THIS clip's frames.
-                        if (ImGui::TreeNode("Generate from Spritesheet")) {
-                            static int ss_sheet_w     = 512;
-                            static int ss_sheet_h     = 512;
-                            static int ss_cell_w      = 64;
-                            static int ss_cell_h      = 64;
-                            static int ss_start_col   = 0;
-                            static int ss_start_row   = 0;
-                            static int ss_frame_count = 8;
+                        // Visual spritesheet picker — click cells to add/remove them from this
+                        // clip's frame list. Selection order = playback order. Cells already in
+                        // the frame list are highlighted with their playback index.
+                        if (ImGui::TreeNodeEx("Spritesheet Picker", ImGuiTreeNodeFlags_DefaultOpen)) {
+                            std::shared_ptr<Loom::Texture2D> tex;
+                            if (entity.HasComponent<Loom::SpriteRendererComponent>())
+                                tex = entity.GetComponent<Loom::SpriteRendererComponent>().Texture;
 
-                            ImGui::InputInt("Sheet Width (px)",  &ss_sheet_w);
-                            ImGui::InputInt("Sheet Height (px)", &ss_sheet_h);
-                            ImGui::InputInt("Cell Width (px)",   &ss_cell_w);
-                            ImGui::InputInt("Cell Height (px)",  &ss_cell_h);
-                            ImGui::InputInt("Start Column",      &ss_start_col);
-                            ImGui::InputInt("Start Row",         &ss_start_row);
-                            ImGui::InputInt("Frame Count",       &ss_frame_count);
+                            if (!tex) {
+                                ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f },
+                                    "Assign a texture to Sprite Renderer first.");
+                            } else {
+                                int sheet_w = (int)tex->GetWidth();
+                                int sheet_h = (int)tex->GetHeight();
 
-                            ss_sheet_w     = std::max(1, ss_sheet_w);
-                            ss_sheet_h     = std::max(1, ss_sheet_h);
-                            ss_cell_w      = std::max(1, ss_cell_w);
-                            ss_cell_h      = std::max(1, ss_cell_h);
-                            ss_start_col   = std::max(0, ss_start_col);
-                            ss_start_row   = std::max(0, ss_start_row);
-                            ss_frame_count = std::max(1, ss_frame_count);
+                                ImGui::SetNextItemWidth(120.0f);
+                                is_modified |= ImGui::InputInt("Cell W (px)", &anim.PickerCellWidth);
+                                ImGui::SameLine();
+                                ImGui::SetNextItemWidth(120.0f);
+                                is_modified |= ImGui::InputInt("Cell H (px)", &anim.PickerCellHeight);
+                                anim.PickerCellWidth  = std::clamp(anim.PickerCellWidth,  1, sheet_w);
+                                anim.PickerCellHeight = std::clamp(anim.PickerCellHeight, 1, sheet_h);
 
-                            int cols_per_row = ss_sheet_w / ss_cell_w;
-                            int rows_total   = ss_sheet_h / ss_cell_h;
-                            bool valid = cols_per_row > 0 && rows_total > 0;
+                                int cols_total = sheet_w / anim.PickerCellWidth;
+                                int rows_total = sheet_h / anim.PickerCellHeight;
 
-                            if (!valid)
-                                ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f }, "Cell size exceeds sheet size.");
+                                if (cols_total <= 0 || rows_total <= 0) {
+                                    ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f },
+                                        "Cell size exceeds sheet size.");
+                                } else {
+                                    ImGui::TextDisabled(
+                                        "Sheet %dx%d   Grid %dx%d   (click to add/remove)",
+                                        sheet_w, sheet_h, cols_total, rows_total);
 
-                            ImGui::BeginDisabled(!valid);
-                            if (ImGui::Button("Replace Frames")) {
-                                clip.Frames.clear();
-                                float inv_w = 1.0f / (float)ss_sheet_w;
-                                float inv_h = 1.0f / (float)ss_sheet_h;
-                                for (int i = 0; i < ss_frame_count; i++) {
-                                    int linear = ss_start_col + ss_start_row * cols_per_row + i;
-                                    int col    = linear % cols_per_row;
-                                    int row    = linear / cols_per_row;
-                                    float u0 = (float)(col * ss_cell_w)       * inv_w;
-                                    float u1 = (float)((col + 1) * ss_cell_w) * inv_w;
-                                    // V is flipped: stbi loads with flip, so V=0 is bottom of image;
-                                    // spritesheet row 0 is at the top (high V).
-                                    float v0 = 1.0f - (float)((row + 1) * ss_cell_h) * inv_h;
-                                    float v1 = 1.0f - (float)(row * ss_cell_h)       * inv_h;
-                                    clip.Frames.push_back({ u0, v0, u1, v1 });
+                                    float content_w = ImGui::GetContentRegionAvail().x;
+                                    float display_w = std::min(content_w, 480.0f);
+                                    float aspect    = (float)sheet_h / (float)sheet_w;
+                                    float display_h = display_w * aspect;
+
+                                    ImGui::Image((ImTextureID)(uintptr_t)tex->GetRendererID(),
+                                                 ImVec2(display_w, display_h),
+                                                 ImVec2(0, 1), ImVec2(1, 0));
+                                    ImVec2 img_min = ImGui::GetItemRectMin();
+                                    ImVec2 img_max = ImGui::GetItemRectMax();
+                                    bool   img_hovered = ImGui::IsItemHovered();
+
+                                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                                    float cell_px_w = display_w / (float)cols_total;
+                                    float cell_px_h = display_h / (float)rows_total;
+
+                                    // Grid lines
+                                    for (int c = 0; c <= cols_total; c++) {
+                                        float x = img_min.x + c * cell_px_w;
+                                        dl->AddLine(ImVec2(x, img_min.y), ImVec2(x, img_max.y),
+                                                    IM_COL32(255, 255, 255, 60));
+                                    }
+                                    for (int r = 0; r <= rows_total; r++) {
+                                        float y = img_min.y + r * cell_px_h;
+                                        dl->AddLine(ImVec2(img_min.x, y), ImVec2(img_max.x, y),
+                                                    IM_COL32(255, 255, 255, 60));
+                                    }
+
+                                    // Map a frame's UV back to a (col, row) cell. Inverse of the
+                                    // cell -> UV math below — uses cell midpoint to be robust to
+                                    // float rounding.
+                                    auto uv_to_cell = [&](const glm::vec4& uv, int& out_c, int& out_r) -> bool {
+                                        float u_mid = (uv.x + uv.z) * 0.5f;
+                                        float v_mid = (uv.y + uv.w) * 0.5f;
+                                        out_c = (int)std::floor(u_mid * cols_total);
+                                        out_r = (int)std::floor((1.0f - v_mid) * rows_total);
+                                        return out_c >= 0 && out_c < cols_total
+                                            && out_r >= 0 && out_r < rows_total;
+                                    };
+
+                                    // Highlight cells that are already frames; mark the currently
+                                    // playing frame separately so you can see playback advance.
+                                    for (int fi = 0; fi < (int)clip.Frames.size(); fi++) {
+                                        int c, r;
+                                        if (!uv_to_cell(clip.Frames[fi], c, r)) continue;
+                                        ImVec2 cmin(img_min.x + c * cell_px_w, img_min.y + r * cell_px_h);
+                                        ImVec2 cmax(cmin.x + cell_px_w, cmin.y + cell_px_h);
+                                        bool is_active = (clip.Name == anim.CurrentClip
+                                                          && fi == anim.CurrentFrame);
+                                        ImU32 fill = is_active
+                                                   ? IM_COL32(255, 220, 100, 110)
+                                                   : IM_COL32( 80, 200, 120,  80);
+                                        dl->AddRectFilled(cmin, cmax, fill);
+                                        dl->AddRect      (cmin, cmax, IM_COL32(255, 255, 255, 180));
+                                        char num[8];
+                                        snprintf(num, sizeof(num), "%d", fi);
+                                        dl->AddText(ImVec2(cmin.x + 2.0f, cmin.y + 2.0f),
+                                                    IM_COL32(255, 255, 255, 220), num);
+                                    }
+
+                                    // Hover outline + click toggle
+                                    if (img_hovered) {
+                                        ImVec2 mp = ImGui::GetMousePos();
+                                        int hc = (int)((mp.x - img_min.x) / cell_px_w);
+                                        int hr = (int)((mp.y - img_min.y) / cell_px_h);
+                                        if (hc >= 0 && hc < cols_total && hr >= 0 && hr < rows_total) {
+                                            ImVec2 hmin(img_min.x + hc * cell_px_w,
+                                                        img_min.y + hr * cell_px_h);
+                                            ImVec2 hmax(hmin.x + cell_px_w, hmin.y + cell_px_h);
+                                            dl->AddRect(hmin, hmax,
+                                                        IM_COL32(255, 200, 80, 220), 0.0f, 0, 2.0f);
+
+                                            if (ImGui::IsMouseClicked(0)) {
+                                                int existing = -1;
+                                                for (int fi = 0; fi < (int)clip.Frames.size(); fi++) {
+                                                    int c, r;
+                                                    if (uv_to_cell(clip.Frames[fi], c, r)
+                                                        && c == hc && r == hr) {
+                                                        existing = fi;
+                                                        break;
+                                                    }
+                                                }
+                                                if (existing >= 0) {
+                                                    clip.Frames.erase(clip.Frames.begin() + existing);
+                                                    if (clip.Name == anim.CurrentClip
+                                                        && anim.CurrentFrame >= (int)clip.Frames.size())
+                                                        anim.CurrentFrame = std::max(0, (int)clip.Frames.size() - 1);
+                                                } else {
+                                                    // V is flipped (stbi loads with flip): row 0 of the
+                                                    // sheet sits at high V; mirror that here.
+                                                    float inv_w = 1.0f / (float)sheet_w;
+                                                    float inv_h = 1.0f / (float)sheet_h;
+                                                    float u0 = (float)(hc       * anim.PickerCellWidth)  * inv_w;
+                                                    float u1 = (float)((hc + 1) * anim.PickerCellWidth)  * inv_w;
+                                                    float v0 = 1.0f - (float)((hr + 1) * anim.PickerCellHeight) * inv_h;
+                                                    float v1 = 1.0f - (float)( hr      * anim.PickerCellHeight) * inv_h;
+                                                    clip.Frames.push_back({ u0, v0, u1, v1 });
+                                                }
+                                                is_modified = true;
+                                            }
+                                        }
+                                    }
+
+                                    if (ImGui::SmallButton("Clear Frames##Picker")) {
+                                        clip.Frames.clear();
+                                        if (clip.Name == anim.CurrentClip) anim.CurrentFrame = 0;
+                                        is_modified = true;
+                                    }
                                 }
-                                if (clip.Name == anim.CurrentClip) anim.CurrentFrame = 0;
-                                is_modified = true;
-                            }
-                            ImGui::EndDisabled();
-
-                            if (valid) {
-                                int last_linear = ss_start_col + ss_start_row * cols_per_row + ss_frame_count - 1;
-                                if (last_linear / cols_per_row >= rows_total)
-                                    ImGui::TextColored({ 1.0f, 0.8f, 0.2f, 1.0f }, "Warning: some frames exceed sheet bounds.");
                             }
                             ImGui::TreePop();
                         }

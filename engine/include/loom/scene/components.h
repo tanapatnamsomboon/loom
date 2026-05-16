@@ -190,6 +190,12 @@ namespace Loom {
         float                      ElapsedTime  = 0.0f;
         bool                       IsPlaying    = true;
 
+        // Editor-only spritesheet picker scratch — persisted so reopening a scene
+        // keeps the user's cell size. Shared across all clips on this component
+        // (typical case: one sprite sheet drives every clip on the entity).
+        int PickerCellWidth  = 64;
+        int PickerCellHeight = 64;
+
         AnimationComponent()                          = default;
         AnimationComponent(const AnimationComponent&) = default;
 

@@ -346,9 +346,11 @@ namespace Loom {
             out << YAML::Key << "AnimationComponent";
             out << YAML::BeginMap;
             auto& anim = entity.GetComponent<AnimationComponent>();
-            out << YAML::Key << "CurrentClip" << YAML::Value << anim.CurrentClip;
-            out << YAML::Key << "IsPlaying"   << YAML::Value << anim.IsPlaying;
-            out << YAML::Key << "Clips"       << YAML::Value << YAML::BeginSeq;
+            out << YAML::Key << "CurrentClip"      << YAML::Value << anim.CurrentClip;
+            out << YAML::Key << "IsPlaying"        << YAML::Value << anim.IsPlaying;
+            out << YAML::Key << "PickerCellWidth"  << YAML::Value << anim.PickerCellWidth;
+            out << YAML::Key << "PickerCellHeight" << YAML::Value << anim.PickerCellHeight;
+            out << YAML::Key << "Clips"            << YAML::Value << YAML::BeginSeq;
             for (const auto& clip : anim.Clips) {
                 out << YAML::BeginMap;
                 out << YAML::Key << "Name"          << YAML::Value << clip.Name;
@@ -726,9 +728,11 @@ namespace Loom {
 
             // Animation Component
             if (auto anim_node = entity_node["AnimationComponent"]) {
-                auto& anim        = entity.AddComponent<AnimationComponent>();
-                anim.CurrentClip  = YAML_GET(anim_node["CurrentClip"], std::string, std::string());
-                anim.IsPlaying    = YAML_GET(anim_node["IsPlaying"],   bool,        true);
+                auto& anim             = entity.AddComponent<AnimationComponent>();
+                anim.CurrentClip       = YAML_GET(anim_node["CurrentClip"],      std::string, std::string());
+                anim.IsPlaying         = YAML_GET(anim_node["IsPlaying"],        bool,        true);
+                anim.PickerCellWidth   = YAML_GET(anim_node["PickerCellWidth"],  int,         64);
+                anim.PickerCellHeight  = YAML_GET(anim_node["PickerCellHeight"], int,         64);
 
                 if (auto clips_node = anim_node["Clips"]) {
                     for (auto clip_node : clips_node) {
@@ -879,14 +883,14 @@ namespace Loom {
     // Shared entity-from-node loader. preserve_uuid=true restores the original UUID
     // (for undo/redo); false mints a fresh UUID (for prefab instantiation).
     static Entity DeserializeEntityFromNode(const YAML::Node& data, Scene* scene, bool preserve_uuid) {
-        std::string name = "Entity";
+        std::string entity_name = "Entity";
         if (auto tag_node = data["TagComponent"])
-            name = YAML_GET(tag_node["Tag"], std::string, "Entity");
+            entity_name = YAML_GET(tag_node["Tag"], std::string, "Entity");
 
         UUID uuid = preserve_uuid
             ? UUID(YAML_GET(data["Entity"], uint64_t, (uint64_t)0))
             : UUID();
-        Entity entity = scene->CreateEntityWithUUID(uuid, name);
+        Entity entity = scene->CreateEntityWithUUID(uuid, entity_name);
 
         if (auto tc_node = data["TransformComponent"]) {
             auto& tc       = entity.GetComponent<TransformComponent>();
@@ -1007,8 +1011,8 @@ namespace Loom {
             lsc.ScriptPath = YAML_GET(lsc_node["ScriptPath"], std::string, "");
             if (auto fields_node = lsc_node["Fields"]) {
                 for (auto it = fields_node.begin(); it != fields_node.end(); ++it) {
-                    std::string name     = it->first.as<std::string>();
-                    auto        fn       = it->second;
+                    std::string name = it->first.as<std::string>();
+                    auto        fn   = it->second;
                     ScriptField field;
                     field.Name = name;
                     field.Type = (ScriptFieldType)YAML_GET(fn["Type"], int, 0);
@@ -1056,9 +1060,11 @@ namespace Loom {
         }
 
         if (auto anim_node = data["AnimationComponent"]) {
-            auto& anim       = entity.AddComponent<AnimationComponent>();
-            anim.CurrentClip = YAML_GET(anim_node["CurrentClip"], std::string, std::string());
-            anim.IsPlaying   = YAML_GET(anim_node["IsPlaying"],   bool,        true);
+            auto& anim            = entity.AddComponent<AnimationComponent>();
+            anim.CurrentClip      = YAML_GET(anim_node["CurrentClip"],      std::string, std::string());
+            anim.IsPlaying        = YAML_GET(anim_node["IsPlaying"],        bool,        true);
+            anim.PickerCellWidth  = YAML_GET(anim_node["PickerCellWidth"],  int,         64);
+            anim.PickerCellHeight = YAML_GET(anim_node["PickerCellHeight"], int,         64);
 
             if (auto clips_node = anim_node["Clips"]) {
                 for (auto clip_node : clips_node) {
