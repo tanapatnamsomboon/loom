@@ -74,9 +74,6 @@ namespace Weaver {
         mToolbarPanel.SetOnStopPressed([this] { mSceneManager.OnSceneStop(); });
 
         mProjectManager.ShowWizard();
-
-        auto mesh = Loom::AssetManager::GetMesh("C:/Users/phukao/Work/loom/sandbox/assets/models/box.glb");
-        LOOM_CORE_INFO("mesh = {}", mesh ? "loaded" : "FAILED");
     }
 
 #pragma endregion

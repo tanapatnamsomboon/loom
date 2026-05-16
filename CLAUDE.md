@@ -94,6 +94,8 @@ function OnSensorBegin(other) end             function OnSensorEnd(other) end
 --          PlayAudio/StopAudio/IsAudioPlaying/SetVolume/SetPitch     -- AudioSourceComponent
 --          SetLinearVelocity/GetLinearVelocity/ApplyForce/ApplyImpulse        -- Rigidbody2DComponent
 --          SetLinearVelocity3D/GetLinearVelocity3D/ApplyForce3D/ApplyImpulse3D -- Rigidbody3DComponent
+--          PlayAnimation(name)/StopAnimation()/SetAnimationFrame(n)
+--            /GetAnimationFrame()/IsAnimationPlaying()/GetCurrentAnimation()  -- AnimationComponent
 -- Input:   IsKeyPressed(Key.W), GetMouseX(), ...
 -- Physics: Raycast(origin, dir, dist) -> {hit, point, normal, entity}
 --          OverlapCircle(center, radius) | OverlapBox(center, half_extents)

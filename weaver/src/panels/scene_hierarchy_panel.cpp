@@ -808,97 +808,172 @@ namespace Weaver {
                 auto& anim        = entity.GetComponent<Loom::AnimationComponent>();
                 bool  is_modified = false;
 
-                is_modified |= ImGui::DragFloat("Frame Duration", &anim.FrameDuration, 0.01f, 0.001f, 60.0f);
-                is_modified |= ImGui::Checkbox("Loop",       &anim.Loop);
+                // ---- Playback header: pick active clip, toggle play ----
+                const char* current_clip_label = anim.CurrentClip.empty() ? "(none)" : anim.CurrentClip.c_str();
+                if (ImGui::BeginCombo("Current Clip", current_clip_label)) {
+                    bool none_selected = anim.CurrentClip.empty();
+                    if (ImGui::Selectable("(none)", none_selected)) {
+                        anim.CurrentClip  = "";
+                        anim.CurrentFrame = 0;
+                        anim.ElapsedTime  = 0.0f;
+                        is_modified = true;
+                    }
+                    for (auto& clip : anim.Clips) {
+                        bool selected = (clip.Name == anim.CurrentClip);
+                        if (ImGui::Selectable(clip.Name.c_str(), selected)) {
+                            anim.CurrentClip  = clip.Name;
+                            anim.CurrentFrame = 0;
+                            anim.ElapsedTime  = 0.0f;
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                is_modified |= ImGui::Checkbox("Playing", &anim.IsPlaying);
                 ImGui::SameLine();
-                is_modified |= ImGui::Checkbox("Playing",    &anim.IsPlaying);
+                ImGui::TextDisabled("frame %d", anim.CurrentFrame);
 
-                ImGui::Text("Frames (%d)", (int)anim.Frames.size());
+                ImGui::Separator();
+
+                // ---- Clip list ----
+                ImGui::Text("Clips (%d)", (int)anim.Clips.size());
                 ImGui::SameLine();
-                if (ImGui::SmallButton("+##AddFrame")) {
-                    anim.Frames.push_back({ 0.0f, 0.0f, 1.0f, 1.0f });
+                if (ImGui::SmallButton("+##AddClip")) {
+                    std::string name = "Clip" + std::to_string(anim.Clips.size());
+                    anim.Clips.push_back(Loom::AnimationClip(name));
+                    if (anim.CurrentClip.empty()) anim.CurrentClip = name;
                     is_modified = true;
                 }
 
-                for (int i = 0; i < (int)anim.Frames.size(); i++) {
-                    ImGui::PushID(i);
-                    auto& frame = anim.Frames[i];
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 24.0f);
-                    char label[16];
-                    snprintf(label, sizeof(label), "[%d]", i);
-                    is_modified |= ImGui::DragFloat4(label, &frame.x, 0.01f, 0.0f, 1.0f);
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("x##RemoveFrame")) {
-                        anim.Frames.erase(anim.Frames.begin() + i);
-                        if (anim.CurrentFrame >= (int)anim.Frames.size())
-                            anim.CurrentFrame = (int)anim.Frames.size() - 1;
-                        is_modified = true;
-                        ImGui::PopID();
-                        break;
+                int  remove_clip_index = -1;
+                for (int ci = 0; ci < (int)anim.Clips.size(); ci++) {
+                    ImGui::PushID(ci);
+                    auto& clip = anim.Clips[ci];
+
+                    if (ImGui::CollapsingHeader(clip.Name.empty() ? "(unnamed)" : clip.Name.c_str(),
+                                                ImGuiTreeNodeFlags_DefaultOpen)) {
+                        // Name input
+                        char name_buf[64];
+                        std::strncpy(name_buf, clip.Name.c_str(), sizeof(name_buf));
+                        name_buf[sizeof(name_buf) - 1] = '\0';
+                        if (ImGui::InputText("Name", name_buf, sizeof(name_buf))) {
+                            std::string new_name = name_buf;
+                            // If this clip was the active one, keep CurrentClip pointing at it after rename.
+                            if (anim.CurrentClip == clip.Name) anim.CurrentClip = new_name;
+                            clip.Name = std::move(new_name);
+                            is_modified = true;
+                        }
+
+                        is_modified |= ImGui::DragFloat("Frame Duration", &clip.FrameDuration, 0.01f, 0.001f, 60.0f);
+                        is_modified |= ImGui::Checkbox ("Loop",           &clip.Loop);
+
+                        // Frames list
+                        ImGui::Text("Frames (%d)", (int)clip.Frames.size());
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton("+##AddFrame")) {
+                            clip.Frames.push_back({ 0.0f, 0.0f, 1.0f, 1.0f });
+                            is_modified = true;
+                        }
+
+                        for (int i = 0; i < (int)clip.Frames.size(); i++) {
+                            ImGui::PushID(i);
+                            auto& frame = clip.Frames[i];
+                            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 24.0f);
+                            char label[16];
+                            snprintf(label, sizeof(label), "[%d]", i);
+                            is_modified |= ImGui::DragFloat4(label, &frame.x, 0.01f, 0.0f, 1.0f);
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("x##RemoveFrame")) {
+                                clip.Frames.erase(clip.Frames.begin() + i);
+                                if (clip.Name == anim.CurrentClip && anim.CurrentFrame >= (int)clip.Frames.size())
+                                    anim.CurrentFrame = std::max(0, (int)clip.Frames.size() - 1);
+                                is_modified = true;
+                                ImGui::PopID();
+                                break;
+                            }
+                            ImGui::PopID();
+                        }
+
+                        // Spritesheet helper — static state shared across clips since it's pure
+                        // authoring scratch; "Generate" appends to or replaces THIS clip's frames.
+                        if (ImGui::TreeNode("Generate from Spritesheet")) {
+                            static int ss_sheet_w     = 512;
+                            static int ss_sheet_h     = 512;
+                            static int ss_cell_w      = 64;
+                            static int ss_cell_h      = 64;
+                            static int ss_start_col   = 0;
+                            static int ss_start_row   = 0;
+                            static int ss_frame_count = 8;
+
+                            ImGui::InputInt("Sheet Width (px)",  &ss_sheet_w);
+                            ImGui::InputInt("Sheet Height (px)", &ss_sheet_h);
+                            ImGui::InputInt("Cell Width (px)",   &ss_cell_w);
+                            ImGui::InputInt("Cell Height (px)",  &ss_cell_h);
+                            ImGui::InputInt("Start Column",      &ss_start_col);
+                            ImGui::InputInt("Start Row",         &ss_start_row);
+                            ImGui::InputInt("Frame Count",       &ss_frame_count);
+
+                            ss_sheet_w     = std::max(1, ss_sheet_w);
+                            ss_sheet_h     = std::max(1, ss_sheet_h);
+                            ss_cell_w      = std::max(1, ss_cell_w);
+                            ss_cell_h      = std::max(1, ss_cell_h);
+                            ss_start_col   = std::max(0, ss_start_col);
+                            ss_start_row   = std::max(0, ss_start_row);
+                            ss_frame_count = std::max(1, ss_frame_count);
+
+                            int cols_per_row = ss_sheet_w / ss_cell_w;
+                            int rows_total   = ss_sheet_h / ss_cell_h;
+                            bool valid = cols_per_row > 0 && rows_total > 0;
+
+                            if (!valid)
+                                ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f }, "Cell size exceeds sheet size.");
+
+                            ImGui::BeginDisabled(!valid);
+                            if (ImGui::Button("Replace Frames")) {
+                                clip.Frames.clear();
+                                float inv_w = 1.0f / (float)ss_sheet_w;
+                                float inv_h = 1.0f / (float)ss_sheet_h;
+                                for (int i = 0; i < ss_frame_count; i++) {
+                                    int linear = ss_start_col + ss_start_row * cols_per_row + i;
+                                    int col    = linear % cols_per_row;
+                                    int row    = linear / cols_per_row;
+                                    float u0 = (float)(col * ss_cell_w)       * inv_w;
+                                    float u1 = (float)((col + 1) * ss_cell_w) * inv_w;
+                                    // V is flipped: stbi loads with flip, so V=0 is bottom of image;
+                                    // spritesheet row 0 is at the top (high V).
+                                    float v0 = 1.0f - (float)((row + 1) * ss_cell_h) * inv_h;
+                                    float v1 = 1.0f - (float)(row * ss_cell_h)       * inv_h;
+                                    clip.Frames.push_back({ u0, v0, u1, v1 });
+                                }
+                                if (clip.Name == anim.CurrentClip) anim.CurrentFrame = 0;
+                                is_modified = true;
+                            }
+                            ImGui::EndDisabled();
+
+                            if (valid) {
+                                int last_linear = ss_start_col + ss_start_row * cols_per_row + ss_frame_count - 1;
+                                if (last_linear / cols_per_row >= rows_total)
+                                    ImGui::TextColored({ 1.0f, 0.8f, 0.2f, 1.0f }, "Warning: some frames exceed sheet bounds.");
+                            }
+                            ImGui::TreePop();
+                        }
+
+                        if (ImGui::Button("Delete Clip")) {
+                            remove_clip_index = ci;
+                        }
                     }
                     ImGui::PopID();
                 }
 
-                ImGui::Separator();
-                if (ImGui::CollapsingHeader("Generate from Spritesheet")) {
-                    static int ss_sheet_w     = 512;
-                    static int ss_sheet_h     = 512;
-                    static int ss_cell_w      = 64;
-                    static int ss_cell_h      = 64;
-                    static int ss_start_col   = 0;
-                    static int ss_start_row   = 0;
-                    static int ss_frame_count = 8;
-
-                    ImGui::InputInt("Sheet Width (px)",  &ss_sheet_w);
-                    ImGui::InputInt("Sheet Height (px)", &ss_sheet_h);
-                    ImGui::InputInt("Cell Width (px)",   &ss_cell_w);
-                    ImGui::InputInt("Cell Height (px)",  &ss_cell_h);
-                    ImGui::InputInt("Start Column",      &ss_start_col);
-                    ImGui::InputInt("Start Row",         &ss_start_row);
-                    ImGui::InputInt("Frame Count",       &ss_frame_count);
-
-                    ss_sheet_w     = std::max(1, ss_sheet_w);
-                    ss_sheet_h     = std::max(1, ss_sheet_h);
-                    ss_cell_w      = std::max(1, ss_cell_w);
-                    ss_cell_h      = std::max(1, ss_cell_h);
-                    ss_start_col   = std::max(0, ss_start_col);
-                    ss_start_row   = std::max(0, ss_start_row);
-                    ss_frame_count = std::max(1, ss_frame_count);
-
-                    int cols_per_row = ss_sheet_w / ss_cell_w;
-                    int rows_total   = ss_sheet_h / ss_cell_h;
-                    bool valid = cols_per_row > 0 && rows_total > 0;
-
-                    if (!valid)
-                        ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f }, "Cell size exceeds sheet size.");
-
-                    ImGui::BeginDisabled(!valid);
-                    if (ImGui::Button("Generate")) {
-                        anim.Frames.clear();
-                        float inv_w = 1.0f / (float)ss_sheet_w;
-                        float inv_h = 1.0f / (float)ss_sheet_h;
-                        for (int i = 0; i < ss_frame_count; i++) {
-                            int linear = ss_start_col + ss_start_row * cols_per_row + i;
-                            int col    = linear % cols_per_row;
-                            int row    = linear / cols_per_row;
-                            float u0 = (float)(col * ss_cell_w)       * inv_w;
-                            float u1 = (float)((col + 1) * ss_cell_w) * inv_w;
-                            // V is flipped: stbi loads with flip, so V=0 is bottom of image;
-                            // spritesheet row 0 is at the top (high V).
-                            float v0 = 1.0f - (float)((row + 1) * ss_cell_h) * inv_h;
-                            float v1 = 1.0f - (float)(row * ss_cell_h)       * inv_h;
-                            anim.Frames.push_back({ u0, v0, u1, v1 });
-                        }
+                if (remove_clip_index >= 0) {
+                    std::string removed_name = anim.Clips[remove_clip_index].Name;
+                    anim.Clips.erase(anim.Clips.begin() + remove_clip_index);
+                    if (anim.CurrentClip == removed_name) {
+                        anim.CurrentClip  = anim.Clips.empty() ? "" : anim.Clips.front().Name;
                         anim.CurrentFrame = 0;
-                        is_modified = true;
+                        anim.ElapsedTime  = 0.0f;
                     }
-                    ImGui::EndDisabled();
-
-                    if (valid) {
-                        int last_linear = ss_start_col + ss_start_row * cols_per_row + ss_frame_count - 1;
-                        if (last_linear / cols_per_row >= rows_total)
-                            ImGui::TextColored({ 1.0f, 0.8f, 0.2f, 1.0f }, "Warning: some frames exceed sheet bounds.");
-                    }
+                    is_modified = true;
                 }
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();

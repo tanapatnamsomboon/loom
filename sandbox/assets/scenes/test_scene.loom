@@ -1,0 +1,64 @@
+Scene: test_scene
+EditorCamera:
+  Position: [-1.7772123, 2.2865343, 4.055466]
+  Pitch: 0.5820012
+  Yaw: 0.615
+Entities:
+  - Entity: 16086829982437503068
+    TagComponent:
+      Tag: AnimatedEntity
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: textures/sprite_sheet.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: scripts/anim_test.lua
+    AnimationComponent:
+      CurrentClip: Idle
+      IsPlaying: true
+      Clips:
+        - Name: Idle
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0.85714287, 0.099999994, 1]
+            - [0.099999994, 0.85714287, 0.19999999, 1]
+            - [0.19999999, 0.85714287, 0.29999998, 1]
+            - [0.29999998, 0.85714287, 0.39999998, 1]
+            - [0.39999998, 0.85714287, 0.5, 1]
+        - Name: Run
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0.57142854, 0.099999994, 0.71428573]
+            - [0.099999994, 0.57142854, 0.19999999, 0.71428573]
+            - [0.19999999, 0.57142854, 0.29999998, 0.71428573]
+            - [0.29999998, 0.57142854, 0.39999998, 0.71428573]
+            - [0.39999998, 0.57142854, 0.5, 0.71428573]
+            - [0.5, 0.57142854, 0.59999996, 0.71428573]
+            - [0.59999996, 0.57142854, 0.7, 0.71428573]
+            - [0.7, 0.57142854, 0.79999995, 0.71428573]
+  - Entity: 16983997089760853697
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 0, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 1
+      OrthographicNear: -1
+      OrthographicFar: 10
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1

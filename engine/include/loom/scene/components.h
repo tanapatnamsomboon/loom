@@ -155,17 +155,40 @@ namespace Loom {
         RelationshipComponent(const RelationshipComponent&) = default;
     };
 
-    struct AnimationComponent {
-        // Each frame: (u_min, v_min, u_max, v_max) in normalized [0,1] UV space
+    struct AnimationClip {
+        // Each frame: (u_min, v_min, u_max, v_max) in normalized [0,1] UV space.
+        std::string            Name;
         std::vector<glm::vec4> Frames;
-        float FrameDuration = 0.1f;
-        int   CurrentFrame  = 0;
-        float ElapsedTime   = 0.0f;
-        bool  IsPlaying     = true;
-        bool  Loop          = true;
+        float                  FrameDuration = 0.1f;
+        bool                   Loop          = true;
+
+        AnimationClip()                     = default;
+        AnimationClip(const AnimationClip&) = default;
+        AnimationClip(const std::string& name) : Name(name) {}
+    };
+
+    struct AnimationComponent {
+        std::vector<AnimationClip> Clips;
+        // Empty CurrentClip means "no clip selected" -> draws the base sprite without UV override.
+        std::string                CurrentClip;
+        int                        CurrentFrame = 0;
+        float                      ElapsedTime  = 0.0f;
+        bool                       IsPlaying    = true;
 
         AnimationComponent()                          = default;
         AnimationComponent(const AnimationComponent&) = default;
+
+        // Returns nullptr if CurrentClip is empty or not in Clips.
+        const AnimationClip* FindClip(const std::string& name) const {
+            for (const auto& clip : Clips) if (clip.Name == name) return &clip;
+            return nullptr;
+        }
+        AnimationClip* FindClip(const std::string& name) {
+            for (auto& clip : Clips) if (clip.Name == name) return &clip;
+            return nullptr;
+        }
+        const AnimationClip* GetCurrentClip() const { return FindClip(CurrentClip); }
+        AnimationClip*       GetCurrentClip()       { return FindClip(CurrentClip); }
     };
 
     struct TextComponent {

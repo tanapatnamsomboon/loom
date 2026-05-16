@@ -244,9 +244,10 @@ namespace Loom {
     static void DrawSprite(entt::registry& registry, entt::entity e, const glm::mat4& world, const SpriteRendererComponent& sprite) {
         if (registry.all_of<AnimationComponent>(e)) {
             const auto& anim = registry.get<AnimationComponent>(e);
-            if (!anim.Frames.empty() && sprite.Texture) {
-                int frame_idx = std::clamp(anim.CurrentFrame, 0, (int)anim.Frames.size() - 1);
-                const auto& uv = anim.Frames[frame_idx];
+            const AnimationClip* clip = anim.GetCurrentClip();
+            if (clip && !clip->Frames.empty() && sprite.Texture) {
+                int frame_idx = std::clamp(anim.CurrentFrame, 0, (int)clip->Frames.size() - 1);
+                const auto& uv = clip->Frames[frame_idx];
                 const glm::vec2 tex_coords[4] = {
                     { uv.x, uv.y }, { uv.z, uv.y }, { uv.z, uv.w }, { uv.x, uv.w }
                 };
@@ -968,14 +969,16 @@ namespace Loom {
 
         // 3. Advance sprite animations
         mRegistry.view<AnimationComponent>().each([&](AnimationComponent& anim) {
-            if (!anim.IsPlaying || anim.Frames.empty()) return;
+            if (!anim.IsPlaying) return;
+            const AnimationClip* clip = anim.GetCurrentClip();
+            if (!clip || clip->Frames.empty()) return;
             anim.ElapsedTime += ts;
-            while (anim.ElapsedTime >= anim.FrameDuration) {
-                anim.ElapsedTime -= anim.FrameDuration;
+            while (anim.ElapsedTime >= clip->FrameDuration) {
+                anim.ElapsedTime -= clip->FrameDuration;
                 anim.CurrentFrame++;
-                if (anim.CurrentFrame >= (int)anim.Frames.size()) {
-                    if (anim.Loop) anim.CurrentFrame = 0;
-                    else { anim.CurrentFrame = (int)anim.Frames.size() - 1; anim.IsPlaying = false; }
+                if (anim.CurrentFrame >= (int)clip->Frames.size()) {
+                    if (clip->Loop) anim.CurrentFrame = 0;
+                    else { anim.CurrentFrame = (int)clip->Frames.size() - 1; anim.IsPlaying = false; }
                 }
             }
         });

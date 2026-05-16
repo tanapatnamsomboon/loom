@@ -346,12 +346,19 @@ namespace Loom {
             out << YAML::Key << "AnimationComponent";
             out << YAML::BeginMap;
             auto& anim = entity.GetComponent<AnimationComponent>();
-            out << YAML::Key << "FrameDuration" << YAML::Value << anim.FrameDuration;
-            out << YAML::Key << "Loop"          << YAML::Value << anim.Loop;
-            out << YAML::Key << "IsPlaying"     << YAML::Value << anim.IsPlaying;
-            out << YAML::Key << "Frames"        << YAML::Value << YAML::BeginSeq;
-            for (const auto& frame : anim.Frames)
-                out << frame;
+            out << YAML::Key << "CurrentClip" << YAML::Value << anim.CurrentClip;
+            out << YAML::Key << "IsPlaying"   << YAML::Value << anim.IsPlaying;
+            out << YAML::Key << "Clips"       << YAML::Value << YAML::BeginSeq;
+            for (const auto& clip : anim.Clips) {
+                out << YAML::BeginMap;
+                out << YAML::Key << "Name"          << YAML::Value << clip.Name;
+                out << YAML::Key << "FrameDuration" << YAML::Value << clip.FrameDuration;
+                out << YAML::Key << "Loop"          << YAML::Value << clip.Loop;
+                out << YAML::Key << "Frames"        << YAML::Value << YAML::BeginSeq;
+                for (const auto& frame : clip.Frames) out << frame;
+                out << YAML::EndSeq;
+                out << YAML::EndMap;
+            }
             out << YAML::EndSeq;
             out << YAML::EndMap;
         }
@@ -710,12 +717,30 @@ namespace Loom {
             // Animation Component
             if (auto anim_node = entity_node["AnimationComponent"]) {
                 auto& anim        = entity.AddComponent<AnimationComponent>();
-                anim.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
-                anim.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
-                anim.IsPlaying     = YAML_GET(anim_node["IsPlaying"],     bool,  true);
-                if (auto frames_node = anim_node["Frames"]) {
+                anim.CurrentClip  = YAML_GET(anim_node["CurrentClip"], std::string, std::string());
+                anim.IsPlaying    = YAML_GET(anim_node["IsPlaying"],   bool,        true);
+
+                if (auto clips_node = anim_node["Clips"]) {
+                    for (auto clip_node : clips_node) {
+                        AnimationClip clip;
+                        clip.Name          = YAML_GET(clip_node["Name"],          std::string, std::string());
+                        clip.FrameDuration = YAML_GET(clip_node["FrameDuration"], float,       0.1f);
+                        clip.Loop          = YAML_GET(clip_node["Loop"],          bool,        true);
+                        if (auto frames_node = clip_node["Frames"]) {
+                            for (auto frame_node : frames_node)
+                                clip.Frames.push_back(frame_node.as<glm::vec4>());
+                        }
+                        anim.Clips.push_back(std::move(clip));
+                    }
+                } else if (auto frames_node = anim_node["Frames"]) {
+                    // Backward compat: pre-multiclip schema -> single "Default" clip.
+                    AnimationClip clip("Default");
+                    clip.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
+                    clip.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
                     for (auto frame_node : frames_node)
-                        anim.Frames.push_back(frame_node.as<glm::vec4>());
+                        clip.Frames.push_back(frame_node.as<glm::vec4>());
+                    anim.Clips.push_back(std::move(clip));
+                    if (anim.CurrentClip.empty()) anim.CurrentClip = "Default";
                 }
             }
 
@@ -1013,13 +1038,31 @@ namespace Loom {
         }
 
         if (auto anim_node = data["AnimationComponent"]) {
-            auto& anim        = entity.AddComponent<AnimationComponent>();
-            anim.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
-            anim.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
-            anim.IsPlaying     = YAML_GET(anim_node["IsPlaying"],     bool,  true);
-            if (auto frames_node = anim_node["Frames"]) {
+            auto& anim       = entity.AddComponent<AnimationComponent>();
+            anim.CurrentClip = YAML_GET(anim_node["CurrentClip"], std::string, std::string());
+            anim.IsPlaying   = YAML_GET(anim_node["IsPlaying"],   bool,        true);
+
+            if (auto clips_node = anim_node["Clips"]) {
+                for (auto clip_node : clips_node) {
+                    AnimationClip clip;
+                    clip.Name          = YAML_GET(clip_node["Name"],          std::string, std::string());
+                    clip.FrameDuration = YAML_GET(clip_node["FrameDuration"], float,       0.1f);
+                    clip.Loop          = YAML_GET(clip_node["Loop"],          bool,        true);
+                    if (auto frames_node = clip_node["Frames"]) {
+                        for (auto frame_node : frames_node)
+                            clip.Frames.push_back(frame_node.as<glm::vec4>());
+                    }
+                    anim.Clips.push_back(std::move(clip));
+                }
+            } else if (auto frames_node = anim_node["Frames"]) {
+                // Backward compat: pre-multiclip schema -> single "Default" clip.
+                AnimationClip clip("Default");
+                clip.FrameDuration = YAML_GET(anim_node["FrameDuration"], float, 0.1f);
+                clip.Loop          = YAML_GET(anim_node["Loop"],          bool,  true);
                 for (auto frame_node : frames_node)
-                    anim.Frames.push_back(frame_node.as<glm::vec4>());
+                    clip.Frames.push_back(frame_node.as<glm::vec4>());
+                anim.Clips.push_back(std::move(clip));
+                if (anim.CurrentClip.empty()) anim.CurrentClip = "Default";
             }
         }
 

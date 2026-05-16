@@ -136,6 +136,50 @@ namespace {
         glm::vec3 GetLinearVelocity3D()            { return scene ? scene->GetLinearVelocity3D(handle) : glm::vec3{}; }
         void      ApplyForce3D       (glm::vec3 v) { if (scene) scene->ApplyForce3D       (handle, v); }
         void      ApplyImpulse3D     (glm::vec3 v) { if (scene) scene->ApplyImpulse3D     (handle, v); }
+
+        // --- Animation API (sprite) ---
+
+        void PlayAnimation(const std::string& name) {
+            if (!handle.HasComponent<AnimationComponent>()) return;
+            auto& anim = handle.GetComponent<AnimationComponent>();
+            // No-op when the named clip is already active; otherwise reset playback.
+            if (anim.CurrentClip != name) {
+                anim.CurrentClip  = name;
+                anim.CurrentFrame = 0;
+                anim.ElapsedTime  = 0.0f;
+            }
+            anim.IsPlaying = true;
+        }
+
+        void StopAnimation() {
+            if (!handle.HasComponent<AnimationComponent>()) return;
+            handle.GetComponent<AnimationComponent>().IsPlaying = false;
+        }
+
+        void SetAnimationFrame(int n) {
+            if (!handle.HasComponent<AnimationComponent>()) return;
+            auto& anim = handle.GetComponent<AnimationComponent>();
+            const AnimationClip* clip = anim.GetCurrentClip();
+            if (!clip || clip->Frames.empty()) return;
+            int max_idx       = (int)clip->Frames.size() - 1;
+            anim.CurrentFrame = std::clamp(n, 0, max_idx);
+            anim.ElapsedTime  = 0.0f;
+        }
+
+        int GetAnimationFrame() {
+            if (!handle.HasComponent<AnimationComponent>()) return 0;
+            return handle.GetComponent<AnimationComponent>().CurrentFrame;
+        }
+
+        bool IsAnimationPlaying() {
+            if (!handle.HasComponent<AnimationComponent>()) return false;
+            return handle.GetComponent<AnimationComponent>().IsPlaying;
+        }
+
+        std::string GetCurrentAnimation() {
+            if (!handle.HasComponent<AnimationComponent>()) return {};
+            return handle.GetComponent<AnimationComponent>().CurrentClip;
+        }
     };
 
 } // anonymous namespace
@@ -222,7 +266,14 @@ namespace {
             "SetLinearVelocity3D",  &LuaEntityWrapper::SetLinearVelocity3D,
             "GetLinearVelocity3D",  &LuaEntityWrapper::GetLinearVelocity3D,
             "ApplyForce3D",         &LuaEntityWrapper::ApplyForce3D,
-            "ApplyImpulse3D",       &LuaEntityWrapper::ApplyImpulse3D
+            "ApplyImpulse3D",       &LuaEntityWrapper::ApplyImpulse3D,
+            // Animation
+            "PlayAnimation",        &LuaEntityWrapper::PlayAnimation,
+            "StopAnimation",        &LuaEntityWrapper::StopAnimation,
+            "SetAnimationFrame",    &LuaEntityWrapper::SetAnimationFrame,
+            "GetAnimationFrame",    &LuaEntityWrapper::GetAnimationFrame,
+            "IsAnimationPlaying",   &LuaEntityWrapper::IsAnimationPlaying,
+            "GetCurrentAnimation",  &LuaEntityWrapper::GetCurrentAnimation
         );
 
         sol::table input = mLua.create_named_table("Input");
