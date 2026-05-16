@@ -143,10 +143,12 @@ namespace {
             if (!handle.HasComponent<AnimationComponent>()) return;
             auto& anim = handle.GetComponent<AnimationComponent>();
             // No-op when the named clip is already active; otherwise reset playback.
+            // Resetting LastEventFrame to -1 makes the scene tick fire frame-0 events.
             if (anim.CurrentClip != name) {
-                anim.CurrentClip  = name;
-                anim.CurrentFrame = 0;
-                anim.ElapsedTime  = 0.0f;
+                anim.CurrentClip    = name;
+                anim.CurrentFrame   = 0;
+                anim.ElapsedTime    = 0.0f;
+                anim.LastEventFrame = -1;
             }
             anim.IsPlaying = true;
         }
@@ -161,9 +163,11 @@ namespace {
             auto& anim = handle.GetComponent<AnimationComponent>();
             const AnimationClip* clip = anim.GetCurrentClip();
             if (!clip || clip->Frames.empty()) return;
-            int max_idx       = (int)clip->Frames.size() - 1;
-            anim.CurrentFrame = std::clamp(n, 0, max_idx);
-            anim.ElapsedTime  = 0.0f;
+            int max_idx         = (int)clip->Frames.size() - 1;
+            anim.CurrentFrame   = std::clamp(n, 0, max_idx);
+            anim.ElapsedTime    = 0.0f;
+            // Manual jumps don't fire events — sync LastEventFrame to suppress them.
+            anim.LastEventFrame = anim.CurrentFrame;
         }
 
         int GetAnimationFrame() {
@@ -500,6 +504,23 @@ namespace {
         if (!mActiveScene) return;
         DispatchCollisionEvent(a, b, "OnSensorEnd");
         DispatchCollisionEvent(b, a, "OnSensorEnd");
+    }
+
+    void LuaScriptingBackend::OnAnimationEvent(entt::entity entity, const std::string& event_name) {
+        if (!mActiveScene) return;
+        auto it = mScriptInstances.find(entity);
+        if (it == mScriptInstances.end()) return;
+
+        sol::protected_function fn = it->second["OnAnimationEvent"];
+        if (!fn.valid()) return;
+
+        auto res = fn(event_name);
+        if (!res.valid()) {
+            sol::error err = res;
+            Entity owner = { entity, mActiveScene };
+            LOOM_CORE_ERROR("Lua OnAnimationEvent error in '{}': {}",
+                owner.GetComponent<LuaScriptComponent>().ScriptPath, err.what());
+        }
     }
 
     void LuaScriptingBackend::OnFileChanged(const std::string& path) {

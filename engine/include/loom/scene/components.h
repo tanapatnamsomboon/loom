@@ -155,12 +155,24 @@ namespace Loom {
         RelationshipComponent(const RelationshipComponent&) = default;
     };
 
+    struct AnimationEvent {
+        // Fires once when the clip enters this frame index (including on loop wrap-around
+        // and on initial Play). Manual SetAnimationFrame() does NOT fire events.
+        int         Frame = 0;
+        std::string Name;
+
+        AnimationEvent()                      = default;
+        AnimationEvent(const AnimationEvent&) = default;
+        AnimationEvent(int frame, const std::string& name) : Frame(frame), Name(name) {}
+    };
+
     struct AnimationClip {
         // Each frame: (u_min, v_min, u_max, v_max) in normalized [0,1] UV space.
-        std::string            Name;
-        std::vector<glm::vec4> Frames;
-        float                  FrameDuration = 0.1f;
-        bool                   Loop          = true;
+        std::string                 Name;
+        std::vector<glm::vec4>      Frames;
+        std::vector<AnimationEvent> Events;
+        float                       FrameDuration = 0.1f;
+        bool                        Loop          = true;
 
         AnimationClip()                     = default;
         AnimationClip(const AnimationClip&) = default;
@@ -172,6 +184,9 @@ namespace Loom {
         // Empty CurrentClip means "no clip selected" -> draws the base sprite without UV override.
         std::string                CurrentClip;
         int                        CurrentFrame = 0;
+        // Tracks the last frame index that events fired on. -1 means "no events fired yet
+        // for the current clip" — used to fire frame-0 events on initial Play.
+        int                        LastEventFrame = -1;
         float                      ElapsedTime  = 0.0f;
         bool                       IsPlaying    = true;
 

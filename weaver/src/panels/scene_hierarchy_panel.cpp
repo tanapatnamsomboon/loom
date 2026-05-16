@@ -894,6 +894,44 @@ namespace Weaver {
                             ImGui::PopID();
                         }
 
+                        // Events list — frame index + named tag delivered to Lua's OnAnimationEvent(name).
+                        ImGui::Spacing();
+                        ImGui::Text("Events (%d)", (int)clip.Events.size());
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton("+##AddEvent")) {
+                            clip.Events.push_back(Loom::AnimationEvent(0, "event"));
+                            is_modified = true;
+                        }
+
+                        int remove_event_index = -1;
+                        int max_frame_idx = std::max(0, (int)clip.Frames.size() - 1);
+                        for (int ei = 0; ei < (int)clip.Events.size(); ei++) {
+                            ImGui::PushID(ei + 10000); // offset to avoid collision with frame IDs
+                            auto& ev = clip.Events[ei];
+
+                            ImGui::SetNextItemWidth(60.0f);
+                            is_modified |= ImGui::DragInt("##EventFrame", &ev.Frame, 0.1f, 0, max_frame_idx);
+                            ImGui::SameLine();
+
+                            char name_buf[128];
+                            std::strncpy(name_buf, ev.Name.c_str(), sizeof(name_buf));
+                            name_buf[sizeof(name_buf) - 1] = '\0';
+                            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 24.0f);
+                            if (ImGui::InputText("##EventName", name_buf, sizeof(name_buf))) {
+                                ev.Name = name_buf;
+                                is_modified = true;
+                            }
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("x##RemoveEvent")) {
+                                remove_event_index = ei;
+                            }
+                            ImGui::PopID();
+                        }
+                        if (remove_event_index >= 0) {
+                            clip.Events.erase(clip.Events.begin() + remove_event_index);
+                            is_modified = true;
+                        }
+
                         // Spritesheet helper — static state shared across clips since it's pure
                         // authoring scratch; "Generate" appends to or replaces THIS clip's frames.
                         if (ImGui::TreeNode("Generate from Spritesheet")) {

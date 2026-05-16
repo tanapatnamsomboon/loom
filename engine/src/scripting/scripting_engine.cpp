@@ -52,6 +52,11 @@ namespace Loom {
             sBackend->OnSensorEnd((entt::entity)a, (entt::entity)b);
     }
 
+    void ScriptingEngine::OnAnimationEvent(Entity entity, const std::string& event_name) {
+        if (sBackend)
+            sBackend->OnAnimationEvent((entt::entity)entity, event_name);
+    }
+
     void ScriptingEngine::OnFileChanged(const std::string& path) {
         if (sBackend)
             sBackend->OnFileChanged(path);

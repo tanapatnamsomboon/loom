@@ -357,6 +357,16 @@ namespace Loom {
                 out << YAML::Key << "Frames"        << YAML::Value << YAML::BeginSeq;
                 for (const auto& frame : clip.Frames) out << frame;
                 out << YAML::EndSeq;
+                if (!clip.Events.empty()) {
+                    out << YAML::Key << "Events" << YAML::Value << YAML::BeginSeq;
+                    for (const auto& ev : clip.Events) {
+                        out << YAML::BeginMap;
+                        out << YAML::Key << "Frame" << YAML::Value << ev.Frame;
+                        out << YAML::Key << "Name"  << YAML::Value << ev.Name;
+                        out << YAML::EndMap;
+                    }
+                    out << YAML::EndSeq;
+                }
                 out << YAML::EndMap;
             }
             out << YAML::EndSeq;
@@ -730,6 +740,14 @@ namespace Loom {
                             for (auto frame_node : frames_node)
                                 clip.Frames.push_back(frame_node.as<glm::vec4>());
                         }
+                        if (auto events_node = clip_node["Events"]) {
+                            for (auto ev_node : events_node) {
+                                AnimationEvent ev;
+                                ev.Frame = YAML_GET(ev_node["Frame"], int,         0);
+                                ev.Name  = YAML_GET(ev_node["Name"],  std::string, std::string());
+                                clip.Events.push_back(std::move(ev));
+                            }
+                        }
                         anim.Clips.push_back(std::move(clip));
                     }
                 } else if (auto frames_node = anim_node["Frames"]) {
@@ -1051,6 +1069,14 @@ namespace Loom {
                     if (auto frames_node = clip_node["Frames"]) {
                         for (auto frame_node : frames_node)
                             clip.Frames.push_back(frame_node.as<glm::vec4>());
+                    }
+                    if (auto events_node = clip_node["Events"]) {
+                        for (auto ev_node : events_node) {
+                            AnimationEvent ev;
+                            ev.Frame = YAML_GET(ev_node["Frame"], int,         0);
+                            ev.Name  = YAML_GET(ev_node["Name"],  std::string, std::string());
+                            clip.Events.push_back(std::move(ev));
+                        }
                     }
                     anim.Clips.push_back(std::move(clip));
                 }

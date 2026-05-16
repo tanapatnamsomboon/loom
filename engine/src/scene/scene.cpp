@@ -773,8 +773,9 @@ namespace Loom {
 
     void Scene::OnRuntimeStart() {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
-            anim.CurrentFrame = 0;
-            anim.ElapsedTime  = 0.0f;
+            anim.CurrentFrame   = 0;
+            anim.ElapsedTime    = 0.0f;
+            anim.LastEventFrame = -1;
         });
 
         mRegistry.view<ParticleComponent>().each([](ParticleComponent& pc) {
@@ -967,18 +968,33 @@ namespace Loom {
             }
         }
 
-        // 3. Advance sprite animations
-        mRegistry.view<AnimationComponent>().each([&](AnimationComponent& anim) {
-            if (!anim.IsPlaying) return;
+        // 3. Advance sprite animations + fire per-frame events
+        mRegistry.view<AnimationComponent>().each([&](auto entt_id, AnimationComponent& anim) {
             const AnimationClip* clip = anim.GetCurrentClip();
             if (!clip || clip->Frames.empty()) return;
-            anim.ElapsedTime += ts;
-            while (anim.ElapsedTime >= clip->FrameDuration) {
-                anim.ElapsedTime -= clip->FrameDuration;
-                anim.CurrentFrame++;
-                if (anim.CurrentFrame >= (int)clip->Frames.size()) {
-                    if (clip->Loop) anim.CurrentFrame = 0;
-                    else { anim.CurrentFrame = (int)clip->Frames.size() - 1; anim.IsPlaying = false; }
+
+            if (anim.IsPlaying) {
+                anim.ElapsedTime += ts;
+                while (anim.ElapsedTime >= clip->FrameDuration) {
+                    anim.ElapsedTime -= clip->FrameDuration;
+                    anim.CurrentFrame++;
+                    if (anim.CurrentFrame >= (int)clip->Frames.size()) {
+                        if (clip->Loop) anim.CurrentFrame = 0;
+                        else { anim.CurrentFrame = (int)clip->Frames.size() - 1; anim.IsPlaying = false; }
+                    }
+                }
+            }
+
+            // Fire events whenever the visible frame changes (or on initial Play, when
+            // LastEventFrame == -1). Skips when nothing changed.
+            if (anim.LastEventFrame != anim.CurrentFrame) {
+                anim.LastEventFrame = anim.CurrentFrame;
+                if (mRegistry.all_of<LuaScriptComponent>(entt_id)) {
+                    Entity entity{ entt_id, this };
+                    for (const auto& ev : clip->Events) {
+                        if (ev.Frame == anim.CurrentFrame)
+                            ScriptingEngine::OnAnimationEvent(entity, ev.Name);
+                    }
                 }
             }
         });
@@ -1056,9 +1072,10 @@ namespace Loom {
 
     void Scene::OnRuntimeStop() {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
-            anim.CurrentFrame = 0;
-            anim.ElapsedTime  = 0.0f;
-            anim.IsPlaying    = true;
+            anim.CurrentFrame   = 0;
+            anim.ElapsedTime    = 0.0f;
+            anim.IsPlaying      = true;
+            anim.LastEventFrame = -1;
         });
 
         mRegistry.view<ParticleComponent>().each([](ParticleComponent& pc) {

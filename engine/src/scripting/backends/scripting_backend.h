@@ -25,6 +25,8 @@ namespace Loom {
         virtual void OnSensorBegin(entt::entity a, entt::entity b) = 0;
         virtual void OnSensorEnd(entt::entity a, entt::entity b)   = 0;
 
+        virtual void OnAnimationEvent(entt::entity entity, const std::string& event_name) = 0;
+
         virtual void OnFileChanged(const std::string& path) = 0;
 
         // Returns the field schema declared in the script's top-level Properties table.

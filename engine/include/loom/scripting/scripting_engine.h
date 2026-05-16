@@ -30,6 +30,8 @@ namespace Loom {
         static void OnSensorBegin(Entity a, Entity b);
         static void OnSensorEnd(Entity a, Entity b);
 
+        static void OnAnimationEvent(Entity entity, const std::string& event_name);
+
         static void OnFileChanged(const std::string& path);
 
         // Returns the field schema from the script's top-level Properties table (cached).

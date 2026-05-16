@@ -87,6 +87,7 @@ function OnCreate()  end                      function OnUpdate(ts) end
 function OnDestroy() end
 function OnCollisionBegin(other) end          function OnCollisionEnd(other) end
 function OnSensorBegin(other) end             function OnSensorEnd(other) end
+function OnAnimationEvent(name) end           -- fires when an AnimationClip frame's tagged event hits
 
 -- Globals: entity, Input, Key, Mouse, Log, Physics, Scene, Vec2, Vec3
 -- entity:  GetTranslation/SetTranslation, GetRotation/SetRotation, GetScale/SetScale

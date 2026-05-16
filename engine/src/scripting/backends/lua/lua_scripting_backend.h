@@ -26,6 +26,8 @@ namespace Loom {
         void OnSensorBegin(entt::entity a, entt::entity b) override;
         void OnSensorEnd(entt::entity a, entt::entity b) override;
 
+        void OnAnimationEvent(entt::entity entity, const std::string& event_name) override;
+
         void OnFileChanged(const std::string& path) override;
 
         std::vector<ScriptField> GetScriptFields(const std::string& script_path) override;
