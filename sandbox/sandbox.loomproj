@@ -2,4 +2,4 @@ Project:
   Version: 1
   Name: sandbox
   AssetDirectory: assets
-  StartScene: "scenes/2d_animation.loom"
+  StartScene: "scenes/01_2d_sandbox.loom"
