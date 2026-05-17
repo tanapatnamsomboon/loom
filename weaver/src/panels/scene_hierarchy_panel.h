@@ -10,6 +10,8 @@
 
 namespace Weaver {
 
+    struct EditorContext;
+
     class SceneHierarchyPanel {
     public:
         SceneHierarchyPanel() = default;
@@ -18,6 +20,7 @@ namespace Weaver {
         void Init();
 
         void SetContext(const std::shared_ptr<Loom::Scene>& context);
+        void SetEditorContext(EditorContext* ctx) { mEditorContext = ctx; }
         void SetSelectedEntity(const Loom::Entity& entity) { mSelectionContext = entity; }
 
         Loom::Entity GetSelectedEntity() const { return mSelectionContext; }
@@ -34,6 +37,7 @@ namespace Weaver {
 
     private:
         std::shared_ptr<Loom::Scene> mContext;
+        EditorContext*               mEditorContext = nullptr;
         Loom::Entity                 mSelectionContext;
 
         std::shared_ptr<Loom::Texture2D> mCheckerboard;

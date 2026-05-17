@@ -1,4 +1,5 @@
 #include "scene_hierarchy_panel.h"
+#include "editor_context.h"
 #include "editor/commands.h"
 #include "editor/file_dialog.h"
 #include <loom/asset/asset_manager.h>
@@ -1320,21 +1321,97 @@ namespace Weaver {
                     is_modified     = true;
                 }
 
-                // Tile painter
+                // Tile painter — shared selected-tile state lives on EditorContext so
+                // the viewport paint loop and the inspector grid stay in sync.
                 if (ImGui::CollapsingHeader("Tile Painter", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static int s_paint_index = 0;
+                    int& selected_tile = mEditorContext ? mEditorContext->SelectedTileIndex
+                                                        : *(new int(0)); // safe fallback; ctx is always set in practice
                     int total_sheet_tiles = tm.SheetColumns * tm.SheetRows;
 
-                    ImGui::Text("Paint tile: %d", s_paint_index);
+                    // --- Viewport paint mode toggle (B) ---
+                    if (mEditorContext) {
+                        bool paint_on = (mEditorContext->Tool == ToolMode::TilePaint);
+                        ImGui::PushStyleColor(ImGuiCol_Button,
+                            paint_on ? ImVec4(0.95f, 0.55f, 0.10f, 1.0f) : ImGui::GetStyle().Colors[ImGuiCol_Button]);
+                        if (ImGui::Button(paint_on ? "Paint in Viewport: ON  (B)"
+                                                   : "Paint in Viewport: OFF (B)")) {
+                            mEditorContext->Tool = paint_on ? ToolMode::Transform : ToolMode::TilePaint;
+                        }
+                        ImGui::PopStyleColor();
+                    }
+
+                    ImGui::Text("Selected tile: %s",
+                        (selected_tile < 0) ? "Eraser" : std::to_string(selected_tile).c_str());
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Eraser##TM")) selected_tile = -1;
                     ImGui::SameLine();
                     if (ImGui::ArrowButton("##TMPrev", ImGuiDir_Left))
-                        s_paint_index = (s_paint_index - 1 + total_sheet_tiles) % total_sheet_tiles;
+                        selected_tile = (selected_tile - 1 + total_sheet_tiles) % total_sheet_tiles;
                     ImGui::SameLine();
                     if (ImGui::ArrowButton("##TMNext", ImGuiDir_Right))
-                        s_paint_index = (s_paint_index + 1) % total_sheet_tiles;
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("Erase")) s_paint_index = -1;
+                        selected_tile = (selected_tile + 1) % total_sheet_tiles;
 
+                    // --- Visual tile palette (uses the loaded spritesheet) ---
+                    std::shared_ptr<Loom::Texture2D> sheet_tex;
+                    if (!tm.SpritesheetPath.empty()) {
+                        auto abs = Loom::Project::GetAssetFileSystemPath(tm.SpritesheetPath).generic_string();
+                        if (!tm.Spritesheet || tm.Spritesheet->GetPath() != abs)
+                            tm.Spritesheet = Loom::AssetManager::GetTexture(abs);
+                        sheet_tex = tm.Spritesheet;
+                    }
+
+                    if (sheet_tex && total_sheet_tiles > 0) {
+                        ImGui::TextDisabled("Palette");
+                        float content_w   = ImGui::GetContentRegionAvail().x;
+                        float palette_w   = std::min(content_w, 320.0f);
+                        float palette_h   = palette_w * ((float)tm.SheetRows / (float)tm.SheetColumns);
+                        ImGui::Image((ImTextureID)(uintptr_t)sheet_tex->GetRendererID(),
+                                     ImVec2(palette_w, palette_h),
+                                     ImVec2(0, 1), ImVec2(1, 0));
+                        ImVec2 pmin = ImGui::GetItemRectMin();
+                        ImVec2 pmax = ImGui::GetItemRectMax();
+                        bool   p_hovered = ImGui::IsItemHovered();
+                        ImDrawList* dl = ImGui::GetWindowDrawList();
+                        float pcell_w = palette_w / (float)tm.SheetColumns;
+                        float pcell_h = palette_h / (float)tm.SheetRows;
+                        // Grid lines
+                        for (int c = 0; c <= tm.SheetColumns; ++c) {
+                            float x = pmin.x + c * pcell_w;
+                            dl->AddLine({ x, pmin.y }, { x, pmax.y }, IM_COL32(255, 255, 255, 60));
+                        }
+                        for (int r = 0; r <= tm.SheetRows; ++r) {
+                            float y = pmin.y + r * pcell_h;
+                            dl->AddLine({ pmin.x, y }, { pmax.x, y }, IM_COL32(255, 255, 255, 60));
+                        }
+                        // Highlight selected
+                        if (selected_tile >= 0 && selected_tile < total_sheet_tiles) {
+                            int sc = selected_tile % tm.SheetColumns;
+                            int sr = selected_tile / tm.SheetColumns;
+                            ImVec2 smin{ pmin.x + sc * pcell_w, pmin.y + sr * pcell_h };
+                            ImVec2 smax{ smin.x + pcell_w, smin.y + pcell_h };
+                            dl->AddRect(smin, smax, IM_COL32(255, 200, 80, 255), 0.0f, 0, 3.0f);
+                        }
+                        // Hover + click
+                        if (p_hovered) {
+                            ImVec2 mp = ImGui::GetMousePos();
+                            int hc = (int)((mp.x - pmin.x) / pcell_w);
+                            int hr = (int)((mp.y - pmin.y) / pcell_h);
+                            if (hc >= 0 && hc < tm.SheetColumns && hr >= 0 && hr < tm.SheetRows) {
+                                ImVec2 hmin{ pmin.x + hc * pcell_w, pmin.y + hr * pcell_h };
+                                ImVec2 hmax{ hmin.x + pcell_w, hmin.y + pcell_h };
+                                dl->AddRect(hmin, hmax, IM_COL32(255, 255, 255, 180), 0.0f, 0, 1.5f);
+                                if (ImGui::IsMouseClicked(0))
+                                    selected_tile = hr * tm.SheetColumns + hc;
+                            }
+                        }
+                    } else if (!sheet_tex) {
+                        ImGui::TextColored({ 1.0f, 0.4f, 0.4f, 1.0f },
+                            "Assign a Spritesheet to enable the visual palette.");
+                    }
+
+                    // --- Inspector tile grid overview (small, clickable) ---
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Map (click + drag to paint)");
                     constexpr float cell_sz  = 20.0f;
                     float canvas_w  = (float)tm.Columns * cell_sz;
                     float canvas_h  = (float)tm.Rows    * cell_sz;
@@ -1373,8 +1450,8 @@ namespace Weaver {
                                 if (mouse_pos.x >= cell_min.x && mouse_pos.x < cell_max.x &&
                                     mouse_pos.y >= cell_min.y && mouse_pos.y < cell_max.y) {
                                     int& tile = tm.Tiles[row * tm.Columns + col];
-                                    if (tile != s_paint_index) {
-                                        tile        = s_paint_index;
+                                    if (tile != selected_tile) {
+                                        tile        = selected_tile;
                                         is_modified = true;
                                     }
                                 }

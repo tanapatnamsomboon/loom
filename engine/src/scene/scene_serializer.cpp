@@ -542,11 +542,11 @@ namespace Loom {
             uint64_t uuid = entity_node["Entity"].as<uint64_t>();
 
             // Tag Component
-            std::string name = "Entity";
+            std::string entity_name = "Entity";
             if (auto tag_node = entity_node["TagComponent"])
-                name = YAML_GET(tag_node["Tag"], std::string, "Untitled Entity");
+                entity_name = YAML_GET(tag_node["Tag"], std::string, "Untitled Entity");
 
-            Entity entity = mScene->CreateEntityWithUUID(UUID(uuid), name);
+            Entity entity = mScene->CreateEntityWithUUID(UUID(uuid), entity_name);
 
             // Transform Component
             if (auto tc_node = entity_node["TransformComponent"]) {

@@ -1,14 +1,14 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-1.7772123, 2.2865343, 4.055466]
-  Pitch: 0.510001
-  Yaw: 0.537
+  Position: [3.0550828, 0.65252686, 4.5068207]
+  Pitch: 0.1380011
+  Yaw: -0.58200127
 Entities:
   - Entity: 16086829982437503068
     TagComponent:
       Tag: AnimatedEntity
     TransformComponent:
-      Translation: [0, 0, 0]
+      Translation: [0, 0.2, 0]
       Rotation: [0, 0, 0]
       Scale: [0.8, 0.64, 1]
     SpriteRendererComponent:
@@ -57,6 +57,22 @@ Entities:
               Name: run_start
             - Frame: 1
               Name: footstep
+  - Entity: 16875304037852566616
+    TagComponent:
+      Tag: TilemapEntity
+    TransformComponent:
+      Translation: [0, -0.5, -0.1]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    TilemapComponent:
+      SpritesheetPath: textures/floor1_tilemap.png
+      Columns: 10
+      Rows: 2
+      TileWidth: 0.32
+      TileHeight: 0.32
+      SheetColumns: 9
+      SheetRows: 18
+      Tiles: [54, 55, 55, 55, 55, 55, 55, 55, 55, 56, 18, 19, 19, 19, 19, 19, 19, 19, 19, 20]
   - Entity: 16983997089760853697
     TagComponent:
       Tag: MainCamera
@@ -67,7 +83,7 @@ Entities:
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
-      OrthographicSize: 1
+      OrthographicSize: 2
       OrthographicNear: -1
       OrthographicFar: 10
       PerspectiveFOV: 0.785398

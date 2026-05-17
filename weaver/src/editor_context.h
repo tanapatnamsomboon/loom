@@ -28,6 +28,14 @@ namespace Weaver {
         Local = 1,
     };
 
+    // High-level "what is the mouse doing in the viewport" mode. Transform is the
+    // default — the gizmo + entity selection behave as usual. TilePaint hides the
+    // gizmo and routes viewport clicks into the tilemap paint loop instead.
+    enum class ToolMode {
+        Transform = 0,
+        TilePaint = 1,
+    };
+
     struct GridSettings {
         float MinorScale     = 1.0f;
         float MajorScale     = 10.0f;
@@ -71,6 +79,10 @@ namespace Weaver {
         // Gizmo state — written by ToolbarPanel + keyboard shortcuts, read by ViewportPanel
         GizmoOperation GizmoOp    = GizmoOperation::Translate;
         GizmoSpace     GizmoMode  = GizmoSpace::Local;
+
+        // Tile paint state — written by SceneHierarchyPanel + keyboard shortcuts, read by ViewportPanel
+        ToolMode Tool             = ToolMode::Transform;
+        int      SelectedTileIndex = 0; // -1 acts as the eraser brush
 
         // Non-owning pointer to the scene hierarchy panel (owned by EditorLayer)
         SceneHierarchyPanel* HierarchyPanel = nullptr;

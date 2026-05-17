@@ -270,7 +270,12 @@ namespace Weaver {
             ImGui::EndDragDropTarget();
         }
 
-        RenderGizmo();
+        // Tile paint and the gizmo are mutually exclusive — paint mode hides the gizmo.
+        if (mContext.Tool == ToolMode::TilePaint) {
+            RenderTilePaint();
+        } else {
+            RenderGizmo();
+        }
 
         ImGui::End();
         ImGui::PopStyleVar();
@@ -846,6 +851,130 @@ namespace Weaver {
         out.Rotation    = r;
         out.Scale       = s;
         return out;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Tile paint
+    // ────────────────────────────────────────────────────────────────────────
+    bool ViewportPanel::IsTilePaintActive() const {
+        if (mContext.Tool != ToolMode::TilePaint) return false;
+        if (mContext.SceneState != SceneState::Edit) return false;
+        Loom::Entity selected = mContext.HierarchyPanel ? mContext.HierarchyPanel->GetSelectedEntity()
+                                                        : Loom::Entity();
+        if (!selected || !selected.HasComponent<Loom::TilemapComponent>()) return false;
+        return true;
+    }
+
+    void ViewportPanel::RenderTilePaint() {
+        if (!IsTilePaintActive()) return;
+        if (!mContext.ActiveScene) return;
+
+        Loom::Entity selected = mContext.HierarchyPanel->GetSelectedEntity();
+        auto& tc = selected.GetComponent<Loom::TilemapComponent>();
+
+        // Defensive: keep Tiles sized to map dims (in case scripts/serializer drifted it).
+        int expected = tc.Columns * tc.Rows;
+        if ((int)tc.Tiles.size() != expected) tc.Tiles.assign(expected, -1);
+
+        glm::vec2 vp_size = mContext.ViewportSize;
+        if (vp_size.x <= 0.0f || vp_size.y <= 0.0f) return;
+
+        glm::mat4 view = mContext.EditorCamera.GetViewMatrix();
+        glm::mat4 proj = mContext.EditorCamera.GetProjectionMatrix();
+        glm::mat4 vp   = proj * view;
+
+        // Tilemap world transform + the plane it lies on (local XY at z=0).
+        glm::mat4 world      = mContext.ActiveScene->GetWorldTransform(selected);
+        glm::vec3 plane_pt   = glm::vec3(world[3]);
+        glm::vec3 plane_n_w  = glm::vec3(world[2]);
+        float plane_n_len    = glm::length(plane_n_w);
+        if (plane_n_len < 1e-6f) return;
+        plane_n_w /= plane_n_len;
+
+        float hw = tc.Columns * tc.TileWidth  * 0.5f;
+        float hh = tc.Rows    * tc.TileHeight * 0.5f;
+
+        // Project a tilemap-local point to absolute screen coords (for ImDrawList).
+        auto local_to_abs = [&](glm::vec3 local) -> std::optional<ImVec2> {
+            glm::vec4 ws = world * glm::vec4(local, 1.0f);
+            auto vp_px = Loom::Math::WorldToScreen(glm::vec3(ws), vp_size, vp);
+            if (!vp_px) return std::nullopt;
+            return ImVec2{ vp_px->x + mContext.ViewportBounds[0].x,
+                           vp_px->y + mContext.ViewportBounds[0].y };
+        };
+
+        ImDrawList* dl = ImGui::GetForegroundDrawList();
+
+        // Outer border + interior grid lines (O(rows + cols), not O(rows*cols)).
+        ImU32 grid_col   = IM_COL32(255, 255, 255,  90);
+        ImU32 border_col = IM_COL32(255, 200,  80, 220);
+
+        auto tl = local_to_abs({ -hw,  hh, 0.0f });
+        auto tr = local_to_abs({  hw,  hh, 0.0f });
+        auto br = local_to_abs({  hw, -hh, 0.0f });
+        auto bl = local_to_abs({ -hw, -hh, 0.0f });
+        if (tl && tr && br && bl) {
+            dl->AddLine(*tl, *tr, border_col, 1.5f);
+            dl->AddLine(*tr, *br, border_col, 1.5f);
+            dl->AddLine(*br, *bl, border_col, 1.5f);
+            dl->AddLine(*bl, *tl, border_col, 1.5f);
+        }
+        for (int r = 1; r < tc.Rows; ++r) {
+            float y = hh - r * tc.TileHeight;
+            auto a = local_to_abs({ -hw, y, 0.0f });
+            auto b = local_to_abs({  hw, y, 0.0f });
+            if (a && b) dl->AddLine(*a, *b, grid_col, 1.0f);
+        }
+        for (int c = 1; c < tc.Columns; ++c) {
+            float x = -hw + c * tc.TileWidth;
+            auto a = local_to_abs({ x, -hh, 0.0f });
+            auto b = local_to_abs({ x,  hh, 0.0f });
+            if (a && b) dl->AddLine(*a, *b, grid_col, 1.0f);
+        }
+
+        // Mouse-to-cell.
+        if (!mContext.ViewportHovered) return;
+        if (ImGui::GetIO().WantTextInput)   return;
+
+        ImVec2 mouse_abs = ImGui::GetMousePos();
+        glm::vec2 mouse_vp = { mouse_abs.x - mContext.ViewportBounds[0].x,
+                               mouse_abs.y - mContext.ViewportBounds[0].y };
+
+        Loom::Math::Ray ray = Loom::Math::ScreenToRay(mouse_vp, vp_size, view, proj);
+        auto hit_world = Loom::Math::RayPlaneIntersect(ray, plane_pt, plane_n_w);
+        if (!hit_world) return;
+
+        glm::vec3 hit_local = glm::vec3(glm::inverse(world) * glm::vec4(*hit_world, 1.0f));
+        int col = (int)std::floor((hit_local.x + hw) / tc.TileWidth);
+        int row = (int)std::floor((hh - hit_local.y) / tc.TileHeight);
+        if (col < 0 || col >= tc.Columns || row < 0 || row >= tc.Rows) return;
+
+        // Hovered cell highlight.
+        float cx0 = -hw + col * tc.TileWidth;
+        float cx1 = cx0 + tc.TileWidth;
+        float cy1 = hh - row * tc.TileHeight;
+        float cy0 = cy1 - tc.TileHeight;
+        auto p_tl = local_to_abs({ cx0, cy1, 0.0f });
+        auto p_tr = local_to_abs({ cx1, cy1, 0.0f });
+        auto p_br = local_to_abs({ cx1, cy0, 0.0f });
+        auto p_bl = local_to_abs({ cx0, cy0, 0.0f });
+        if (p_tl && p_tr && p_br && p_bl) {
+            ImU32 fill = (mContext.SelectedTileIndex < 0)
+                       ? IM_COL32(220,  60,  60, 110)  // eraser red tint
+                       : IM_COL32( 80, 200, 120, 110); // paint green tint
+            ImVec2 quad[4] = { *p_tl, *p_tr, *p_br, *p_bl };
+            dl->AddConvexPolyFilled(quad, 4, fill);
+            dl->AddPolyline(quad, 4, IM_COL32(255, 255, 255, 240), ImDrawFlags_Closed, 2.0f);
+        }
+
+        // Paint while LMB is held. Idempotent per-cell — we only mutate if the tile changes.
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            int& tile = tc.Tiles[row * tc.Columns + col];
+            if (tile != mContext.SelectedTileIndex) {
+                tile = mContext.SelectedTileIndex;
+                mContext.SceneDirty = true;
+            }
+        }
     }
 
 } // namespace Weaver

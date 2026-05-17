@@ -27,6 +27,7 @@ namespace Weaver {
         mContext.HierarchyPanel = &mSceneHierarchyPanel;
 
         mSceneHierarchyPanel.SetContext(mContext.ActiveScene);
+        mSceneHierarchyPanel.SetEditorContext(&mContext);
     }
 
     void EditorLayer::OnAttach() {
@@ -119,6 +120,10 @@ namespace Weaver {
         if (event.GetMouseButton() != 0 || !mContext.ViewportHovered)
             return false;
 
+        // Tile paint claims the click — viewport's per-frame mouse-down poll handles paint.
+        if (mViewportPanel.IsTilePaintActive())
+            return true;
+
         // Gizmo takes priority over entity selection.
         if (mViewportPanel.BeginGizmoDragIfHovered())
             return true;
@@ -159,16 +164,40 @@ namespace Weaver {
                 break;
             case Loom::Key::Q:
                 if (ctrl) { mSceneManager.RequestQuit(); return; }
-                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::None;      return; }
+                if (gizmo_input_ok) {
+                    mContext.GizmoOp = GizmoOperation::None;
+                    mContext.Tool    = ToolMode::Transform;
+                    return;
+                }
                 break;
             case Loom::Key::W:
-                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Translate; return; }
+                if (gizmo_input_ok) {
+                    mContext.GizmoOp = GizmoOperation::Translate;
+                    mContext.Tool    = ToolMode::Transform;
+                    return;
+                }
                 break;
             case Loom::Key::E:
-                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Rotate;    return; }
+                if (gizmo_input_ok) {
+                    mContext.GizmoOp = GizmoOperation::Rotate;
+                    mContext.Tool    = ToolMode::Transform;
+                    return;
+                }
                 break;
             case Loom::Key::R:
-                if (gizmo_input_ok) { mContext.GizmoOp = GizmoOperation::Scale;     return; }
+                if (gizmo_input_ok) {
+                    mContext.GizmoOp = GizmoOperation::Scale;
+                    mContext.Tool    = ToolMode::Transform;
+                    return;
+                }
+                break;
+            case Loom::Key::B:
+                if (gizmo_input_ok && !ctrl && !shift) {
+                    mContext.Tool = (mContext.Tool == ToolMode::TilePaint)
+                                  ? ToolMode::Transform
+                                  : ToolMode::TilePaint;
+                    return;
+                }
                 break;
             case Loom::Key::X:
                 if (gizmo_input_ok && !ctrl && !shift) {

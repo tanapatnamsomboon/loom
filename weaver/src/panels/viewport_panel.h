@@ -38,6 +38,10 @@ namespace Weaver {
         // True while the user is actively dragging a gizmo handle.
         bool IsGizmoDragging() const { return mGizmoDragging; }
 
+        // True while the tile paint tool is the active mouse tool and the selected
+        // entity has a TilemapComponent — viewport clicks paint instead of selecting.
+        bool IsTilePaintActive() const;
+
     private:
         // ── Gizmo handle taxonomy ──────────────────────────────────────────
         enum class GizmoHandle {
@@ -56,6 +60,9 @@ namespace Weaver {
         void HandleViewportResize();
         void UpdateViewportBounds();
         void UpdateViewportSize();
+
+        // ── Tile paint ─────────────────────────────────────────────────────
+        void        RenderTilePaint();                // entry — called from OnImGuiRender
 
         // ── Gizmo (all defined in viewport_panel.cpp) ──────────────────────
         void        RenderGizmo();                    // entry — called from OnImGuiRender
