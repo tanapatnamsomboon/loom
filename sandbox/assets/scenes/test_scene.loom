@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-6.2414494, 5.4572716, 5.5590377]
-  Pitch: 0.51300156
-  Yaw: 0.8099989
+  Position: [-12.847702, 10.558425, 7.333599]
+  Pitch: 0.55800176
+  Yaw: 1.0229976
 Entities:
   - Entity: 8938328147363150278
     TagComponent:
@@ -34,7 +34,7 @@ Entities:
       Tag: Light
     TransformComponent:
       Translation: [0, 0, 0]
-      Rotation: [5.5850534, 0.6021386, -0.17278759]
+      Rotation: [-0.8999965, 0.39999455, 0]
       Scale: [1, 1, 1]
     DirectionalLightComponent:
       Color: [1, 0.9411765, 1]
@@ -68,7 +68,7 @@ Entities:
     TagComponent:
       Tag: MainCamera
     TransformComponent:
-      Translation: [-6, 7, 7]
+      Translation: [-6.5, 7, 6.5]
       Rotation: [-0.5235988, -0.7853982, 0]
       Scale: [1, 1, 1]
     CameraComponent:
