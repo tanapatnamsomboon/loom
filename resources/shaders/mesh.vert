@@ -9,10 +9,13 @@ layout(std140, binding = 0) uniform Camera {
 };
 
 uniform mat4 uModel;
+uniform mat4 uLightVP;       // identity when shadows are disabled
+uniform int  uShadowsEnabled;
 
 out vec3 vWorldPos;
 out vec3 vWorldNormal;
 out vec2 vTexCoord;
+out vec4 vLightSpacePos;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
@@ -23,6 +26,10 @@ void main() {
     vWorldNormal = normalize(normal_matrix * aNormal);
 
     vTexCoord = aTexCoord;
+
+    // Light-space position for shadow sampling. Computed even when shadows are off
+    // (cheap, and avoids a branch divergence between vertices).
+    vLightSpacePos = uLightVP * world;
 
     gl_Position = uViewProjection * world;
 }

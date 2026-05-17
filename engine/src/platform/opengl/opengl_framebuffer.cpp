@@ -8,7 +8,8 @@ namespace Loom {
         : mSpecification(spec) {
 
         for (auto format : mSpecification.Attachments.Attachments) {
-            if (format.TextureFormat == FramebufferTextureFormat::DEPTH24STENCIL8)
+            if (format.TextureFormat == FramebufferTextureFormat::DEPTH24STENCIL8 ||
+                format.TextureFormat == FramebufferTextureFormat::DEPTH32F)
                 mDepthAttachmentSpecification = format;
             else
                 mColorAttachmentSpecifications.emplace_back(format);
@@ -47,7 +48,7 @@ namespace Loom {
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, mSpecification.Width, mSpecification.Height, 0, GL_RED_INTEGER, GL_INT, nullptr);
                         break;
                     case FramebufferTextureFormat::DEPTH24STENCIL8:
-                        break;
+                    case FramebufferTextureFormat::DEPTH32F:
                     case FramebufferTextureFormat::None:
                         break;
                 }
@@ -64,8 +65,24 @@ namespace Loom {
         if (mDepthAttachmentSpecification.TextureFormat != FramebufferTextureFormat::None) {
             glCreateTextures(GL_TEXTURE_2D, 1, &mDepthAttachment);
             glBindTexture(GL_TEXTURE_2D, mDepthAttachment);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, mSpecification.Width, mSpecification.Height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, mDepthAttachment, 0);
+            if (mDepthAttachmentSpecification.TextureFormat == FramebufferTextureFormat::DEPTH32F) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, mSpecification.Width, mSpecification.Height,
+                             0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+                // Clamp to border with a white border so anything outside the shadow frustum
+                // samples as "fully lit" (depth 1.0) rather than wrapping or clamping to a
+                // shadowed edge.
+                float border[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+                glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mDepthAttachment, 0);
+            } else {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, mSpecification.Width, mSpecification.Height,
+                             0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, mDepthAttachment, 0);
+            }
         }
 
         if (mColorAttachments.size() > 1) {

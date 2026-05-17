@@ -1,14 +1,17 @@
 #include "loom/renderer/renderer_3d.h"
 #include "loom/asset/asset_manager.h"
 #include "loom/project/project.h"
+#include "loom/renderer/framebuffer.h"
 #include "loom/renderer/render_command.h"
 #include "loom/renderer/shader.h"
+#include <glad/glad.h>
 #include <algorithm>
 
 namespace Loom {
 
     struct Renderer3DStorage {
         std::shared_ptr<Shader>    MeshShader;
+        std::shared_ptr<Shader>    ShadowShader;
         std::shared_ptr<Texture2D> WhiteTexture;
 
         // View-projection bound at UBO slot 0 (shared with Renderer2D — both write
@@ -31,13 +34,24 @@ namespace Loom {
         glm::vec3 PointLightColor[Renderer3D::kMaxPointLights];
         float     PointLightRange[Renderer3D::kMaxPointLights];
         int       PointLightCount = 0;
+
+        // ── Shadow state ──
+        std::shared_ptr<Framebuffer> ShadowFramebuffer;
+        glm::mat4                    LightVP       = glm::mat4(1.0f);
+        bool                         ShadowsActive = false; // true between Begin/EndShadowPass and consumed by Submit; cleared at EndScene
+        // Saved framebuffer + viewport restored at EndShadowPass.
+        int                          PrevFBO       = 0;
+        int                          PrevViewport[4] = { 0, 0, 0, 0 };
     };
 
     static Renderer3DStorage sData;
 
     void Renderer3D::Init() {
-        std::string shader_path = Project::GetEngineAssetFileSystemPath("shaders/mesh").generic_string();
-        sData.MeshShader        = AssetManager::GetShader(shader_path);
+        std::string mesh_path   = Project::GetEngineAssetFileSystemPath("shaders/mesh").generic_string();
+        sData.MeshShader        = AssetManager::GetShader(mesh_path);
+
+        std::string shadow_path = Project::GetEngineAssetFileSystemPath("shaders/shadow_depth").generic_string();
+        sData.ShadowShader      = AssetManager::GetShader(shadow_path);
 
         sData.WhiteTexture = Texture2D::Create(1, 1);
         uint32_t white     = 0xFFFFFFFF;
@@ -45,15 +59,25 @@ namespace Loom {
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
 
-        // The albedo sampler binds to texture unit 0 unconditionally.
+        // Depth-only shadow framebuffer (DEPTH32F, no color attachments).
+        FramebufferSpecification shadow_spec;
+        shadow_spec.Width       = kShadowMapSize;
+        shadow_spec.Height      = kShadowMapSize;
+        shadow_spec.Attachments = { FramebufferTextureFormat::DEPTH32F };
+        sData.ShadowFramebuffer = Framebuffer::Create(shadow_spec);
+
+        // Bind sampler units once: albedo on 0, shadow on 1.
         sData.MeshShader->Bind();
         sData.MeshShader->UploadUniformInt("uAlbedoTexture", 0);
+        sData.MeshShader->UploadUniformInt("uShadowMap",     1);
     }
 
     void Renderer3D::Shutdown() {
         sData.MeshShader.reset();
+        sData.ShadowShader.reset();
         sData.WhiteTexture.reset();
         sData.CameraUniformBuffer.reset();
+        sData.ShadowFramebuffer.reset();
     }
 
     void Renderer3D::BeginScene(const EditorCamera& camera) {
@@ -76,7 +100,49 @@ namespace Loom {
     }
 
     void Renderer3D::EndScene() {
-        // Nothing to flush — submissions draw immediately.
+        // Shadow state only applies to the 3D pass we just ran. Clear it so
+        // any subsequent BeginScene without a matching shadow pass is shadow-free.
+        sData.ShadowsActive = false;
+    }
+
+    void Renderer3D::BeginShadowPass(const glm::mat4& light_view_projection) {
+        if (!sData.ShadowFramebuffer || !sData.ShadowShader) return;
+
+        sData.LightVP       = light_view_projection;
+        sData.ShadowsActive = true;
+
+        // Save current FBO + viewport so EndShadowPass can restore the caller's
+        // render target (the editor's viewport framebuffer, typically).
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &sData.PrevFBO);
+        glGetIntegerv(GL_VIEWPORT,            sData.PrevViewport);
+
+        sData.ShadowFramebuffer->Bind(); // also sets viewport to shadow map size
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        sData.ShadowShader->Bind();
+        sData.ShadowShader->UploadUniformMat4("uLightVP", sData.LightVP);
+    }
+
+    void Renderer3D::SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
+                                  const glm::mat4& transform) {
+        if (!mesh || !mesh->GetVertexArray()) return;
+        if (!sData.ShadowsActive)             return; // BeginShadowPass not called
+
+        sData.ShadowShader->UploadUniformMat4("uModel", transform);
+
+        const auto& vao = mesh->GetVertexArray();
+        vao->Bind();
+        RenderCommand::DrawIndexed(vao.get(), mesh->GetIndexCount());
+    }
+
+    void Renderer3D::EndShadowPass() {
+        if (!sData.ShadowsActive) return;
+
+        // Restore the caller's framebuffer + viewport. ShadowsActive stays true
+        // so the upcoming Submit() calls bind the shadow map + uLightVP.
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)sData.PrevFBO);
+        glViewport(sData.PrevViewport[0], sData.PrevViewport[1],
+                   sData.PrevViewport[2], sData.PrevViewport[3]);
     }
 
     void Renderer3D::SetLights(const DirectionalLight* dir_lights, int dir_count,
@@ -126,6 +192,16 @@ namespace Loom {
             sData.MeshShader->UploadUniformFloat3Array("uPointLightPos",   sData.PointLightPos,   sData.PointLightCount);
             sData.MeshShader->UploadUniformFloat3Array("uPointLightColor", sData.PointLightColor, sData.PointLightCount);
             sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
+        }
+
+        // Shadow uniforms — only meaningful when BeginShadowPass ran this frame.
+        sData.MeshShader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);
+        if (sData.ShadowsActive) {
+            sData.MeshShader->UploadUniformMat4("uLightVP", sData.LightVP);
+            uint32_t shadow_tex = sData.ShadowFramebuffer->GetDepthAttachmentRendererID();
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, shadow_tex);
+            glActiveTexture(GL_TEXTURE0); // restore the conventional active unit
         }
 
         const auto& tex = albedo_texture ? albedo_texture : sData.WhiteTexture;

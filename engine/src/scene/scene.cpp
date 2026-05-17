@@ -251,14 +251,14 @@ namespace Loom {
                 const glm::vec2 tex_coords[4] = {
                     { uv.x, uv.y }, { uv.z, uv.y }, { uv.z, uv.w }, { uv.x, uv.w }
                 };
-                Renderer2D::DrawQuad(world, sprite.Texture, tex_coords, sprite.Color, (int)entt::to_entity(e));
+                Renderer2D::DrawQuad(world, sprite.Texture, tex_coords, sprite.Color, (int)(uint32_t)e);
                 return;
             }
         }
         if (sprite.Texture)
-            Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)entt::to_entity(e));
+            Renderer2D::DrawQuad(world, sprite.Texture, sprite.Color, sprite.TilingFactor, (int)(uint32_t)e);
         else
-            Renderer2D::DrawQuad(world, sprite.Color, (int)entt::to_entity(e));
+            Renderer2D::DrawQuad(world, sprite.Color, (int)(uint32_t)e);
     }
 
     static float ParticleRandom01() {
@@ -381,7 +381,7 @@ namespace Loom {
 
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
         TickParticles(pc, world, ts);
-        DrawParticles(pc, world, (int)entt::to_entity(e));
+        DrawParticles(pc, world, (int)(uint32_t)e);
     }
 
     static void GatherAndUploadLights(Scene* scene, entt::registry& registry) {
@@ -415,6 +415,58 @@ namespace Loom {
         );
     }
 
+    // Builds an orthographic shadow VP centered on the world origin for the
+    // first DirectionalLightComponent in the scene. Returns false if no
+    // directional light is present — caller should skip the shadow pass.
+    static bool TryBuildShadowLightVP(Scene* scene, entt::registry& registry, glm::mat4& out_light_vp) {
+        for (auto e : registry.view<TransformComponent, DirectionalLightComponent>()) {
+            glm::mat4 world = scene->GetWorldTransform({ e, scene });
+            glm::vec3 dir   = glm::normalize(glm::vec3(world * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+
+            // Fixed coverage box for Slice A. Slice B/C will follow the camera
+            // and/or cascade across distance. Centered on origin so the existing
+            // demo scenes show shadows without any per-scene tuning.
+            const float kHalfExtent = 30.0f;
+            const float kNear       = 0.1f;
+            const float kFar        = 100.0f;
+            const float kBackOff    = 50.0f; // pull the light "back" so the frustum covers origin
+
+            glm::vec3 light_pos = -dir * kBackOff;
+            // glm::lookAt's up vector becomes degenerate when parallel to the view direction.
+            glm::vec3 up = (std::abs(dir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+            glm::mat4 view = glm::lookAt(light_pos, light_pos + dir, up);
+            glm::mat4 proj = glm::ortho(-kHalfExtent, kHalfExtent,
+                                        -kHalfExtent, kHalfExtent,
+                                        kNear, kFar);
+            out_light_vp = proj * view;
+            return true;
+        }
+        return false;
+    }
+
+    // Depth-only pass that fills the shadow map for the active scene. Skips if
+    // there is no directional light — the next mesh draw runs shadow-less.
+    static void RunShadowPass(Scene* scene, entt::registry& registry) {
+        glm::mat4 light_vp;
+        if (!TryBuildShadowLightVP(scene, registry, light_vp)) return;
+
+        Renderer3D::BeginShadowPass(light_vp);
+        for (auto e : registry.view<TransformComponent, MeshRendererComponent>()) {
+            auto& mrc = registry.get<MeshRendererComponent>(e);
+            // Mirrors DrawMeshEntity's lazy-load so the shadow pass picks up
+            // newly-assigned meshes without waiting for the next main-pass call.
+            if (!mrc.MeshPath.empty()) {
+                std::string abs_path = Project::GetAssetFileSystemPath(mrc.MeshPath).generic_string();
+                if (!mrc.Mesh || mrc.Mesh->GetPath() != abs_path)
+                    mrc.Mesh = AssetManager::GetMesh(abs_path);
+            }
+            if (!mrc.Mesh) continue;
+            glm::mat4 world = scene->GetWorldTransform({ e, scene });
+            Renderer3D::SubmitShadow(mrc.Mesh, world);
+        }
+        Renderer3D::EndShadowPass();
+    }
+
     static void DrawMeshEntity(Scene* scene, entt::registry& /*registry*/, entt::entity e, MeshRendererComponent& mrc) {
         // Lazy-load mesh
         if (!mrc.MeshPath.empty()) {
@@ -433,7 +485,7 @@ namespace Loom {
 
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
         Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture, world,
-                           mrc.Roughness, mrc.Metallic, (int)entt::to_entity(e));
+                           mrc.Roughness, mrc.Metallic, (int)(uint32_t)e);
     }
 
     static void DrawTilemapEntity(Scene* scene, entt::registry& registry, entt::entity e, TilemapComponent& tc) {
@@ -445,11 +497,16 @@ namespace Loom {
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
         Renderer2D::DrawTilemap(tc.Spritesheet, world,
             tc.Columns, tc.Rows, tc.TileWidth, tc.TileHeight,
-            tc.SheetColumns, tc.SheetRows, tc.Tiles, (int)entt::to_entity(e));
+            tc.SheetColumns, tc.SheetRows, tc.Tiles, (int)(uint32_t)e);
     }
 
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
-        // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
+        // Shadow pass runs first — fills the shadow map (separate FBO), then
+        // restores the caller's framebuffer so the main 3D pass renders into
+        // the editor viewport as usual.
+        RunShadowPass(this, mRegistry);
+
+        // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
         GatherAndUploadLights(this, mRegistry);
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
@@ -490,7 +547,7 @@ namespace Loom {
             glm::mat4 world = GetWorldTransform({ entity, this })
                               * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
             Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color,
-                                 text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
+                                 text_comp.Kerning, text_comp.LineSpacing, (int)(uint32_t)entity);
         }
 
         // Particles tick in editor too so the Game Developer gets a live FX preview without entering Play.
@@ -507,7 +564,7 @@ namespace Loom {
             glm::mat4 billboard       = glm::translate(glm::mat4(1.0f), world_pos)
                                       * camera_rotation
                                       * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-            Renderer2D::DrawQuad(billboard, mCameraIcon, glm::vec4(1.0f), 1.0f, (int)entt::to_entity(entity));
+            Renderer2D::DrawQuad(billboard, mCameraIcon, glm::vec4(1.0f), 1.0f, (int)(uint32_t)entity);
         }
 
         if (selected_entity && selected_entity.HasComponent<CameraComponent>()) {
@@ -1071,7 +1128,11 @@ namespace Loom {
         }
 
         if (main_camera) {
-            // 3D pass first — opaque meshes write depth so 2D sprites overlay correctly.
+            // Shadow pass first — runs even in Play mode so cast shadows are part
+            // of the shipped experience, not just an editor preview.
+            RunShadowPass(this, mRegistry);
+
+            // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
             Renderer3D::BeginScene(*main_camera, camera_transform);
             GatherAndUploadLights(this, mRegistry);
             for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
@@ -1112,7 +1173,7 @@ namespace Loom {
                 glm::mat4 world = GetWorldTransform({ entity, this })
                                   * glm::scale(glm::mat4(1.0f), { text_comp.FontSize, text_comp.FontSize, 1.0f });
                 Renderer2D::DrawText(text_comp.Text, text_comp.Font, world, text_comp.Color,
-                                     text_comp.Kerning, text_comp.LineSpacing, (int)entt::to_entity(entity));
+                                     text_comp.Kerning, text_comp.LineSpacing, (int)(uint32_t)entity);
             }
 
             auto particle_view = mRegistry.view<TransformComponent, ParticleComponent>();
@@ -1280,7 +1341,7 @@ namespace Loom {
             glm::vec3  az   = q * glm::vec3(0, 0, 1);
             glm::vec3  center = transform.Translation + q * bc.Offset;
             glm::vec3  half_extents = bc.HalfExtents * transform.Scale;
-            DrawWireBox3D(center, ax, ay, az, half_extents, collider_color, (int)entt::to_entity(e));
+            DrawWireBox3D(center, ax, ay, az, half_extents, collider_color, (int)(uint32_t)e);
         }
 
         for (auto e : mRegistry.view<TransformComponent, SphereCollider3DComponent>()) {
@@ -1290,7 +1351,7 @@ namespace Loom {
             glm::vec3 center = transform.Translation + q * sc.Offset;
             float     radius = sc.Radius * std::max({ transform.Scale.x, transform.Scale.y, transform.Scale.z });
             // Three world-axis great circles — sphere itself is rotation-invariant.
-            int eid = (int)entt::to_entity(e);
+            int eid = (int)(uint32_t)e;
             DrawWireCircle3D(center, glm::vec3(1,0,0), glm::vec3(0,1,0), radius, 24, collider_color, eid);
             DrawWireCircle3D(center, glm::vec3(0,1,0), glm::vec3(0,0,1), radius, 24, collider_color, eid);
             DrawWireCircle3D(center, glm::vec3(1,0,0), glm::vec3(0,0,1), radius, 24, collider_color, eid);
@@ -1309,7 +1370,7 @@ namespace Loom {
             float half_h   = cc.HalfHeight * transform.Scale.y;
             glm::vec3 top    = center + ay * half_h;
             glm::vec3 bottom = center - ay * half_h;
-            int eid = (int)entt::to_entity(e);
+            int eid = (int)(uint32_t)e;
             // Two end caps + middle ring (around capsule's Y axis)
             DrawWireCircle3D(top,    ax, az, radius, 24, collider_color, eid);
             DrawWireCircle3D(bottom, ax, az, radius, 24, collider_color, eid);
@@ -1343,7 +1404,7 @@ namespace Loom {
             glm::vec3 p2 = transform_mat * glm::vec4( 0.5f,  0.5f, 0.0f, 1.0f);
             glm::vec3 p3 = transform_mat * glm::vec4(-0.5f,  0.5f, 0.0f, 1.0f);
 
-            int entity_id = (int)entt::to_entity(entity);
+            int entity_id = (int)(uint32_t)entity;
             Renderer2D::DrawLine(p0, p1, collider_color, entity_id);
             Renderer2D::DrawLine(p1, p2, collider_color, entity_id);
             Renderer2D::DrawLine(p2, p3, collider_color, entity_id);
@@ -1360,7 +1421,7 @@ namespace Loom {
             glm::mat4 transform_mat = glm::translate(glm::mat4(1.0f), translation)
                                     * glm::scale(glm::mat4(1.0f), glm::vec3(diameter));
 
-            Renderer2D::DrawCircle(transform_mat, collider_color, 0.05f, 0.005f, (int)entt::to_entity(entity));
+            Renderer2D::DrawCircle(transform_mat, collider_color, 0.05f, 0.005f, (int)(uint32_t)entity);
         }
 
         // ---- Tilemap collider rectangles — re-runs the greedy walk used at physics start
@@ -1384,7 +1445,7 @@ namespace Loom {
             const float hh = tc.Rows    * tc.TileHeight * 0.5f;
             glm::mat4 base = glm::translate(glm::mat4(1.0f), transform.Translation)
                            * glm::rotate(glm::mat4(1.0f), transform.Rotation.z, { 0, 0, 1 });
-            int eid = (int)entt::to_entity(e);
+            int eid = (int)(uint32_t)e;
 
             for (int r = 0; r < tc.Rows; ++r) {
                 int c = 0;

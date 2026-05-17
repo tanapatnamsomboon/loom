@@ -16,6 +16,7 @@ namespace Loom {
         void Resize(uint32_t width, uint32_t height) override;
 
         uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const override { return mColorAttachments[index]; }
+        uint32_t GetDepthAttachmentRendererID() const override { return mDepthAttachment; }
         const FramebufferSpecification& GetSpecification() const override { return mSpecification; }
 
         void ClearAttachment(uint32_t attachment_index, int value) override;

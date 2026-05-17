@@ -1,95 +1,50 @@
 Scene: test_scene
 EditorCamera:
-  Position: [1.6666454, 0.3112951, 2.695501]
-  Pitch: 0.17700084
-  Yaw: -0.50400174
+  Position: [-1.569508, 4.8279843, 6.222252]
+  Pitch: 0.6390026
+  Yaw: -0.27300587
 Entities:
-  - Entity: 16086829982437503068
+  - Entity: 8938328147363150278
     TagComponent:
-      Tag: AnimatedEntity
+      Tag: Box
     TransformComponent:
-      Translation: [0, 0.2, 0]
-      Rotation: [0, 0, 0]
-      Scale: [0.8, 0.64, 1]
-    SpriteRendererComponent:
-      Color: [1, 1, 1, 1]
-      Texture: textures/sprite_sheet.png
-      TilingFactor: 1
-      FilterMode: 0
-      WrapMode: 0
-      GenerateMips: true
-    LuaScriptComponent:
-      ScriptPath: scripts/anim_test.lua
-    Rigidbody2DComponent:
-      BodyType: 1
-      FixedRotation: false
-    BoxCollider2DComponent:
-      Offset: [0, -0.1]
-      Size: [0.2, 0.35]
-      Density: 1
-      Friction: 0.5
-      Restitution: 0
-      RestitutionThreshold: 0.5
-      IsSensor: false
-    AnimationComponent:
-      CurrentClip: Idle
-      IsPlaying: true
-      PickerCellWidth: 80
-      PickerCellHeight: 64
-      Clips:
-        - Name: Idle
-          FrameDuration: 0.1
-          Loop: true
-          Frames:
-            - [0, 0.85714287, 0.099999994, 1]
-            - [0.099999994, 0.85714287, 0.19999999, 1]
-            - [0.19999999, 0.85714287, 0.29999998, 1]
-            - [0.29999998, 0.85714287, 0.39999998, 1]
-            - [0.39999998, 0.85714287, 0.5, 1]
-          Events:
-            - Frame: 0
-              Name: idle_start
-            - Frame: 1
-              Name: idle_mid
-        - Name: Run
-          FrameDuration: 0.1
-          Loop: true
-          Frames:
-            - [0, 0.57142854, 0.099999994, 0.71428573]
-            - [0.099999994, 0.57142854, 0.19999999, 0.71428573]
-            - [0.19999999, 0.57142854, 0.29999998, 0.71428573]
-            - [0.29999998, 0.57142854, 0.39999998, 0.71428573]
-            - [0.39999998, 0.57142854, 0.5, 0.71428573]
-            - [0.5, 0.57142854, 0.59999996, 0.71428573]
-            - [0.59999996, 0.57142854, 0.7, 0.71428573]
-            - [0.7, 0.57142854, 0.79999995, 0.71428573]
-          Events:
-            - Frame: 0
-              Name: run_start
-            - Frame: 1
-              Name: footstep
-  - Entity: 16875304037852566616
-    TagComponent:
-      Tag: TilemapEntity
-    TransformComponent:
-      Translation: [0, -0.5, -0.1]
+      Translation: [0, 1, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    TilemapComponent:
-      SpritesheetPath: textures/floor1_tilemap.png
-      Columns: 10
-      Rows: 2
-      TileWidth: 0.32
-      TileHeight: 0.32
-      SheetColumns: 9
-      SheetRows: 18
-      Tiles: [54, 55, 55, 55, 55, 55, 55, 55, 55, 56, 72, 73, 73, 73, 73, 73, 73, 73, 73, 74]
-      Solid: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    MeshRendererComponent:
+      MeshPath: models/box_textured.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: textures/box_texture.jpg
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 9443136952789325132
+    TagComponent:
+      Tag: Light
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [5.5850534, 0.6021386, -0.17278759]
+      Scale: [1, 1, 1]
+    DirectionalLightComponent:
+      Color: [1, 0.9411765, 1]
+      Intensity: 1
+  - Entity: 16470370313087969112
+    TagComponent:
+      Tag: Floor
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [5, 0.2, 5]
+    MeshRendererComponent:
+      MeshPath: models/box_textured.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: textures/asphat_road_gray_texture.jpg
+      Roughness: 0.5
+      Metallic: 0
   - Entity: 16983997089760853697
     TagComponent:
       Tag: MainCamera
     TransformComponent:
-      Translation: [0, 0, 2]
+      Translation: [0, 2, 10]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
     CameraComponent:
@@ -101,4 +56,4 @@ Entities:
       PerspectiveFOV: 0.785398
       PerspectiveNear: 0.01
       PerspectiveFar: 1000
-      ProjectionType: 1
+      ProjectionType: 0

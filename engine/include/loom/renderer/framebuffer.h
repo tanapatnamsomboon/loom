@@ -10,7 +10,10 @@ namespace Loom {
         None = 0,
         RGBA8,
         RED_INTEGER,
-        DEPTH24STENCIL8
+        DEPTH24STENCIL8,
+        // 32-bit float depth, no stencil. Used by shadow maps — higher precision
+        // for the projection, and sampleable in shaders as a shadow texture.
+        DEPTH32F
     };
 
     struct FramebufferTextureSpecification {
@@ -46,6 +49,9 @@ namespace Loom {
         virtual void Resize(uint32_t width, uint32_t height) = 0;
 
         virtual uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const = 0;
+        // Returns the depth attachment's GPU texture handle (0 if no depth attachment exists).
+        // Callers bind it as a regular 2D texture for sampling (e.g. shadow map lookups).
+        virtual uint32_t GetDepthAttachmentRendererID() const = 0;
         virtual const FramebufferSpecification& GetSpecification() const = 0;
 
         virtual void ClearAttachment(uint32_t attachment_index, int value) = 0;

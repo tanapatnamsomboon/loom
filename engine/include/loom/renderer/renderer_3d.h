@@ -12,8 +12,11 @@ namespace Loom {
 
     class LOOM_API Renderer3D {
     public:
-        static constexpr int kMaxDirectionalLights = 4;
-        static constexpr int kMaxPointLights       = 16;
+        static constexpr int      kMaxDirectionalLights = 4;
+        static constexpr int      kMaxPointLights       = 16;
+        // Square shadow map resolution. Higher = sharper shadows + more VRAM.
+        // 2048 is a balanced default for a single-cascade hard shadow.
+        static constexpr uint32_t kShadowMapSize        = 2048;
 
         struct DirectionalLight {
             glm::vec3 Direction; // world, normalized — direction the light propagates
@@ -48,6 +51,21 @@ namespace Loom {
                            float roughness = 0.5f,
                            float metallic  = 0.0f,
                            int   entity_id = -1);
+
+        // ── Shadow pass ────────────────────────────────────────────────────
+        // Caller workflow per frame (only when a shadow-casting directional light exists):
+        //   Renderer3D::BeginShadowPass(light_vp);
+        //   for each mesh entity: Renderer3D::SubmitShadow(mesh, world);
+        //   Renderer3D::EndShadowPass();   // restores prior framebuffer + viewport
+        //   ... then the regular BeginScene / Submit / EndScene path runs as before
+        //
+        // Subsequent Submit() calls automatically sample the depth texture written
+        // here and attenuate the first directional light by its visibility.
+        // Skipping the shadow pass entirely is fine — Submit falls back to no shadows.
+        static void BeginShadowPass(const glm::mat4& light_view_projection);
+        static void SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
+                                 const glm::mat4& transform);
+        static void EndShadowPass();
     };
 
 } // namespace Loom
