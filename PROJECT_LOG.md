@@ -195,10 +195,11 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - Inspector UI + YAML serialization
 
 - [x] **Tilemap component** *(scope-reduced — no .tmx import)*
-  - `TilemapComponent`: grid dimensions, tile size, spritesheet `Texture2D`, `std::vector<int>` tile index data
+  - `TilemapComponent`: grid dimensions, tile size, spritesheet `Texture2D`, `std::vector<int>` tile index data, per-sheet-tile `Solid` flag, runtime `b2BodyId`
   - `Renderer2D::DrawTilemap(...)` — single batched draw call per layer
-  - Inspector: tile grid editor (click to paint index)
-  - YAML serialization
+  - **In-viewport paint tool** (Slice D) — `EditorContext::ToolMode::TilePaint` + `B` shortcut; visual sheet palette inspector with click-to-select / shift-click-to-toggle-solid; viewport overlays cell grid + hover highlight + solid-tile tint via `GetWindowDrawList`; LMB-held paints `SelectedTileIndex` into the hovered cell (idempotent per-cell writes).
+  - **Per-tile collision** (Slice E) — on `OnRuntimeStart`, walks each tilemap and emits a single static `b2Body` with greedy row-merged box fixtures for cells whose sheet tile is `Solid`. `RenderPhysicsColliders` debug overlay re-runs the same merge so the editor previews the runtime collider rectangles in Edit mode.
+  - YAML serialization (including `Solid` flow sequence, only emitted when non-empty)
 
 - [x] **Gizmo system rewrite**
   - Custom 3D Translate/Rotate/Scale handles rendered via `ImGui::GetWindowDrawList()` — no Renderer3D, no vendor library.
@@ -212,6 +213,12 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
   - CPU-simulated inside `Scene::OnUpdate{Editor,Runtime}` (live preview in the editor); rendered via batched `Renderer2D::DrawQuad`
   - YAML round-trip in scene + prefab paths; runtime pool cleared on `OnRuntimeStart`/`OnRuntimeStop`
   - Inspector UI is the Game Developer's responsibility (per current division of labor)
+
+- [x] **Animation system polish**
+  - **Multi-clip refactor** (Slice A) — split `AnimationComponent` into `Clips[]` of `AnimationClip` (Name/Frames/FrameDuration/Loop) + `CurrentClip` selector + per-component playback cursor. Different clips on one entity can run at different fps. Serializer keeps backward compat by promoting legacy top-level `Frames` into a `"Default"` clip.
+  - **Per-frame events** (Slice B) — `AnimationEvent { Frame, Name }` list per clip; fires once when `CurrentFrame` enters the tagged frame (initial Play + loop wrap + normal advance; `SetAnimationFrame` skipped). Dispatched via `ScriptingEngine::OnAnimationEvent` to Lua's `OnAnimationEvent(name)` callback.
+  - **Visual spritesheet picker** (Slice C) — inline grid overlay over the entity's `SpriteRenderer.Texture` with click-to-toggle frame selection; selection order = playback order; selected cells show their playback index; current frame highlighted amber. Replaces the typed-coordinate "Generate" form.
+  - Lua API: `Entity:PlayAnimation(name) / StopAnimation / SetAnimationFrame(n) / GetAnimationFrame / IsAnimationPlaying / GetCurrentAnimation`.
 
 - [ ] **Tilemap collider compaction (post-Slice E)** *(follow-up — cosmetic + minor perf win)*
   - Current collider generation is **row-only greedy merge** — a 3×5 solid block becomes 3 horizontal strips instead of 1 rectangle. Physics is identical either way; the cost is debug-overlay clutter and a small fixture-count overhead.
@@ -257,8 +264,10 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 - [x] **3D physics**
   - Added **Jolt Physics** submodule (`vendor/jolt`)
   - `PhysicsEngine3D` singleton owns process-wide Jolt state alongside Box2D
-  - `Rigidbody3DComponent`, `BoxCollider3DComponent`, `SphereCollider3DComponent`
+  - `Rigidbody3DComponent`, `BoxCollider3DComponent`, `SphereCollider3DComponent`, `CapsuleCollider3DComponent`
   - `Scene::OnPhysicsStart3D` / `OnPhysicsStop3D` lifecycle, gravity sim, body→transform sync
+  - **Collision/sensor events** — `LoomContactListener3D` (Jolt worker-thread callbacks) enqueues `{Begin/End, body_a, body_b}` events into a mutex-protected Pimpl `Physics3DEventState`; `Scene::DispatchPhysics3DEvents` drains on main thread after `PhysicsSystem::Update` and routes through the existing `ScriptingEngine::OnCollision*/OnSensor*` dispatchers (same Lua callback names as 2D). Sensor routing decided per-event by walking the entity's collider components.
+  - **Debug rendering** — `RenderPhysicsColliders` extended with wireframe paths for 3D box (`DrawWireBox3D`), sphere (three world-axis great circles), and capsule (rings + cylinder edges + hemisphere arcs) via `Renderer2D::DrawLine`.
   - Lua bindings: `Entity:SetLinearVelocity3D / GetLinearVelocity3D / ApplyForce3D / ApplyImpulse3D`
 
 ---
@@ -266,11 +275,7 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 ## Phase 5 — Advanced Rendering
 
 - [ ] **PBR shading** — Replace Phong with metallic-roughness PBR; IBL environment maps
-- [ ] **Shadow mapping** — Directional shadow maps; cascaded shadows for large scenes
-  - [x] **Slice A** — basic directional shadow map (single hard shadow, fixed ortho coverage, constant bias)
-  - [x] **Slice B** — PCF softening + slope-scale bias (front-face cull tried + reverted — caused contact-point peter-panning)
-  - [x] **Slice C** — camera-fit shadow frustum (single cascade, auto-fits camera view, casters pulled back toward light)
-  - [x] **Slice D** — cascaded shadow maps (4 cascades, practical split scheme, per-cascade sphere fit + texel snap, hand-unrolled cascade pick in frag)
+- [x] **Shadow mapping** — Directional cascaded shadow maps (4 cascades, practical split, per-cascade sphere-fit + texel snap, 3×3 PCF, slope-scale bias). Engineering log has the slice-by-slice breakdown (A: basic hard shadow, B: PCF + bias, C: camera-fit, D: CSM).
 
 ---
 
@@ -287,8 +292,6 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 | Library      | Submodule path        | Purpose                                   |
 |--------------|-----------------------|-------------------------------------------|
-| cgltf        | `vendor/cgltf`        | GLTF/GLB mesh loading (single-header C)   |
-| Jolt Physics | `vendor/jolt`         | 3D rigid-body physics (C++17, MIT)        |
 | VMA          | `vendor/vma`          | Vulkan Memory Allocator                   |
 | vk-bootstrap | `vendor/vk-bootstrap` | Vulkan instance/device init boilerplate   |
 
@@ -308,6 +311,4 @@ Pre-roadmap and out-of-phase work. Roadmap items use `[x]` markers in the Phase 
 - **Circle Collider 2D** — `CircleCollider2DComponent` using Box2D `b2Circle`; physics + serializer + inspector.
 - **Entity parent-child hierarchy** — `RelationshipComponent`; world transform via `Scene::GetWorldTransform`; drag-and-drop reparenting.
 - **Content browser drag & drop** — drag images onto texture slot; drag `.loom` onto viewport to open scene.
-- **Sprite animation** — frame-based `AnimationComponent` cycling UV regions at configurable FPS; YAML round-trip.
-- **Spritesheet helper** — auto-fills animation frames from sheet size + cell size + start row/col + frame count.
 - **TextureSpecification** — per-texture `FilterMode`, `WrapMode`, `GenerateMips`; passed into `Texture2D::Create()`.

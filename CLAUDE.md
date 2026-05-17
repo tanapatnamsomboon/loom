@@ -61,8 +61,9 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 The engine compiles to a static/dynamic library. Internal headers are exposed under the `<loom/...>` include prefix (e.g., `#include <loom/scene/scene.h>`).
 
 - `core/`: Application loop, LayerStack, Events system, Input, Window abstraction, Timestep, UUID, and core macros (`LOOM_BIND_EVENT_FN`, `LOOM_CORE_*` log macros).
-- `renderer/`: Abstract Renderer API, Shaders, Textures, Buffers, Framebuffers, VertexArray, Cameras (`OrthographicCamera`, `EditorCamera`), Renderer2D.
+- `renderer/`: Abstract Renderer API, Shaders, Textures, Buffers, Framebuffers (DEPTH24STENCIL8 + DEPTH32F for shadow maps), VertexArray, Cameras (`OrthographicCamera`, `EditorCamera`), `Renderer2D`, `Renderer3D` (mesh facade with Blinn-Phong + 4-cascade CSM shadow sampling), `MeshAsset` (GLTF/GLB import via cgltf), `FontAsset` (TTF glyph atlas via stb_truetype).
 - `scene/`: ECS implementation. Contains `scene.cpp`, `entity.cpp`, `components.h` (all component structs including `LuaScriptComponent`), `scene_serializer`, and `script_registry`.
+- `physics/`: `PhysicsEngine3D` singleton — process-wide Jolt init (default allocator/factory/types, `JPH::TempAllocatorImpl`, `JobSystemThreadPool`, shared layer-filter interfaces). The per-scene `JPH::PhysicsSystem` lives on `Scene`, not here.
 - `asset/`: `AssetManager` (centralized loader/cache for shaders, textures, fonts, and meshes) and `FontManager` (UI font atlas, exposes `FontType` slots via static `Get`/`Push`/`Pop`). All loaders (`GetTexture`, `GetShader`, `GetFont`, `GetMesh`) take paths **verbatim** — they do not resolve relative paths themselves. The caller is responsible for converting a project-relative path to an absolute filesystem path via the `Project::` helpers below before invoking the loader.
 - `project/`: `Project` and `ProjectSerializer` — manage project config (name, asset directory, start scene). **Asset path resolution helpers** (use these instead of hand-rolling `cwd / relative_path`):
   - `Project::GetActive()` → `std::shared_ptr<Project>` for the currently loaded project (may be null — guard before deref).
@@ -74,8 +75,8 @@ The engine compiles to a static/dynamic library. Internal headers are exposed un
 - `platform/`: Platform-specific implementations (e.g., `platform/opengl/` for OpenGL buffer/shader/texture implementations, `platform/windows/` for input and window).
 - `scripting/`: Scripting subsystem.
   - `scripting_engine.h/.cpp` (public): Singleton facade. `Init()` creates the Lua backend; `Shutdown()` tears it down. `OnRuntimeStart/Update/Stop` are forwarded by `Scene`. Initialized automatically by `Application`.
-  - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnCollisionBegin`, `OnCollisionEnd`, `OnFileChanged`).
-  - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec2`, `Vec3`, `Entity` (transform/tag/audio/physics accessors), `Input`, `Key`, `Mouse`, `Log` to Lua.
+  - `backends/scripting_backend.h` (private): `IScriptingBackend` pure-virtual interface (`OnRuntimeStart`, `OnRuntimeUpdate`, `OnRuntimeStop`, `OnCollisionBegin`, `OnCollisionEnd`, `OnSensorBegin`, `OnSensorEnd`, `OnAnimationEvent`, `OnFileChanged`).
+  - `backends/lua/lua_scripting_backend.h/.cpp` (private): Concrete Lua 5.4.4 + sol2 v3.5.0 backend. Manages one `sol::state`, per-entity `sol::environment` instances, and hot-reload via `OnFileChanged`. Binds `Vec2`, `Vec3`, `Entity` (transform/tag/audio/2D-and-3D-physics/animation accessors), `Input`, `Key`, `Mouse`, `Log`, `Physics` (Raycast/OverlapCircle/OverlapBox), and `Scene` (Load/Reload) to Lua.
 
 ### Lua Script API (for `LuaScriptComponent` scripts)
 
@@ -108,11 +109,11 @@ function OnAnimationEvent(name) end           -- fires when an AnimationClip fra
 Built on top of the engine. All editor code is in the `Weaver::` namespace.
 
 - `src/editor_layer.h/.cpp`: Thin orchestrator layer. Owns the `EditorContext`, all panels, and all manager objects. Handles the ImGui dockspace, menu bar, and input routing.
-- `src/editor_context.h`: Shared mutable state struct (`EditorContext`) and `GridSettings`. Passed by reference to all panels and managers to avoid tight coupling.
+- `src/editor_context.h`: Shared mutable state struct (`EditorContext`) and `GridSettings`. Passed by reference to all panels and managers to avoid tight coupling. Carries cross-cutting state: scene lifecycle (`SceneState`, active scene, history, dirty flag), editor camera, viewport geometry, hovered entity, grid visuals, gizmo state (`GizmoOp` + `GizmoMode`), and tool state (`ToolMode` Transform/TilePaint + `SelectedTileIndex`).
 - `src/panels/`: Self-contained UI panels, each with an `OnImGuiRender()` method.
   - `scene_hierarchy_panel`: Entity tree view and component inspector.
   - `content_browser_panel`: Asset file browser.
-  - `viewport_panel`: Owns the framebuffer, skybox, editor grid, mouse picking, and gizmo rendering.
+  - `viewport_panel`: Owns the framebuffer, skybox, editor grid, mouse picking, gizmo rendering, and tile paint overlay (cell grid + hover highlight + LMB-held paint when `ToolMode == TilePaint`).
   - `toolbar_panel`: Floating dynamic-island toolbar (gizmo tool selection, play/stop, settings popup).
 - `src/editor/`: Business logic managers (no ImGui rendering except for their own modals).
   - `scene_manager`: Scene I/O (New/Open/Save/SaveAs), play/stop transitions, "Save Changes?" modal.
@@ -169,7 +170,7 @@ Shaders (`.glsl`/`.vert`/`.frag`), fonts, and icons used by the engine and edito
 
 # 6. Git Workflow & Commit Guidelines
 
-- **Autonomous Commit Suggestions:** You must independently decide when a logical chunk of work (refactor, feature, bug fix) is complete. Once you determine it is time to commit, DO NOT ask for permission. Immediately provide the exact `git commit` command with the appropriate Conventional Commit message for me to execute, or execute it if permitted.
+- **Validation-gated Commit Suggestions:** Work proceeds on a strict **Work → Validation → Commit → Repeat** cycle. After implementing a slice, provide the build command and a concrete validation recipe, then *stop*. Do NOT propose the commit message yet. Only once the user explicitly confirms the slice works ("works fine", "validated", etc.) — *then* immediately provide the exact `git commit` command with the appropriate Conventional Commit message. After sending the commit message, wait for the user to confirm commit + "go ahead" before starting the next slice.
 - **Conventional Commits format:**
   - `feat:` — new feature
   - `fix:` — bug fix
