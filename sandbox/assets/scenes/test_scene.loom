@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-10.772874, 8.93266, -11.892066]
-  Pitch: 0.24300064
-  Yaw: 2.829009
+  Position: [-8.542814, 4.912376, 0.32582906]
+  Pitch: 0.3480011
+  Yaw: 2.700017
 Entities:
   - Entity: 8746896974421769953
     TagComponent:
@@ -38,8 +38,21 @@ Entities:
       Rotation: [-0.8999965, 0.39999455, 0]
       Scale: [1, 1, 1]
     DirectionalLightComponent:
-      Color: [1, 0.9411765, 1]
-      Intensity: 1
+      Color: [1, 1, 1]
+      Intensity: 4.05
+  - Entity: 10670608302811258847
+    TagComponent:
+      Tag: Sphere
+    TransformComponent:
+      Translation: [-5, 2, 5]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.301
+      Metallic: 1
   - Entity: 11561706066258833238
     TagComponent:
       Tag: Box 2

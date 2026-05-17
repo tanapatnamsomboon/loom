@@ -23,7 +23,7 @@ uniform sampler2D uShadowMap3;
 uniform float     uCascadeSplits[CASCADE_COUNT]; // world-space far distance per cascade
 uniform vec4      uAlbedoColor;
 uniform float     uRoughness;
-uniform float     uMetallic;   // unused until PBR slice
+uniform float     uMetallic;
 uniform int       uEntityID;
 uniform vec3      uViewPos;
 uniform int       uShadowsEnabled;
@@ -37,7 +37,69 @@ uniform vec3  uPointLightPos[MAX_POINT_LIGHTS];
 uniform vec3  uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
-const vec3 kFallbackAmbient = vec3(0.20);
+// Always-on ambient term — placeholder until the IBL slice replaces it with
+// diffuse irradiance + specular prefilter sampling. 0.08 is a compromise:
+// energy-conserving rendering wants this much lower than Phong's 0.20, but
+// without IBL OR tonemapping the scene looks unreadably dark below ~0.05.
+const vec3  kFallbackAmbient = vec3(0.08);
+const float kPI              = 3.14159265359;
+
+// ── Cook-Torrance microfacet BRDF ─────────────────────────────────────────
+// Standard metallic-roughness model. References:
+//   - Karis "Real Shading in Unreal Engine 4" (2013)
+//   - "Moving Frostbite to Physically Based Rendering" (Lagarde 2014)
+
+// Normal Distribution Function — GGX / Trowbridge-Reitz.
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a      = roughness * roughness;        // perceptual -> linear roughness
+    float a2     = a * a;
+    float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+    float denom  = (NdotH2 * (a2 - 1.0) + 1.0);
+    return a2 / (kPI * denom * denom);
+}
+
+// Geometry function — Smith with Schlick-GGX, direct-lighting k remap.
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = roughness + 1.0;
+    float k = (r * r) / 8.0;
+    return NdotV / (NdotV * (1.0 - k) + k);
+}
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    return GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
+}
+
+// Fresnel — Schlick approximation. F0 = 0.04 for dielectrics, albedo for metals.
+vec3 FresnelSchlick(float cos_theta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+// Evaluates the per-light radiance contribution for one analytic light.
+// `radiance` is the light's incident color (already includes intensity + any
+// attenuation); `L` is the unit vector from surface to light.
+vec3 EvaluatePBRLight(vec3 N, vec3 V, vec3 L, vec3 radiance,
+                      vec3 albedo, float roughness, float metallic, vec3 F0) {
+    vec3  H     = normalize(V + L);
+    float NdotL = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0) return vec3(0.0);
+
+    float D = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3  F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    // Specular = D * F * G / (4 * NdotV * NdotL); add epsilon to avoid div-by-zero.
+    float NdotV    = max(dot(N, V), 0.0);
+    vec3  specular = (D * F * G) / (4.0 * NdotV * NdotL + 1e-4);
+
+    // Energy conservation: kS is the specular fraction (Fresnel); the remainder
+    // goes to diffuse, and metallic surfaces have no diffuse contribution at all.
+    vec3 kS = F;
+    vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+
+    return (kD * albedo / kPI + specular) * radiance * NdotL;
+}
 
 // PCF-sampled shadow visibility from one cascade. Returns 1.0 (lit) when the
 // fragment falls outside the cascade's frustum so the caller can fall through
@@ -99,25 +161,31 @@ float SampleShadow(vec3 N, vec3 L) {
 }
 
 void main() {
-    vec4 albedo = texture(uAlbedoTexture, vTexCoord) * uAlbedoColor;
-    vec3 N      = normalize(vWorldNormal);
-    vec3 V      = normalize(uViewPos - vWorldPos);
+    vec4 albedo_sample = texture(uAlbedoTexture, vTexCoord) * uAlbedoColor;
+    vec3 albedo        = albedo_sample.rgb;
+    vec3 N             = normalize(vWorldNormal);
+    vec3 V             = normalize(uViewPos - vWorldPos);
 
-    float shininess = mix(2.0, 256.0, 1.0 - clamp(uRoughness, 0.0, 1.0));
+    float roughness = clamp(uRoughness, 0.04, 1.0); // floor avoids NaN at perfect mirror
+    float metallic  = clamp(uMetallic,  0.0,  1.0);
 
-    vec3 light_sum = kFallbackAmbient * albedo.rgb;
+    // F0 = reflectance at normal incidence. Dielectrics share ~0.04; metals use albedo
+    // as their tint (the metallic flow's whole point).
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     vec3  shadow_L          = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
     float shadow_visibility = SampleShadow(N, shadow_L);
 
+    // Ambient placeholder. IBL slice will replace with diffuse-irradiance +
+    // prefiltered-specular sampling.
+    vec3 lit = kFallbackAmbient * albedo;
+
     for (int i = 0; i < uDirLightCount; ++i) {
-        vec3  L    = normalize(-uDirLightDir[i]);
-        vec3  H    = normalize(L + V);
-        float diff = max(dot(N, L), 0.0);
-        float spec = (diff > 0.0) ? pow(max(dot(N, H), 0.0), shininess) : 0.0;
-        vec3  contribution = uDirLightColor[i] * (albedo.rgb * diff + vec3(spec));
-        if (i == 0) contribution *= shadow_visibility;
-        light_sum += contribution;
+        vec3 L         = normalize(-uDirLightDir[i]);
+        vec3 radiance  = uDirLightColor[i];
+        vec3 contrib   = EvaluatePBRLight(N, V, L, radiance, albedo, roughness, metallic, F0);
+        if (i == 0) contrib *= shadow_visibility;
+        lit += contrib;
     }
 
     for (int i = 0; i < uPointLightCount; ++i) {
@@ -127,16 +195,16 @@ void main() {
         if (dist > range) continue;
 
         vec3  L = to_light / max(dist, 1e-4);
-        vec3  H = normalize(L + V);
-        float diff = max(dot(N, L), 0.0);
-        float spec = (diff > 0.0) ? pow(max(dot(N, H), 0.0), shininess) : 0.0;
 
+        // Smoothstep falloff over Range — designer-friendly, no inverse-square
+        // singularity. Squared for a softer near-falloff curve.
         float atten = 1.0 - smoothstep(0.0, range, dist);
         atten *= atten;
 
-        light_sum += uPointLightColor[i] * (albedo.rgb * diff + vec3(spec)) * atten;
+        vec3 radiance = uPointLightColor[i] * atten;
+        lit += EvaluatePBRLight(N, V, L, radiance, albedo, roughness, metallic, F0);
     }
 
-    oColor    = vec4(light_sum, albedo.a);
+    oColor    = vec4(lit, albedo_sample.a);
     oEntityID = uEntityID;
 }
