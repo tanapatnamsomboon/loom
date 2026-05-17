@@ -241,8 +241,22 @@ namespace Loom {
         // Flat row-major array; -1 = empty, >= 0 = 0-based sheet tile index
         std::vector<int> Tiles; // size = Columns * Rows
 
-        TilemapComponent()                        = default;
-        TilemapComponent(const TilemapComponent&) = default;
+        // Per-sheet-tile solid flag (size = SheetColumns * SheetRows). When the scene
+        // enters Play, every map cell whose sheet tile is solid contributes to a
+        // single static body's greedy-merged box fixtures.
+        std::vector<bool> Solid;
+
+        // Runtime static body holding the merged solidity fixtures. Reset on copy.
+        b2BodyId RuntimeBody = b2_nullBodyId;
+
+        TilemapComponent() = default;
+        TilemapComponent(const TilemapComponent& o)
+            : SpritesheetPath(o.SpritesheetPath), Spritesheet(nullptr)
+            , Columns(o.Columns), Rows(o.Rows)
+            , TileWidth(o.TileWidth), TileHeight(o.TileHeight)
+            , SheetColumns(o.SheetColumns), SheetRows(o.SheetRows)
+            , Tiles(o.Tiles), Solid(o.Solid)
+            , RuntimeBody(b2_nullBodyId) {} // never alias runtime handles on copy
     };
 
     struct ParticleComponent {

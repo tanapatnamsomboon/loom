@@ -1253,6 +1253,12 @@ namespace Weaver {
                     tm.Tiles.resize(expected, -1);
                     is_modified = true;
                 }
+                // Same defense for the solid flag table — keyed by sheet tile index.
+                int sheet_total = tm.SheetColumns * tm.SheetRows;
+                if ((int)tm.Solid.size() != sheet_total) {
+                    tm.Solid.resize(sheet_total, false);
+                    is_modified = true;
+                }
 
                 // Spritesheet path row
                 char ss_buffer[512] = {};
@@ -1361,7 +1367,7 @@ namespace Weaver {
                     }
 
                     if (sheet_tex && total_sheet_tiles > 0) {
-                        ImGui::TextDisabled("Palette");
+                        ImGui::TextDisabled("Palette  (Click: select   Shift+Click: toggle Solid)");
                         float content_w   = ImGui::GetContentRegionAvail().x;
                         float palette_w   = std::min(content_w, 320.0f);
                         float palette_h   = palette_w * ((float)tm.SheetRows / (float)tm.SheetColumns);
@@ -1383,6 +1389,32 @@ namespace Weaver {
                             float y = pmin.y + r * pcell_h;
                             dl->AddLine({ pmin.x, y }, { pmax.x, y }, IM_COL32(255, 255, 255, 60));
                         }
+                        // Red overlay for solid tiles. Border edges are drawn only when the
+                        // neighbour in that direction is NOT solid — adjacent solid cells
+                        // share an interior edge, so drawing it from both sides would
+                        // double the apparent thickness.
+                        auto solid_at = [&](int c, int r) -> bool {
+                            if (c < 0 || c >= tm.SheetColumns || r < 0 || r >= tm.SheetRows) return false;
+                            return tm.Solid[r * tm.SheetColumns + c];
+                        };
+                        ImU32 solid_fill   = IM_COL32(220, 60, 60, 100);
+                        ImU32 solid_border = IM_COL32(220, 60, 60, 220);
+                        for (int sr = 0; sr < tm.SheetRows; ++sr) {
+                            for (int sc = 0; sc < tm.SheetColumns; ++sc) {
+                                if (!tm.Solid[sr * tm.SheetColumns + sc]) continue;
+                                ImVec2 smin{ pmin.x + sc * pcell_w, pmin.y + sr * pcell_h };
+                                ImVec2 smax{ smin.x + pcell_w,      smin.y + pcell_h };
+                                dl->AddRectFilled(smin, smax, solid_fill);
+                                if (!solid_at(sc, sr - 1)) // top
+                                    dl->AddLine({ smin.x, smin.y }, { smax.x, smin.y }, solid_border, 1.5f);
+                                if (!solid_at(sc, sr + 1)) // bottom
+                                    dl->AddLine({ smin.x, smax.y }, { smax.x, smax.y }, solid_border, 1.5f);
+                                if (!solid_at(sc - 1, sr)) // left
+                                    dl->AddLine({ smin.x, smin.y }, { smin.x, smax.y }, solid_border, 1.5f);
+                                if (!solid_at(sc + 1, sr)) // right
+                                    dl->AddLine({ smax.x, smin.y }, { smax.x, smax.y }, solid_border, 1.5f);
+                            }
+                        }
                         // Highlight selected
                         if (selected_tile >= 0 && selected_tile < total_sheet_tiles) {
                             int sc = selected_tile % tm.SheetColumns;
@@ -1391,7 +1423,7 @@ namespace Weaver {
                             ImVec2 smax{ smin.x + pcell_w, smin.y + pcell_h };
                             dl->AddRect(smin, smax, IM_COL32(255, 200, 80, 255), 0.0f, 0, 3.0f);
                         }
-                        // Hover + click
+                        // Hover + click — plain click selects, shift+click toggles Solid.
                         if (p_hovered) {
                             ImVec2 mp = ImGui::GetMousePos();
                             int hc = (int)((mp.x - pmin.x) / pcell_w);
@@ -1400,8 +1432,15 @@ namespace Weaver {
                                 ImVec2 hmin{ pmin.x + hc * pcell_w, pmin.y + hr * pcell_h };
                                 ImVec2 hmax{ hmin.x + pcell_w, hmin.y + pcell_h };
                                 dl->AddRect(hmin, hmax, IM_COL32(255, 255, 255, 180), 0.0f, 0, 1.5f);
-                                if (ImGui::IsMouseClicked(0))
-                                    selected_tile = hr * tm.SheetColumns + hc;
+                                if (ImGui::IsMouseClicked(0)) {
+                                    int sheet_idx = hr * tm.SheetColumns + hc;
+                                    if (ImGui::GetIO().KeyShift) {
+                                        tm.Solid[sheet_idx] = !tm.Solid[sheet_idx];
+                                        is_modified = true;
+                                    } else {
+                                        selected_tile = sheet_idx;
+                                    }
+                                }
                             }
                         }
                     } else if (!sheet_tex) {
@@ -1434,8 +1473,10 @@ namespace Weaver {
                             ImVec2 cell_min = { origin.x + col * cell_sz, origin.y + row * cell_sz };
                             ImVec2 cell_max = { cell_min.x + cell_sz,     cell_min.y + cell_sz };
 
-                            ImU32 bg = (idx < 0) ? IM_COL32(40, 40, 40, 255)
-                                                 : IM_COL32(60, 120, 200, 255);
+                            bool  is_solid = (idx >= 0 && idx < (int)tm.Solid.size() && tm.Solid[idx]);
+                            ImU32 bg = (idx < 0)  ? IM_COL32(40, 40, 40, 255)
+                                     : is_solid   ? IM_COL32(180, 60, 60, 255)
+                                                  : IM_COL32(60, 120, 200, 255);
                             draw_list->AddRectFilled(cell_min, cell_max, bg);
                             draw_list->AddRect(cell_min, cell_max, IM_COL32(100, 100, 100, 200));
 

@@ -903,7 +903,9 @@ namespace Weaver {
                            vp_px->y + mContext.ViewportBounds[0].y };
         };
 
-        ImDrawList* dl = ImGui::GetForegroundDrawList();
+        // Window draw list (not the foreground one) so the overlay respects the
+        // viewport's clip rect and doesn't bleed over docked panels like Inspector.
+        ImDrawList* dl = ImGui::GetWindowDrawList();
 
         // Outer border + interior grid lines (O(rows + cols), not O(rows*cols)).
         ImU32 grid_col   = IM_COL32(255, 255, 255,  90);
@@ -930,6 +932,30 @@ namespace Weaver {
             auto a = local_to_abs({ x, -hh, 0.0f });
             auto b = local_to_abs({ x,  hh, 0.0f });
             if (a && b) dl->AddLine(*a, *b, grid_col, 1.0f);
+        }
+
+        // Red tint for cells whose sheet tile is flagged Solid — shows the artist exactly
+        // which cells will spawn collider rectangles when the scene enters Play.
+        if (!tc.Solid.empty()) {
+            ImU32 solid_fill = IM_COL32(220, 60, 60, 70);
+            for (int rr = 0; rr < tc.Rows; ++rr) {
+                for (int cc = 0; cc < tc.Columns; ++cc) {
+                    int idx = tc.Tiles[rr * tc.Columns + cc];
+                    if (idx < 0 || idx >= (int)tc.Solid.size() || !tc.Solid[idx]) continue;
+                    float x0 = -hw + cc * tc.TileWidth;
+                    float x1 = x0 + tc.TileWidth;
+                    float y1 = hh - rr * tc.TileHeight;
+                    float y0 = y1 - tc.TileHeight;
+                    auto s_tl = local_to_abs({ x0, y1, 0.0f });
+                    auto s_tr = local_to_abs({ x1, y1, 0.0f });
+                    auto s_br = local_to_abs({ x1, y0, 0.0f });
+                    auto s_bl = local_to_abs({ x0, y0, 0.0f });
+                    if (s_tl && s_tr && s_br && s_bl) {
+                        ImVec2 quad[4] = { *s_tl, *s_tr, *s_br, *s_bl };
+                        dl->AddConvexPolyFilled(quad, 4, solid_fill);
+                    }
+                }
+            }
         }
 
         // Mouse-to-cell.

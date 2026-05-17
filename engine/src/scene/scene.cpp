@@ -866,6 +866,63 @@ namespace Loom {
             }
         }
 
+        // Tilemap colliders — one static body per tilemap entity, with greedy
+        // horizontal-run merged box fixtures for every cell whose sheet tile is
+        // marked Solid. Greedy-merging keeps fixture counts low for typical
+        // platformer floors/walls.
+        auto tilemap_view = mRegistry.view<TilemapComponent, TransformComponent>();
+        for (auto e : tilemap_view) {
+            auto& tc = mRegistry.get<TilemapComponent>(e);
+            auto& tr = mRegistry.get<TransformComponent>(e);
+
+            if (tc.Tiles.empty() || tc.Solid.empty()) continue;
+            int sheet_total = tc.SheetColumns * tc.SheetRows;
+            // Defense against drifted Solid table (e.g. SheetCols/Rows changed after authoring).
+            if ((int)tc.Solid.size() != sheet_total) continue;
+
+            auto is_solid = [&](int r, int c) -> bool {
+                int idx = tc.Tiles[r * tc.Columns + c];
+                return idx >= 0 && idx < sheet_total && tc.Solid[idx];
+            };
+
+            bool has_any_solid = false;
+            for (int r = 0; r < tc.Rows && !has_any_solid; ++r)
+                for (int c = 0; c < tc.Columns && !has_any_solid; ++c)
+                    if (is_solid(r, c)) has_any_solid = true;
+            if (!has_any_solid) continue;
+
+            b2BodyDef body_def = b2DefaultBodyDef();
+            body_def.type     = b2_staticBody;
+            body_def.position = { tr.Translation.x, tr.Translation.y };
+            body_def.rotation = b2MakeRot(tr.Rotation.z);
+            body_def.userData = reinterpret_cast<void*>(static_cast<uintptr_t>(entt::to_integral(e)));
+            tc.RuntimeBody    = b2CreateBody(mPhysicsWorld, &body_def);
+
+            const float hw = tc.Columns * tc.TileWidth  * 0.5f;
+            const float hh = tc.Rows    * tc.TileHeight * 0.5f;
+
+            for (int r = 0; r < tc.Rows; ++r) {
+                int c = 0;
+                while (c < tc.Columns) {
+                    if (!is_solid(r, c)) { ++c; continue; }
+                    int start = c;
+                    while (c < tc.Columns && is_solid(r, c)) ++c;
+                    int count = c - start;
+
+                    float box_hw   = count * tc.TileWidth  * 0.5f;
+                    float box_hh   = tc.TileHeight * 0.5f;
+                    float center_x = -hw + (start + count * 0.5f) * tc.TileWidth;
+                    float center_y =  hh - (r + 0.5f) * tc.TileHeight;
+
+                    b2ShapeDef shape_def = b2DefaultShapeDef();
+                    shape_def.enableContactEvents = true;
+                    b2Polygon box = b2MakeOffsetBox(box_hw, box_hh,
+                                                    { center_x, center_y }, b2MakeRot(0.0f));
+                    b2CreatePolygonShape(tc.RuntimeBody, &shape_def, &box);
+                }
+            }
+        }
+
         OnPhysicsStart3D();
     }
 
@@ -1102,6 +1159,11 @@ namespace Loom {
             mPhysicsWorld = b2_nullWorldId;
         }
 
+        // Reset tilemap body handles — fixtures were owned by the destroyed world.
+        mRegistry.view<TilemapComponent>().each([](TilemapComponent& tc) {
+            tc.RuntimeBody = b2_nullBodyId;
+        });
+
         OnPhysicsStop3D();
     }
 
@@ -1299,6 +1361,55 @@ namespace Loom {
                                     * glm::scale(glm::mat4(1.0f), glm::vec3(diameter));
 
             Renderer2D::DrawCircle(transform_mat, collider_color, 0.05f, 0.005f, (int)entt::to_entity(entity));
+        }
+
+        // ---- Tilemap collider rectangles — re-runs the greedy walk used at physics start
+        // so the editor sees the exact same merged boxes Box2D will collide against.
+        // Visible in Edit mode too, which is the whole point: artists can tweak the Solid
+        // flags and see the resulting rectangles without entering Play.
+        auto tilemap_view2 = mRegistry.view<TransformComponent, TilemapComponent>();
+        for (auto e : tilemap_view2) {
+            auto& transform = mRegistry.get<TransformComponent>(e);
+            auto& tc        = mRegistry.get<TilemapComponent>(e);
+            if (tc.Tiles.empty() || tc.Solid.empty()) continue;
+            int sheet_total = tc.SheetColumns * tc.SheetRows;
+            if ((int)tc.Solid.size() != sheet_total) continue;
+
+            auto is_solid = [&](int r, int c) -> bool {
+                int idx = tc.Tiles[r * tc.Columns + c];
+                return idx >= 0 && idx < sheet_total && tc.Solid[idx];
+            };
+
+            const float hw = tc.Columns * tc.TileWidth  * 0.5f;
+            const float hh = tc.Rows    * tc.TileHeight * 0.5f;
+            glm::mat4 base = glm::translate(glm::mat4(1.0f), transform.Translation)
+                           * glm::rotate(glm::mat4(1.0f), transform.Rotation.z, { 0, 0, 1 });
+            int eid = (int)entt::to_entity(e);
+
+            for (int r = 0; r < tc.Rows; ++r) {
+                int c = 0;
+                while (c < tc.Columns) {
+                    if (!is_solid(r, c)) { ++c; continue; }
+                    int start = c;
+                    while (c < tc.Columns && is_solid(r, c)) ++c;
+                    int count = c - start;
+
+                    float box_hw = count * tc.TileWidth  * 0.5f;
+                    float box_hh = tc.TileHeight * 0.5f;
+                    float cx = -hw + (start + count * 0.5f) * tc.TileWidth;
+                    float cy =  hh - (r + 0.5f) * tc.TileHeight;
+
+                    glm::vec3 p0 = base * glm::vec4(cx - box_hw, cy - box_hh, 0.001f, 1.0f);
+                    glm::vec3 p1 = base * glm::vec4(cx + box_hw, cy - box_hh, 0.001f, 1.0f);
+                    glm::vec3 p2 = base * glm::vec4(cx + box_hw, cy + box_hh, 0.001f, 1.0f);
+                    glm::vec3 p3 = base * glm::vec4(cx - box_hw, cy + box_hh, 0.001f, 1.0f);
+
+                    Renderer2D::DrawLine(p0, p1, collider_color, eid);
+                    Renderer2D::DrawLine(p1, p2, collider_color, eid);
+                    Renderer2D::DrawLine(p2, p3, collider_color, eid);
+                    Renderer2D::DrawLine(p3, p0, collider_color, eid);
+                }
+            }
         }
     }
 

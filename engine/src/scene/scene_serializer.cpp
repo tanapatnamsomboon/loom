@@ -444,6 +444,11 @@ namespace Loom {
             out << YAML::Key << "Tiles" << YAML::Value << YAML::Flow << YAML::BeginSeq;
             for (int t : tm.Tiles) out << t;
             out << YAML::EndSeq;
+            if (!tm.Solid.empty()) {
+                out << YAML::Key << "Solid" << YAML::Value << YAML::Flow << YAML::BeginSeq;
+                for (bool s : tm.Solid) out << (s ? 1 : 0);
+                out << YAML::EndSeq;
+            }
             out << YAML::EndMap;
         }
 
@@ -816,6 +821,12 @@ namespace Loom {
                         tm.Tiles.push_back(t.as<int>());
                 }
                 tm.Tiles.resize(tm.Columns * tm.Rows, -1);
+                if (auto solid_node = tm_node["Solid"]) {
+                    tm.Solid.reserve(solid_node.size());
+                    for (auto s : solid_node)
+                        tm.Solid.push_back(s.as<int>() != 0);
+                }
+                tm.Solid.resize(tm.SheetColumns * tm.SheetRows, false);
             }
 
             // Particle Component
@@ -1123,6 +1134,12 @@ namespace Loom {
                     tm.Tiles.push_back(t.as<int>());
             }
             tm.Tiles.resize(tm.Columns * tm.Rows, -1);
+            if (auto solid_node = tm_node["Solid"]) {
+                tm.Solid.reserve(solid_node.size());
+                for (auto s : solid_node)
+                    tm.Solid.push_back(s.as<int>() != 0);
+            }
+            tm.Solid.resize(tm.SheetColumns * tm.SheetRows, false);
         }
 
         if (auto pc_node = data["ParticleComponent"]) {
