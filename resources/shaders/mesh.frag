@@ -32,14 +32,16 @@ uniform float uPointLightRange[MAX_POINT_LIGHTS];
 // Always-on ambient so meshes are visible even when no lights are placed.
 const vec3 kFallbackAmbient = vec3(0.20);
 
-// Constant depth bias for hard shadows. Slice B replaces this with a
-// slope-scale bias derived from the normal-vs-light angle.
-const float kShadowBias = 0.0015;
-
-// Returns 1.0 when the fragment is lit, 0.0 when occluded. Returns 1.0 for any
+// Returns a visibility scalar in [0, 1] for the fragment. 1.0 = fully lit, 0.0 =
+// fully shadowed; values in between come from the PCF kernel partially passing
+// the depth test (the "P" in PCF — averaged texel coverage). Returns 1.0 for any
 // fragment outside the shadow frustum (the shadow map's border samples as 1.0,
 // see DEPTH32F setup in opengl_framebuffer.cpp).
-float SampleShadow(vec4 light_space_pos) {
+//
+// Bias is slope-scale: surfaces nearly parallel to the light direction (low N.L)
+// would otherwise self-shadow due to depth-precision wobble, so we widen the
+// tolerance there. The 0.0005 floor stops perpendicular surfaces from peter-panning.
+float SampleShadow(vec4 light_space_pos, vec3 N, vec3 L) {
     if (uShadowsEnabled == 0) return 1.0;
 
     vec3 proj = light_space_pos.xyz / light_space_pos.w; // perspective-style divide (safe for ortho too)
@@ -49,8 +51,26 @@ float SampleShadow(vec4 light_space_pos) {
     // also counts as lit so points "behind the light" don't fall into shadow.
     if (proj.z > 1.0 || proj.z < 0.0) return 1.0;
 
-    float depth_in_map = texture(uShadowMap, proj.xy).r;
-    return (proj.z - kShadowBias) > depth_in_map ? 0.0 : 1.0;
+    // Slope-scale bias: widest at grazing angles (where depth precision wobble
+    // would cause shadow acne), tightest at perpendicular surfaces. The shadow
+    // map records the caster's FRONT face (no culling tweak in the depth pass),
+    // so the contact point with the ground naturally sits at different depths
+    // and there's no peter-panning to fight.
+    float bias = max(0.002 * (1.0 - dot(N, L)), 0.0003);
+
+    // 3x3 PCF — averages 9 single-texel-offset samples. Hard edges become a
+    // single-pixel soft gradient; combined with front-face culling in the
+    // depth pass it kills the wavy silhouette + acne pattern.
+    vec2  texel_size = 1.0 / vec2(textureSize(uShadowMap, 0));
+    float visibility = 0.0;
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            vec2  offset       = vec2(x, y) * texel_size;
+            float depth_in_map = texture(uShadowMap, proj.xy + offset).r;
+            visibility += (proj.z - bias) > depth_in_map ? 0.0 : 1.0;
+        }
+    }
+    return visibility / 9.0;
 }
 
 void main() {
@@ -66,9 +86,10 @@ void main() {
     vec3 light_sum = kFallbackAmbient * albedo.rgb;
 
     // Shadow visibility tied to the first directional light (i==0) only — that's
-    // the one Scene::OnUpdate* uses to build uLightVP. Slice B may extend to
-    // multiple shadow-casting lights via an array of maps.
-    float shadow_visibility = SampleShadow(vLightSpacePos);
+    // the one Scene::OnUpdate* uses to build uLightVP. Slope-scale bias needs the
+    // surface normal and that same light's L vector, so compute it once up-front.
+    vec3  shadow_L          = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
+    float shadow_visibility = SampleShadow(vLightSpacePos, N, shadow_L);
 
     for (int i = 0; i < uDirLightCount; ++i) {
         vec3  L    = normalize(-uDirLightDir[i]);

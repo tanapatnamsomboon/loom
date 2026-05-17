@@ -205,6 +205,11 @@ namespace Weaver {
             ImGui::Text("UUID: %llu", (uint64_t)entity_uuid);
             ImGui::Separator();
         }
+        // Namespace every widget id below by the entity's UUID. Without this,
+        // switching selection mid-edit of an InputText (or any deferred-commit
+        // widget) lets ImGui flush the pending buffer into the NEW entity's
+        // value because the widget IDs collided across entities.
+        ImGui::PushID((const void*)(uintptr_t)(uint64_t)entity_uuid);
 
         // Helper: push a RemoveComponentCommand if a callback is set, else remove directly.
         auto push_remove = [&]<typename T>(const char* label) {
@@ -1943,6 +1948,8 @@ namespace Weaver {
 
             if (remove_component) push_remove.template operator()<Loom::CapsuleCollider3DComponent>("Capsule Collider 3D");
         }
+
+        ImGui::PopID();
     }
 
 } // namespace Weaver

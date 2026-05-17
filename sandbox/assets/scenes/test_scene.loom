@@ -1,16 +1,28 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-1.569508, 4.8279843, 6.222252]
-  Pitch: 0.6390026
-  Yaw: -0.27300587
+  Position: [-6.2414494, 5.4572716, 5.5590377]
+  Pitch: 0.51300156
+  Yaw: 0.8099989
 Entities:
   - Entity: 8938328147363150278
     TagComponent:
       Tag: Box
     TransformComponent:
-      Translation: [0, 1, 0]
+      Translation: [0, 2, 0]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [0.5, 0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
       AlbedoColor: [1, 1, 1, 1]
@@ -31,9 +43,21 @@ Entities:
     TagComponent:
       Tag: Floor
     TransformComponent:
-      Translation: [0, 0, 0]
+      Translation: [0, 0.9, 0]
       Rotation: [0, 0, 0]
       Scale: [5, 0.2, 5]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [0.5, 0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
       AlbedoColor: [1, 1, 1, 1]
@@ -44,8 +68,8 @@ Entities:
     TagComponent:
       Tag: MainCamera
     TransformComponent:
-      Translation: [0, 2, 10]
-      Rotation: [0, 0, 0]
+      Translation: [-6, 7, 7]
+      Rotation: [-0.5235988, -0.7853982, 0]
       Scale: [1, 1, 1]
     CameraComponent:
       Primary: true

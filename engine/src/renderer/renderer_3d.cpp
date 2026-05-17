@@ -40,7 +40,7 @@ namespace Loom {
         glm::mat4                    LightVP       = glm::mat4(1.0f);
         bool                         ShadowsActive = false; // true between Begin/EndShadowPass and consumed by Submit; cleared at EndScene
         // Saved framebuffer + viewport restored at EndShadowPass.
-        int                          PrevFBO       = 0;
+        int                          PrevFBO         = 0;
         int                          PrevViewport[4] = { 0, 0, 0, 0 };
     };
 
@@ -111,10 +111,17 @@ namespace Loom {
         sData.LightVP       = light_view_projection;
         sData.ShadowsActive = true;
 
-        // Save current FBO + viewport so EndShadowPass can restore the caller's
-        // render target (the editor's viewport framebuffer, typically).
+        // Save current FBO + viewport so EndShadowPass can restore them after
+        // the depth pass mutates GL state.
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &sData.PrevFBO);
         glGetIntegerv(GL_VIEWPORT,            sData.PrevViewport);
+
+        // No culling tweak: front-face culling makes the shadow map record the
+        // caster's back face (its underside), which sits flush with the ground
+        // at the contact point and produces an unfixable "shadow gap" without a
+        // negative bias. Rendering all faces (default) records the front face,
+        // so the contact point shadows cleanly; slope-scale bias in mesh.frag
+        // handles the residual acne.
 
         sData.ShadowFramebuffer->Bind(); // also sets viewport to shadow map size
         glClear(GL_DEPTH_BUFFER_BIT);
