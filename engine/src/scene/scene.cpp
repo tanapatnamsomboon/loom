@@ -417,12 +417,15 @@ namespace Loom {
         );
     }
 
-    // Max world-space distance from the camera that is covered by the shadow
-    // map. The camera's actual far plane is typically 1000 units; shadowing all
-    // of it would spend nearly every shadow texel on geometry the player won't
-    // care about, leaving the foreground blocky. 30 units is a good baseline
-    // for foreground gameplay; promote to a per-scene knob later.
-    static constexpr float kShadowMaxDistance = 30.0f;
+    // Max world-space distance from the camera that is covered by the cascaded
+    // shadow maps. Cascades partition [cam_near, kShadowMaxDistance] so the
+    // foreground stays crisp while distant geometry still receives shadow.
+    static constexpr float kShadowMaxDistance = 200.0f;
+    // Lambda blends uniform vs. logarithmic cascade splits: 0 = uniform (equal
+    // world distance per cascade), 1 = logarithmic (geometric ratio). 0.5 is
+    // the practical default — close cascades stay small for foreground detail
+    // while far cascades cover a lot of range.
+    static constexpr float kCascadeSplitLambda = 0.5f;
 
     // Returns the 8 world-space corners of the camera frustum slice defined by
     // [near_dist, far_dist] in **world-space distance** along the view direction.
@@ -455,99 +458,115 @@ namespace Loom {
         return corners;
     }
 
-    // Builds an orthographic shadow VP for the first DirectionalLightComponent in
-    // the scene, fitted to a **bounding sphere** of the camera's clamped view
-    // slice — sphere is rotation-invariant, so the ortho size stays constant as
-    // the camera rotates (kills the "size oscillates → shimmer" failure mode).
-    // The sphere center is **texel-snapped** in light-space so the shadow texel
-    // grid is stationary in world space across frames.
-    static bool TryBuildShadowLightVP(Scene* scene, entt::registry& registry,
-                                      const glm::mat4& cam_view, const glm::mat4& cam_proj,
-                                      glm::mat4& out_light_vp) {
-        for (auto e : registry.view<TransformComponent, DirectionalLightComponent>()) {
-            glm::mat4 world = scene->GetWorldTransform({ e, scene });
-            glm::vec3 dir   = glm::normalize(glm::vec3(world * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+    // Builds a sphere-bounded, texel-snapped orthographic shadow VP for a single
+    // cascade slice [slice_near, slice_far] of the camera's view frustum, lit
+    // from `dir`. Sphere bounding gives rotation-invariance (stable ortho size
+    // as camera spins); texel snap keeps the shadow grid stationary in world
+    // space (no shimmer).
+    static glm::mat4 BuildShadowLightVPForSlice(const glm::mat4& cam_view, const glm::mat4& cam_proj,
+                                                float slice_near, float slice_far,
+                                                const glm::vec3& dir) {
+        std::array<glm::vec3, 8> corners = GetCameraFrustumCornersWS(
+            cam_view, cam_proj, slice_near, slice_far);
 
-            // Pull the camera's near distance from the projection matrix:
-            //   proj[3][2] = -2 * f * n / (f - n)
-            //   proj[2][2] = -(f + n) / (f - n)
-            //   => n = proj[3][2] / (proj[2][2] - 1)
-            float cam_near = cam_proj[3][2] / (cam_proj[2][2] - 1.0f);
+        glm::vec3 center(0.0f);
+        for (const auto& c : corners) center += c;
+        center /= 8.0f;
 
-            std::array<glm::vec3, 8> corners = GetCameraFrustumCornersWS(
-                cam_view, cam_proj, cam_near, kShadowMaxDistance);
-
-            // Centroid of the frustum slice corners.
-            glm::vec3 center(0.0f);
-            for (const auto& c : corners) center += c;
-            center /= 8.0f;
-
-            // Bounding sphere radius: max distance from center to any corner.
-            // For a perspective slice the bounding sphere is slightly bigger than
-            // necessary, but rotation-invariance is worth the wasted texels.
-            float radius = 0.0f;
-            for (const auto& c : corners) {
-                radius = std::max(radius, glm::length(c - center));
-            }
-
-            // Light view basis. glm::lookAt's up degenerates when parallel to dir.
-            glm::vec3 up = (std::abs(dir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
-
-            // Texel snap: quantize the world-space center against the light's
-            // X/Y axes so the shadow texel grid is stationary in world space.
-            // (Going through unsnapped_view * center is a no-op because center
-            // *is* the look-at target — it always projects to (0, 0, -radius).
-            // We must project against the basis vectors directly.)
-            glm::vec3 light_z_world = -dir;                                          // view-space -forward
-            glm::vec3 light_x_world = glm::normalize(glm::cross(up, light_z_world));
-            glm::vec3 light_y_world = glm::cross(light_z_world, light_x_world);
-
-            float texel_size = 2.0f * radius / (float)Renderer3D::kShadowMapSize;
-            float cx = glm::dot(center, light_x_world);
-            float cy = glm::dot(center, light_y_world);
-            float cz = glm::dot(center, light_z_world);
-            cx = std::floor(cx / texel_size) * texel_size;
-            cy = std::floor(cy / texel_size) * texel_size;
-            glm::vec3 snapped_center = light_x_world * cx + light_y_world * cy + light_z_world * cz;
-
-            glm::mat4 light_view = glm::lookAt(snapped_center - dir * radius, snapped_center, up);
-
-            // Pull the near plane toward the light so casters BETWEEN the light
-            // and the visible region still record into the shadow map. Negative
-            // near in glm::ortho is legal and just shifts the depth range.
-            const float kCasterPullBack = 50.0f;
-            glm::mat4 light_proj = glm::ortho(-radius, radius,
-                                              -radius, radius,
-                                              -kCasterPullBack, 2.0f * radius);
-
-            out_light_vp = light_proj * light_view;
-            return true;
+        float radius = 0.0f;
+        for (const auto& c : corners) {
+            radius = std::max(radius, glm::length(c - center));
         }
-        return false;
+
+        // Light view basis. glm::lookAt's up degenerates when parallel to dir.
+        glm::vec3 up = (std::abs(dir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+
+        // Texel snap against the light's world-space X/Y axes directly (going
+        // through view-space would be a no-op since center is the lookAt target).
+        glm::vec3 light_z_world = -dir;
+        glm::vec3 light_x_world = glm::normalize(glm::cross(up, light_z_world));
+        glm::vec3 light_y_world = glm::cross(light_z_world, light_x_world);
+
+        float texel_size = 2.0f * radius / (float)Renderer3D::kShadowMapSize;
+        float cx = glm::dot(center, light_x_world);
+        float cy = glm::dot(center, light_y_world);
+        float cz = glm::dot(center, light_z_world);
+        cx = std::floor(cx / texel_size) * texel_size;
+        cy = std::floor(cy / texel_size) * texel_size;
+        glm::vec3 snapped_center = light_x_world * cx + light_y_world * cy + light_z_world * cz;
+
+        glm::mat4 light_view = glm::lookAt(snapped_center - dir * radius, snapped_center, up);
+
+        // Pull the near plane toward the light so casters between the light and
+        // the visible region still record into the shadow map.
+        const float kCasterPullBack = 50.0f;
+        glm::mat4 light_proj = glm::ortho(-radius, radius,
+                                          -radius, radius,
+                                          -kCasterPullBack, 2.0f * radius);
+        return light_proj * light_view;
     }
 
-    // Depth-only pass that fills the shadow map for the active scene. Skips if
-    // there is no directional light — the next mesh draw runs shadow-less.
+    // Computes cascade split distances using the "practical split scheme"
+    // (Engel '08): a blend of uniform and logarithmic splits. Close cascades
+    // get small ranges (high detail), far cascades cover lots of distance.
+    static void ComputeCascadeSplits(float cam_near, float cam_far,
+                                     float lambda, float out_splits[Renderer3D::kCascadeCount]) {
+        for (int i = 0; i < Renderer3D::kCascadeCount; ++i) {
+            float p   = (float)(i + 1) / (float)Renderer3D::kCascadeCount;
+            float log = cam_near * std::pow(cam_far / cam_near, p);
+            float uni = cam_near + (cam_far - cam_near) * p;
+            out_splits[i] = lambda * log + (1.0f - lambda) * uni;
+        }
+    }
+
+    // Depth-only multi-cascade pass that fills the cascade shadow maps. Skips
+    // if there is no directional light — the next mesh draw runs shadow-less.
     static void RunShadowPass(Scene* scene, entt::registry& registry,
                               const glm::mat4& cam_view, const glm::mat4& cam_proj) {
-        glm::mat4 light_vp;
-        if (!TryBuildShadowLightVP(scene, registry, cam_view, cam_proj, light_vp)) return;
-
-        Renderer3D::BeginShadowPass(light_vp);
-        for (auto e : registry.view<TransformComponent, MeshRendererComponent>()) {
-            auto& mrc = registry.get<MeshRendererComponent>(e);
-            // Mirrors DrawMeshEntity's lazy-load so the shadow pass picks up
-            // newly-assigned meshes without waiting for the next main-pass call.
-            if (!mrc.MeshPath.empty()) {
-                std::string abs_path = Project::GetAssetFileSystemPath(mrc.MeshPath).generic_string();
-                if (!mrc.Mesh || mrc.Mesh->GetPath() != abs_path)
-                    mrc.Mesh = AssetManager::GetMesh(abs_path);
-            }
-            if (!mrc.Mesh) continue;
+        // Need a directional light to build the light VP.
+        glm::vec3 dir;
+        bool      have_light = false;
+        for (auto e : registry.view<TransformComponent, DirectionalLightComponent>()) {
             glm::mat4 world = scene->GetWorldTransform({ e, scene });
-            Renderer3D::SubmitShadow(mrc.Mesh, world);
+            dir = glm::normalize(glm::vec3(world * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+            have_light = true;
+            break;
         }
-        Renderer3D::EndShadowPass();
+        if (!have_light) return;
+
+        // Camera near recovered from the projection matrix (see earlier notes).
+        float cam_near = cam_proj[3][2] / (cam_proj[2][2] - 1.0f);
+
+        // Compute per-cascade ranges (far distances) and matching VPs.
+        float splits[Renderer3D::kCascadeCount];
+        ComputeCascadeSplits(cam_near, kShadowMaxDistance, kCascadeSplitLambda, splits);
+        Renderer3D::SetCascadeSplits(splits);
+
+        // Mesh entities are walked once per cascade. Lazy-loading the mesh here
+        // mirrors DrawMeshEntity so the shadow pass picks up freshly-assigned meshes.
+        auto mesh_view = registry.view<TransformComponent, MeshRendererComponent>();
+
+        float prev_split = cam_near;
+        for (int c = 0; c < Renderer3D::kCascadeCount; ++c) {
+            float curr_split = splits[c];
+            glm::mat4 light_vp = BuildShadowLightVPForSlice(cam_view, cam_proj,
+                                                            prev_split, curr_split, dir);
+            prev_split = curr_split;
+
+            Renderer3D::BeginShadowPass(c, light_vp);
+            for (auto e : mesh_view) {
+                auto& mrc = registry.get<MeshRendererComponent>(e);
+                if (!mrc.MeshPath.empty()) {
+                    std::string abs_path = Project::GetAssetFileSystemPath(mrc.MeshPath).generic_string();
+                    if (!mrc.Mesh || mrc.Mesh->GetPath() != abs_path)
+                        mrc.Mesh = AssetManager::GetMesh(abs_path);
+                }
+                if (!mrc.Mesh) continue;
+                glm::mat4 world = scene->GetWorldTransform({ e, scene });
+                Renderer3D::SubmitShadow(mrc.Mesh, world);
+            }
+            Renderer3D::EndShadowPass();
+        }
     }
 
     static void DrawMeshEntity(Scene* scene, entt::registry& /*registry*/, entt::entity e, MeshRendererComponent& mrc) {

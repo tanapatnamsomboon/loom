@@ -9,13 +9,21 @@ layout(std140, binding = 0) uniform Camera {
 };
 
 uniform mat4 uModel;
-uniform mat4 uLightVP;       // identity when shadows are disabled
+// One light-space VP per cascade. Computed every vertex (cheap) so the frag
+// shader can pick the right one based on view-space depth.
+uniform mat4 uLightVP0;
+uniform mat4 uLightVP1;
+uniform mat4 uLightVP2;
+uniform mat4 uLightVP3;
 uniform int  uShadowsEnabled;
 
 out vec3 vWorldPos;
 out vec3 vWorldNormal;
 out vec2 vTexCoord;
-out vec4 vLightSpacePos;
+out vec4 vLightSpacePos0;
+out vec4 vLightSpacePos1;
+out vec4 vLightSpacePos2;
+out vec4 vLightSpacePos3;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
@@ -27,9 +35,10 @@ void main() {
 
     vTexCoord = aTexCoord;
 
-    // Light-space position for shadow sampling. Computed even when shadows are off
-    // (cheap, and avoids a branch divergence between vertices).
-    vLightSpacePos = uLightVP * world;
+    vLightSpacePos0 = uLightVP0 * world;
+    vLightSpacePos1 = uLightVP1 * world;
+    vLightSpacePos2 = uLightVP2 * world;
+    vLightSpacePos3 = uLightVP3 * world;
 
     gl_Position = uViewProjection * world;
 }

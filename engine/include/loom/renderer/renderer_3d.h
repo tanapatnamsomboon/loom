@@ -14,9 +14,14 @@ namespace Loom {
     public:
         static constexpr int      kMaxDirectionalLights = 4;
         static constexpr int      kMaxPointLights       = 16;
-        // Square shadow map resolution. Higher = sharper shadows + more VRAM.
-        // 2048 is a balanced default for a single-cascade hard shadow.
+        // Square shadow map resolution per cascade. Higher = sharper shadows + more VRAM.
+        // 2048 × 4 cascades × DEPTH32F = ~64 MB of shadow VRAM.
         static constexpr uint32_t kShadowMapSize        = 2048;
+        // Cascaded shadow maps — N depth slices of the camera frustum, each
+        // with its own shadow map at full resolution. Indexes the per-cascade
+        // arrays below. mesh.frag has hand-unrolled branches matching this N;
+        // changing the count requires editing the shader too.
+        static constexpr int      kCascadeCount         = 4;
 
         struct DirectionalLight {
             glm::vec3 Direction; // world, normalized — direction the light propagates
@@ -52,17 +57,22 @@ namespace Loom {
                            float metallic  = 0.0f,
                            int   entity_id = -1);
 
-        // ── Shadow pass ────────────────────────────────────────────────────
+        // ── Shadow pass (cascaded) ─────────────────────────────────────────
         // Caller workflow per frame (only when a shadow-casting directional light exists):
-        //   Renderer3D::BeginShadowPass(light_vp);
-        //   for each mesh entity: Renderer3D::SubmitShadow(mesh, world);
-        //   Renderer3D::EndShadowPass();   // restores prior framebuffer + viewport
+        //   Renderer3D::SetCascadeSplits(splits);  // world-space far distance per cascade
+        //   for (int i = 0; i < kCascadeCount; ++i) {
+        //       Renderer3D::BeginShadowPass(i, light_vp_for_cascade);
+        //       for each mesh entity: Renderer3D::SubmitShadow(mesh, world);
+        //       Renderer3D::EndShadowPass();
+        //   }
         //   ... then the regular BeginScene / Submit / EndScene path runs as before
         //
-        // Subsequent Submit() calls automatically sample the depth texture written
-        // here and attenuate the first directional light by its visibility.
-        // Skipping the shadow pass entirely is fine — Submit falls back to no shadows.
-        static void BeginShadowPass(const glm::mat4& light_view_projection);
+        // Subsequent Submit() calls automatically sample the appropriate cascade
+        // per fragment (based on view-space depth) and attenuate the first
+        // directional light by its visibility. Skipping the shadow pass entirely
+        // is fine — Submit falls back to no shadows.
+        static void SetCascadeSplits(const float splits[kCascadeCount]); // world distances along view direction
+        static void BeginShadowPass(int cascade_index, const glm::mat4& light_view_projection);
         static void SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
                                  const glm::mat4& transform);
         static void EndShadowPass();

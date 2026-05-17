@@ -1,28 +1,29 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-12.847702, 10.558425, 7.333599]
-  Pitch: 0.55800176
-  Yaw: 1.0229976
+  Position: [-10.772874, 8.93266, -11.892066]
+  Pitch: 0.24300064
+  Yaw: 2.829009
 Entities:
-  - Entity: 8938328147363150278
+  - Entity: 8746896974421769953
     TagComponent:
-      Tag: Box
+      Tag: Box 4
     TransformComponent:
-      Translation: [0, 2, 0]
+      Translation: [0, 2, 150]
       Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
-    Rigidbody3DComponent:
-      Type: 1
-      FixedRotation: false
-      LinearDamping: 0.05
-      AngularDamping: 0.05
-    BoxCollider3DComponent:
-      Offset: [0, 0, 0]
-      HalfExtents: [0.5, 0.5, 0.5]
-      Density: 1
-      Friction: 0.5
-      Restitution: 0
-      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: models/box_textured.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: textures/box_texture.jpg
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 8938328147363150278
+    TagComponent:
+      Tag: Box 1
+    TransformComponent:
+      Translation: [0, 2, 5]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
       AlbedoColor: [1, 1, 1, 1]
@@ -39,13 +40,39 @@ Entities:
     DirectionalLightComponent:
       Color: [1, 0.9411765, 1]
       Intensity: 1
+  - Entity: 11561706066258833238
+    TagComponent:
+      Tag: Box 2
+    TransformComponent:
+      Translation: [0, 2, 30]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: models/box_textured.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: textures/box_texture.jpg
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 12995355045989005531
+    TagComponent:
+      Tag: Box 3
+    TransformComponent:
+      Translation: [0, 2, 80]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: models/box_textured.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: textures/box_texture.jpg
+      Roughness: 0.5
+      Metallic: 0
   - Entity: 16470370313087969112
     TagComponent:
       Tag: Floor
     TransformComponent:
-      Translation: [0, 0.9, 0]
+      Translation: [0, 0.9, 90]
       Rotation: [0, 0, 0]
-      Scale: [5, 0.2, 5]
+      Scale: [150, 0.2, 200]
     Rigidbody3DComponent:
       Type: 0
       FixedRotation: false
@@ -61,15 +88,15 @@ Entities:
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
       AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/asphat_road_gray_texture.jpg
+      AlbedoTexturePath: textures/plain_blur_grey_black_gradient_texture.jpg
       Roughness: 0.5
       Metallic: 0
   - Entity: 16983997089760853697
     TagComponent:
       Tag: MainCamera
     TransformComponent:
-      Translation: [-6.5, 7, 6.5]
-      Rotation: [-0.5235988, -0.7853982, 0]
+      Translation: [-5, 5, -4.9999995]
+      Rotation: [0, 3.1415927, 0]
       Scale: [1, 1, 1]
     CameraComponent:
       Primary: true

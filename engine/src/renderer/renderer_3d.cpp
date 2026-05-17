@@ -35,10 +35,15 @@ namespace Loom {
         float     PointLightRange[Renderer3D::kMaxPointLights];
         int       PointLightCount = 0;
 
-        // ── Shadow state ──
-        std::shared_ptr<Framebuffer> ShadowFramebuffer;
-        glm::mat4                    LightVP       = glm::mat4(1.0f);
-        bool                         ShadowsActive = false; // true between Begin/EndShadowPass and consumed by Submit; cleared at EndScene
+        // ── Shadow state (cascaded) ──
+        // One framebuffer per cascade. Sized to a square depth texture each;
+        // mesh.frag has kCascadeCount sampler2D uniforms bound at units 1..N.
+        std::shared_ptr<Framebuffer> ShadowFramebuffers[Renderer3D::kCascadeCount];
+        glm::mat4                    LightVPs       [Renderer3D::kCascadeCount];
+        float                        CascadeSplits  [Renderer3D::kCascadeCount] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        // Index of cascade currently being rendered (between Begin/EndShadowPass).
+        int                          ActiveCascade   = -1;
+        bool                         ShadowsActive   = false; // any cascade rendered this frame; consumed by Submit; cleared at EndScene
         // Saved framebuffer + viewport restored at EndShadowPass.
         int                          PrevFBO         = 0;
         int                          PrevViewport[4] = { 0, 0, 0, 0 };
@@ -59,17 +64,22 @@ namespace Loom {
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
 
-        // Depth-only shadow framebuffer (DEPTH32F, no color attachments).
+        // One depth-only shadow framebuffer per cascade. DEPTH32F, no color attachments.
         FramebufferSpecification shadow_spec;
         shadow_spec.Width       = kShadowMapSize;
         shadow_spec.Height      = kShadowMapSize;
         shadow_spec.Attachments = { FramebufferTextureFormat::DEPTH32F };
-        sData.ShadowFramebuffer = Framebuffer::Create(shadow_spec);
+        for (int i = 0; i < kCascadeCount; ++i) {
+            sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
+        }
 
-        // Bind sampler units once: albedo on 0, shadow on 1.
+        // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount.
         sData.MeshShader->Bind();
         sData.MeshShader->UploadUniformInt("uAlbedoTexture", 0);
-        sData.MeshShader->UploadUniformInt("uShadowMap",     1);
+        sData.MeshShader->UploadUniformInt("uShadowMap0",    1);
+        sData.MeshShader->UploadUniformInt("uShadowMap1",    2);
+        sData.MeshShader->UploadUniformInt("uShadowMap2",    3);
+        sData.MeshShader->UploadUniformInt("uShadowMap3",    4);
     }
 
     void Renderer3D::Shutdown() {
@@ -77,7 +87,7 @@ namespace Loom {
         sData.ShadowShader.reset();
         sData.WhiteTexture.reset();
         sData.CameraUniformBuffer.reset();
-        sData.ShadowFramebuffer.reset();
+        for (int i = 0; i < kCascadeCount; ++i) sData.ShadowFramebuffers[i].reset();
     }
 
     void Renderer3D::BeginScene(const EditorCamera& camera) {
@@ -105,35 +115,37 @@ namespace Loom {
         sData.ShadowsActive = false;
     }
 
-    void Renderer3D::BeginShadowPass(const glm::mat4& light_view_projection) {
-        if (!sData.ShadowFramebuffer || !sData.ShadowShader) return;
+    void Renderer3D::SetCascadeSplits(const float splits[kCascadeCount]) {
+        for (int i = 0; i < kCascadeCount; ++i) sData.CascadeSplits[i] = splits[i];
+    }
 
-        sData.LightVP       = light_view_projection;
-        sData.ShadowsActive = true;
+    void Renderer3D::BeginShadowPass(int cascade_index, const glm::mat4& light_view_projection) {
+        if (cascade_index < 0 || cascade_index >= kCascadeCount) return;
+        if (!sData.ShadowFramebuffers[cascade_index] || !sData.ShadowShader) return;
 
-        // Save current FBO + viewport so EndShadowPass can restore them after
-        // the depth pass mutates GL state.
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &sData.PrevFBO);
-        glGetIntegerv(GL_VIEWPORT,            sData.PrevViewport);
+        sData.LightVPs[cascade_index] = light_view_projection;
+        sData.ActiveCascade           = cascade_index;
+        sData.ShadowsActive           = true;
 
-        // No culling tweak: front-face culling makes the shadow map record the
-        // caster's back face (its underside), which sits flush with the ground
-        // at the contact point and produces an unfixable "shadow gap" without a
-        // negative bias. Rendering all faces (default) records the front face,
-        // so the contact point shadows cleanly; slope-scale bias in mesh.frag
-        // handles the residual acne.
+        // Save current FBO + viewport on the FIRST cascade only — restoring on
+        // every EndShadowPass would thrash, and the saved values are identical
+        // for back-to-back cascades within one frame.
+        if (cascade_index == 0) {
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &sData.PrevFBO);
+            glGetIntegerv(GL_VIEWPORT,            sData.PrevViewport);
+        }
 
-        sData.ShadowFramebuffer->Bind(); // also sets viewport to shadow map size
+        sData.ShadowFramebuffers[cascade_index]->Bind(); // also sets viewport to shadow map size
         glClear(GL_DEPTH_BUFFER_BIT);
 
         sData.ShadowShader->Bind();
-        sData.ShadowShader->UploadUniformMat4("uLightVP", sData.LightVP);
+        sData.ShadowShader->UploadUniformMat4("uLightVP", light_view_projection);
     }
 
     void Renderer3D::SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
                                   const glm::mat4& transform) {
         if (!mesh || !mesh->GetVertexArray()) return;
-        if (!sData.ShadowsActive)             return; // BeginShadowPass not called
+        if (sData.ActiveCascade < 0)          return; // BeginShadowPass not called
 
         sData.ShadowShader->UploadUniformMat4("uModel", transform);
 
@@ -143,13 +155,15 @@ namespace Loom {
     }
 
     void Renderer3D::EndShadowPass() {
-        if (!sData.ShadowsActive) return;
+        if (sData.ActiveCascade < 0) return;
 
-        // Restore the caller's framebuffer + viewport. ShadowsActive stays true
-        // so the upcoming Submit() calls bind the shadow map + uLightVP.
-        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)sData.PrevFBO);
-        glViewport(sData.PrevViewport[0], sData.PrevViewport[1],
-                   sData.PrevViewport[2], sData.PrevViewport[3]);
+        // Restore the caller's framebuffer + viewport on the LAST cascade only.
+        if (sData.ActiveCascade == kCascadeCount - 1) {
+            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)sData.PrevFBO);
+            glViewport(sData.PrevViewport[0], sData.PrevViewport[1],
+                       sData.PrevViewport[2], sData.PrevViewport[3]);
+        }
+        sData.ActiveCascade = -1;
     }
 
     void Renderer3D::SetLights(const DirectionalLight* dir_lights, int dir_count,
@@ -201,13 +215,23 @@ namespace Loom {
             sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
         }
 
-        // Shadow uniforms — only meaningful when BeginShadowPass ran this frame.
+        // Shadow uniforms — only meaningful when at least one cascade ran this frame.
         sData.MeshShader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);
         if (sData.ShadowsActive) {
-            sData.MeshShader->UploadUniformMat4("uLightVP", sData.LightVP);
-            uint32_t shadow_tex = sData.ShadowFramebuffer->GetDepthAttachmentRendererID();
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, shadow_tex);
+            // Per-cascade VP matrices + far-plane splits (used by the frag shader
+            // to pick which cascade to sample based on view-space depth).
+            sData.MeshShader->UploadUniformMat4 ("uLightVP0",       sData.LightVPs[0]);
+            sData.MeshShader->UploadUniformMat4 ("uLightVP1",       sData.LightVPs[1]);
+            sData.MeshShader->UploadUniformMat4 ("uLightVP2",       sData.LightVPs[2]);
+            sData.MeshShader->UploadUniformMat4 ("uLightVP3",       sData.LightVPs[3]);
+            sData.MeshShader->UploadUniformFloatArray("uCascadeSplits", sData.CascadeSplits, kCascadeCount);
+
+            // Bind all cascade depth textures to units 1..N.
+            for (int i = 0; i < kCascadeCount; ++i) {
+                uint32_t tex = sData.ShadowFramebuffers[i]->GetDepthAttachmentRendererID();
+                glActiveTexture(GL_TEXTURE1 + i);
+                glBindTexture(GL_TEXTURE_2D, tex);
+            }
             glActiveTexture(GL_TEXTURE0); // restore the conventional active unit
         }
 
