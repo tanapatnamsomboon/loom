@@ -13,7 +13,7 @@ The project ships three distinct targets: the **Loom** engine library, the **Wea
 ### Weaver Editor
 
 - **Scene Hierarchy** — entity tree with drag-and-drop reparenting; parent-child world transform composition; right-click context actions (create child, detach, save as prefab, delete)
-- **Viewport** — framebuffer-rendered scene with `EditorCamera`; custom translate / rotate / scale gizmos rendered through `ImGui::GetWindowDrawList` (no vendor dep); world / local space toggle; click-to-select mouse picking
+- **Viewport** — framebuffer-rendered scene with `EditorCamera`; translate / rotate / scale gizmos via ImGuizmo; world / local space toggle; click-to-select mouse picking
 - **Tile paint tool** — visual sheet palette inspector + in-viewport cell painter with hover highlight, LMB-drag stroke painting, shift-click to mark a sheet tile as solid for runtime collision
 - **Infinite dynamic grid** — perspective-aware fade, configurable snap
 - **Component Inspector** — property editors for every built-in component; right-click to remove; "Add Component" menu
@@ -444,6 +444,7 @@ All libraries are included as Git submodules under `vendor/`.
 | GLAD            | OpenGL loader                        |
 | Dear ImGui      | Editor UI                            |
 | ImGuiFileDialog | In-process file dialogs              |
+| ImGuizmo        | Transform gizmos (T/R/S)             |
 | GLM             | Math                                 |
 | spdlog          | Logging                              |
 | stb_image       | Image loading                        |

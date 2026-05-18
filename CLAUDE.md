@@ -47,6 +47,7 @@ Third-party libraries are located in the `vendor/` directory. Always use these i
 | Physics (2D)                  | Box2D                | `box2d`             |
 | Serialization                 | YAML-CPP             | `yaml-cpp`          |
 | File Dialogs                  | ImGuiFileDialog      | `imguifiledialog`   |
+| Transform Gizmo               | ImGuizmo             | `imguizmo`          |
 | Scripting VM                  | Lua 5.4              | `lua`               |
 | Lua C++ Bindings              | sol2 v3.5.0          | `sol2`              |
 | Mesh Loading (GLTF/GLB)       | cgltf                | `cgltf`             |
@@ -113,7 +114,7 @@ Built on top of the engine. All editor code is in the `Weaver::` namespace.
 - `src/panels/`: Self-contained UI panels, each with an `OnImGuiRender()` method.
   - `scene_hierarchy_panel`: Entity tree view and component inspector.
   - `content_browser_panel`: Asset file browser.
-  - `viewport_panel`: Owns the framebuffer, skybox, editor grid, mouse picking, gizmo rendering, and tile paint overlay (cell grid + hover highlight + LMB-held paint when `ToolMode == TilePaint`).
+  - `viewport_panel`: Owns the framebuffer, skybox, editor grid, mouse picking, ImGuizmo wiring (translate/rotate/scale with `SetAlternativeWindow` hooked to the viewport, drag-batched into a single `TransformEditCommand` for undo), and tile paint overlay (cell grid + hover highlight + LMB-held paint when `ToolMode == TilePaint`).
   - `toolbar_panel`: Floating dynamic-island toolbar (gizmo tool selection, play/stop, settings popup).
 - `src/editor/`: Business logic managers (no ImGui rendering except for their own modals).
   - `scene_manager`: Scene I/O (New/Open/Save/SaveAs), play/stop transitions, "Save Changes?" modal.
