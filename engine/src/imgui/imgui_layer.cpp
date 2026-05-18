@@ -40,7 +40,13 @@ namespace Loom {
         if (mBlockEvents) {
             ImGuiIO& io = ImGui::GetIO();
             event.mHandled |= event.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
-            event.mHandled |= event.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
+            // Keyboard: only block when an actual text widget needs the keys
+            // (WantTextInput), NOT when ImGui's keyboard nav has merely focused
+            // a tree node or menu item (WantCaptureKeyboard). Otherwise editor
+            // shortcuts like F-to-focus get swallowed after clicking an entity
+            // in the hierarchy. Matches Unity/Unreal: shortcuts always reach
+            // the editor unless a textbox is being typed into.
+            event.mHandled |= event.IsInCategory(EventCategoryKeyboard) & io.WantTextInput;
         }
     }
 

@@ -6,8 +6,11 @@
 #include <loom/core/application.h>
 #include <loom/core/input.h>
 #include <loom/project/project.h>
+#include <loom/scene/components.h>
 #include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
+#include <glm/glm.hpp>
+#include <algorithm>
 #include <filesystem>
 
 namespace Weaver {
@@ -144,11 +147,13 @@ namespace Weaver {
         // Gizmo shortcuts only fire when:
         //   - no text widget is focused (otherwise typing 'W' would flip the gizmo),
         //   - the viewport has focus, and
-        //   - the user is NOT driving the editor camera (RMB-orbit + WASD strafe).
-        // The RMB gate is the fix for the "moving the camera randomly flips my gizmo
-        // op mid-drag" bug — WASD strafe shares letter keys with the gizmo ops.
+        //   - the user is NOT driving the editor camera (RMB free-fly or MMB orbit).
+        // The mouse-button gates are the fix for "moving the camera randomly flips
+        // my gizmo op mid-drag" — WASD strafe shares letter keys with gizmo ops.
         bool rmb_held       = Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight);
-        bool gizmo_input_ok = mContext.ViewportFocused && !ImGui::GetIO().WantTextInput && !rmb_held;
+        bool mmb_held       = Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonMiddle);
+        bool gizmo_input_ok = mContext.ViewportFocused && !ImGui::GetIO().WantTextInput
+                              && !rmb_held && !mmb_held;
 
         switch ((Loom::Key)event.GetKeyCode()) {
             case Loom::Key::N:
@@ -209,6 +214,35 @@ namespace Weaver {
                 if (gizmo_input_ok && !ctrl && !shift) {
                     mContext.GizmoMode = (mContext.GizmoMode == GizmoSpace::Local) ? GizmoSpace::World : GizmoSpace::Local;
                     return;
+                }
+                break;
+            case Loom::Key::F:
+                // Frame-selected — same key as Maya / Unity (Blender's Numpad-.).
+                // INTENTIONALLY global within the editor: doesn't require viewport
+                // focus or hover. The common flow is "click an entity in the
+                // hierarchy → press F" — at that point the mouse is over the
+                // hierarchy and the hierarchy panel has focus, so any ViewportXxx
+                // gate would silently swallow the keystroke. Only blocks for
+                // text-input widgets and active camera control.
+                {
+                    bool frame_ok = !ImGui::GetIO().WantTextInput
+                                    && !rmb_held && !mmb_held
+                                    && !ctrl && !shift;
+                    if (frame_ok) {
+                        Loom::Entity selected = mSceneHierarchyPanel.GetSelectedEntity();
+                        if (selected && selected.HasComponent<Loom::TransformComponent>() && mContext.ActiveScene) {
+                            glm::mat4 world = mContext.ActiveScene->GetWorldTransform(selected);
+                            glm::vec3 pos   = glm::vec3(world[3]);
+                            glm::vec3 scale = {
+                                glm::length(glm::vec3(world[0])),
+                                glm::length(glm::vec3(world[1])),
+                                glm::length(glm::vec3(world[2])),
+                            };
+                            float radius = std::max({ scale.x, scale.y, scale.z }) * 1.5f;
+                            mContext.EditorCamera.FocusOn(pos, std::max(radius, 1.0f));
+                        }
+                        return;
+                    }
                 }
                 break;
             default:

@@ -9,6 +9,16 @@
 
 namespace Loom {
 
+    // Blender-style editor camera with a target / pivot point.
+    //
+    // Controls:
+    //   MMB drag             orbit around target
+    //   Shift + MMB drag     pan (translates target in screen space)
+    //   Scroll               dolly toward/away from target (multiplicative)
+    //   RMB drag + WASD/QE   FPS-style free-fly (Unity/Unreal habit), target follows
+    //
+    // Internal state is (target, distance, pitch, yaw); position is derived as
+    // `target - forward * distance` each frame, so all controls compose cleanly.
     class LOOM_API EditorCamera : public Camera {
     public:
         EditorCamera() = default;
@@ -26,8 +36,14 @@ namespace Loom {
         float GetPitch() const { return mPitch; }
         float GetYaw()   const { return mYaw; }
 
-        // Restores camera state and rebuilds the view matrix.
+        // Restores camera state and rebuilds the view matrix. Sets the orbit
+        // target to a sensible default in front of the restored position so
+        // MMB orbit still works against the loaded camera pose.
         void SetState(const glm::vec3& position, float pitch, float yaw);
+
+        // Frames a world-space point at `fit_radius` world units of clearance.
+        // Used by the "F to focus selected" shortcut in EditorLayer.
+        void FocusOn(const glm::vec3& world_target, float fit_radius);
 
         void ResetMousePosition() { mInitialMousePosition = { Input::GetMouseX(), Input::GetMouseY() }; }
 
@@ -42,9 +58,16 @@ namespace Loom {
     private:
         float mFOV = 45.0f, mAspectRatio = 1.778f, mNearClip = 0.1f, mFarClip = 1000.0f;
         glm::mat4 mViewMatrix = glm::mat4(1.0f);
+
+        // Orbit pivot + distance — the authoritative state. Position is derived.
+        glm::vec3 mTarget   = { 0.0f, 0.0f, 0.0f };
+        float     mDistance = 5.0f;
+        float     mPitch    = 0.0f;
+        float     mYaw      = 0.0f;
+
+        // Cached every UpdateView() — readable via GetPosition() for shaders + grids.
         glm::vec3 mPosition = { 0.0f, 0.0f, 5.0f };
 
-        float mPitch = 0.0f, mYaw = 0.0f;
         glm::vec2 mInitialMousePosition = { 0.0f, 0.0f };
         float mCameraSpeed = 5.0f;
     };
