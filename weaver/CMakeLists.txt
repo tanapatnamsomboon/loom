@@ -16,7 +16,7 @@ add_executable(Weaver
   src/scripts/player_controller.cpp
 )
 
-target_link_libraries(Weaver PRIVATE Loom imguifiledialog)
+target_link_libraries(Weaver PRIVATE Loom imguifiledialog imguizmo)
 
 target_include_directories(Weaver PRIVATE src)
 

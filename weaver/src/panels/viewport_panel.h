@@ -31,55 +31,29 @@ namespace Weaver {
 
         void OnImGuiRender();
 
-        // Called by EditorLayer on left-mouse-down. Returns true if the click
-        // landed on a gizmo handle (the click is consumed; selection is skipped).
-        bool BeginGizmoDragIfHovered();
-
-        // True while the user is actively dragging a gizmo handle.
-        bool IsGizmoDragging() const { return mGizmoDragging; }
+        // True while the cursor is over an ImGuizmo handle or actively dragging
+        // one. EditorLayer reads this to skip entity selection on LMB-down.
+        bool IsGizmoBusy() const;
 
         // True while the tile paint tool is the active mouse tool and the selected
         // entity has a TilemapComponent — viewport clicks paint instead of selecting.
         bool IsTilePaintActive() const;
 
     private:
-        // ── Gizmo handle taxonomy ──────────────────────────────────────────
-        enum class GizmoHandle {
-            None = 0,
-            // Translate
-            AxisX, AxisY, AxisZ,
-            PlaneXY, PlaneYZ, PlaneXZ,
-            // Rotate
-            RingX, RingY, RingZ,
-            // Scale
-            ScaleX, ScaleY, ScaleZ,
-            ScaleUniform,
-        };
-
         // ── Setup ──────────────────────────────────────────────────────────
         void HandleViewportResize();
         void UpdateViewportBounds();
         void UpdateViewportSize();
 
         // ── Tile paint ─────────────────────────────────────────────────────
-        void        RenderTilePaint();                // entry — called from OnImGuiRender
+        void RenderTilePaint();
 
-        // ── Gizmo (all defined in viewport_panel.cpp) ──────────────────────
-        void        RenderGizmo();                    // entry — called from OnImGuiRender
-        void        CacheGizmoFrame();                // recomputes pivot/basis/projection every frame
-        GizmoHandle PickHandleAtMouse(const glm::vec2& mouse_vp) const;
-        void        DrawHandles(GizmoHandle hovered) const;
-        void        UpdateDrag(const glm::vec2& mouse_vp);
-        void        EndDrag();
-
-        // Picking helpers
-        GizmoHandle PickTranslateHandle(const glm::vec2& mouse_vp) const;
-        GizmoHandle PickRotateHandle   (const glm::vec2& mouse_vp) const;
-        GizmoHandle PickScaleHandle    (const glm::vec2& mouse_vp) const;
-
-        // Returns the entity-local TransformComponent corresponding to a world-space update.
-        Loom::TransformComponent ApplyDeltaToLocal(const Loom::TransformComponent& start_local,
-                                                   const glm::mat4& new_world) const;
+        // ── Gizmo (ImGuizmo) ───────────────────────────────────────────────
+        // RenderGizmo runs every OnImGuiRender. It sets up ImGuizmo's per-frame
+        // viewport rect, calls ImGuizmo::Manipulate, and on drag-end pushes a
+        // TransformEditCommand so the move/rotate/scale lands in undo history
+        // as one batched step (not per-frame).
+        void RenderGizmo();
 
     private:
         EditorContext& mContext;
@@ -97,39 +71,10 @@ namespace Weaver {
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;
         std::shared_ptr<Loom::Shader>       mGridShader;
 
-        // ── Gizmo per-frame cache (recomputed each OnImGuiRender) ──────────
-        bool      mGizmoFrameValid = false;
-        glm::mat4 mGizmoView           = glm::mat4(1.0f);
-        glm::mat4 mGizmoProj           = glm::mat4(1.0f);
-        glm::mat4 mGizmoVP             = glm::mat4(1.0f);
-        glm::vec2 mGizmoViewportSize   = { 0.0f, 0.0f };
-        glm::vec3 mGizmoPivotWorld     = { 0.0f, 0.0f, 0.0f };
-        glm::vec2 mGizmoPivotScreen    = { 0.0f, 0.0f };
-        glm::vec3 mGizmoBasis[3]       = { {1,0,0}, {0,1,0}, {0,0,1} };
-        glm::mat4 mGizmoParentWorld    = glm::mat4(1.0f);
-        glm::mat4 mGizmoEntityWorld    = glm::mat4(1.0f);
-        float     mGizmoWorldAxisLen   = 1.0f;
-        uint64_t  mGizmoSelectionUUID  = 0;
-
-        // ── Gizmo interaction state ────────────────────────────────────────
-        GizmoHandle mGizmoHover    = GizmoHandle::None;
-        GizmoHandle mGizmoActive   = GizmoHandle::None;
-        bool        mGizmoDragging = false;
-
-        // Drag-start snapshots
-        uint64_t                 mDragEntityUUID    = 0;
+        // ── Gizmo state (just enough to batch drag deltas into one undo step)
+        bool                     mGizmoWasUsing  = false; // ImGuizmo::IsUsing() last frame, to detect drag start/end edges
+        uint64_t                 mDragEntityUUID = 0;
         Loom::TransformComponent mDragStartLocal;
-        glm::mat4                mDragStartEntityWorld    = glm::mat4(1.0f);
-        glm::mat4                mDragStartParentWorld    = glm::mat4(1.0f);
-        glm::mat4                mDragStartParentWorldInv = glm::mat4(1.0f);
-        glm::vec3                mDragStartPivotWorld     = { 0.0f, 0.0f, 0.0f };
-        glm::vec3                mDragStartBasis[3]       = { {1,0,0}, {0,1,0}, {0,0,1} };
-        glm::vec3                mDragStartHitWorld       = { 0.0f, 0.0f, 0.0f };
-        glm::vec3                mDragStartAxis           = { 1.0f, 0.0f, 0.0f };
-        glm::vec3                mDragStartPlaneNormal    = { 0.0f, 0.0f, 1.0f };
-        float                    mDragStartAxisProj       = 0.0f;
-        float                    mDragStartAngle          = 0.0f;
-        glm::vec2                mDragStartMouse          = { 0.0f, 0.0f };
     };
 
 } // namespace Weaver

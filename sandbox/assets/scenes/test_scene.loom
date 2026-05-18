@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-3.158809, 6.661975, -7.2543526]
-  Pitch: 0.25200126
-  Yaw: 3.0330198
+  Position: [-3.4114878, 6.2316504, -8.139532]
+  Pitch: 0.14100115
+  Yaw: 3.0060196
 Entities:
   - Entity: 8746896974421769953
     TagComponent:
@@ -17,12 +17,13 @@ Entities:
       AlbedoTexturePath: textures/box_texture.jpg
       Roughness: 0.5
       Metallic: 0
+    ParentID: 8938328147363150278
   - Entity: 8938328147363150278
     TagComponent:
       Tag: Box 1
     TransformComponent:
       Translation: [0, 2, 5]
-      Rotation: [0, 0, 0]
+      Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: models/box_textured.glb
@@ -66,6 +67,7 @@ Entities:
       AlbedoTexturePath: textures/box_texture.jpg
       Roughness: 0.5
       Metallic: 0
+    ParentID: 8938328147363150278
   - Entity: 12995355045989005531
     TagComponent:
       Tag: Box 3
@@ -79,6 +81,7 @@ Entities:
       AlbedoTexturePath: textures/box_texture.jpg
       Roughness: 0.5
       Metallic: 0
+    ParentID: 8938328147363150278
   - Entity: 16470370313087969112
     TagComponent:
       Tag: Floor

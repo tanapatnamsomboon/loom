@@ -77,6 +77,22 @@ target_include_directories(imguifiledialog PUBLIC ${IMGUIFILEDIALOG_DIR})
 target_link_libraries(imguifiledialog PUBLIC imgui)
 
 # -----------------------------------------------------------------------------
+# ImGuizmo (transform gizmo widget for Dear ImGui)
+# Compile ImGuizmo.cpp only — the repo also ships ImSequencer / ImCurveEdit /
+# GraphEditor / ImGradient widgets we don't use.
+# Editor-only dependency: linked into the `weaver` target, NOT the engine —
+# the 2026-05-09 ImGuizmo removal flagged DLL-boundary instability as one of
+# the suspect contributing factors.
+# -----------------------------------------------------------------------------
+set(IMGUIZMO_DIR ${CMAKE_SOURCE_DIR}/vendor/imguizmo)
+
+add_library(imguizmo STATIC
+    ${IMGUIZMO_DIR}/src/ImGuizmo.cpp
+)
+target_include_directories(imguizmo PUBLIC ${IMGUIZMO_DIR}/src)
+target_link_libraries(imguizmo PUBLIC imgui)
+
+# -----------------------------------------------------------------------------
 # Box2D
 # -----------------------------------------------------------------------------
 set(BOX2D_BUILD_TESTBED OFF CACHE INTERNAL "")

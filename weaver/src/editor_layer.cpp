@@ -1,6 +1,7 @@
 #include "editor_layer.h"
 #include "editor/file_dialog.h"
 #include <imgui.h>
+#include <ImGuizmo.h>
 #include <loom/asset/font_manager.h>
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
@@ -44,6 +45,11 @@ namespace Weaver {
         Loom::Application::Get().GetImGuiLayer()->GetContextAndAllocators(&context, &alloc_func, &free_func, &user_data);
         ImGui::SetCurrentContext(context);
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);
+
+        // ImGuizmo is statically linked into weaver and has its own ImGui*
+        // pointer. Without this, IsOver/IsUsing read the wrong context and the
+        // gizmo draws correctly but never reacts to hover/click.
+        ImGuizmo::SetImGuiContext(context);
 
         mViewportPanel.Init();
         mToolbarPanel.Init();
@@ -127,8 +133,10 @@ namespace Weaver {
         if (mViewportPanel.IsTilePaintActive())
             return true;
 
-        // Gizmo takes priority over entity selection.
-        if (mViewportPanel.BeginGizmoDragIfHovered())
+        // Gizmo handles take priority over entity selection. ImGuizmo's hover
+        // state is based on the previous frame's Manipulate; the drag itself
+        // starts automatically inside RenderGizmo this frame.
+        if (mViewportPanel.IsGizmoBusy())
             return true;
 
         mSceneHierarchyPanel.SetSelectedEntity(mContext.HoveredEntity);
@@ -255,6 +263,13 @@ namespace Weaver {
 #pragma region ImGui Rendering
 
     void EditorLayer::OnImGuiRender() {
+        // ImGuizmo per-frame init must run immediately after ImGui::NewFrame()
+        // and BEFORE any Begin/End, per the canonical pattern. Nesting it
+        // inside the dockspace Begin (the previous placement) left ImGuizmo's
+        // internal "current window" state unset, which made IsOver/IsUsing
+        // always return false even though Manipulate still drew the gizmo.
+        ImGuizmo::BeginFrame();
+
         static bool dockspace_open = true;
         static bool opt_fullscreen = true;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
