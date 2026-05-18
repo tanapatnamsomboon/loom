@@ -11,6 +11,7 @@
 #include "loom/scripting/scripting_engine.h"
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <limits>
 #include <random>
 #include <unordered_set>
@@ -40,6 +41,53 @@ namespace Loom {
 
     Scene::~Scene() {
         OnRuntimeStop();
+    }
+
+    void Scene::SetSkyboxPath(const std::string& path) {
+        if (mSkyboxPath == path) return;
+        mSkyboxPath    = path;
+        mSkyboxEquirect.reset();
+        mSkyboxCubemap.reset();
+        mSkyboxDirty   = true;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetSkyboxCubemap() {
+        if (!mSkyboxDirty) return mSkyboxCubemap;
+        mSkyboxDirty = false;
+
+        // Resolve which HDR to load:
+        //   1. Scene's explicit `mSkyboxPath` (project-relative) — takes priority.
+        //   2. Engine default at `resources/environments/default.hdr` —
+        //      ships with the engine so every project has a working IBL
+        //      environment out-of-the-box; per-scene overrides still win.
+        //   3. Nothing — viewport shows clear color, mesh.frag uses fallback
+        //      neutral grey ambient.
+        std::string abs_path;
+        if (!mSkyboxPath.empty()) {
+            abs_path = Project::GetAssetFileSystemPath(mSkyboxPath).generic_string();
+        } else {
+            std::filesystem::path engine_default =
+                Project::GetEngineAssetFileSystemPath("environments/default.hdr");
+            if (std::filesystem::exists(engine_default))
+                abs_path = engine_default.generic_string();
+        }
+
+        if (abs_path.empty()) {
+            mSkyboxEquirect.reset();
+            mSkyboxCubemap.reset();
+            return nullptr;
+        }
+
+        // Lazy load: HDR equirect → 6-face cubemap. Conversion happens via a
+        // one-time GPU pass in TextureCubemap::CreateFromEquirect.
+        mSkyboxEquirect = AssetManager::GetTexture(abs_path);
+        if (!mSkyboxEquirect) {
+            LOOM_CORE_WARN("Skybox HDR failed to load: {}", abs_path);
+            mSkyboxCubemap.reset();
+            return nullptr;
+        }
+        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 512);
+        return mSkyboxCubemap;
     }
 
     template<typename Component>

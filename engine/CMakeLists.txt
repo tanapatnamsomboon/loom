@@ -38,6 +38,7 @@ set(ENGINE_SOURCES
 
   src/platform/opengl/opengl_buffer.cpp
   src/platform/opengl/opengl_context.cpp
+  src/platform/opengl/opengl_cubemap.cpp
   src/platform/opengl/opengl_framebuffer.cpp
   src/platform/opengl/opengl_renderer_api.cpp
   src/platform/opengl/opengl_shader.cpp

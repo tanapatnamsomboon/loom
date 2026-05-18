@@ -3,6 +3,7 @@
 #include "loom/core/core.h"
 #include "loom/core/timestep.h"
 #include "loom/core/uuid.h"
+#include "loom/renderer/cubemap.h"
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/texture.h"
 #include <box2d/id.h>
@@ -75,6 +76,16 @@ namespace Loom {
         void SetShowPhysicsColliders(bool show) { mShowPhysicsColliders = show; }
         bool IsShowingPhysicsColliders() const { return mShowPhysicsColliders; }
 
+        // ── Skybox / IBL environment ──────────────────────────────────────
+        // Path is project-relative (`environments/foo.hdr` etc.). Setting the
+        // path triggers a lazy load + equirect→cubemap conversion on the next
+        // GetSkyboxCubemap(). Empty path => no skybox; viewport falls back to
+        // the framebuffer clear color, and IBL contributions use the neutral
+        // grey fallback in mesh.frag.
+        const std::string&              GetSkyboxPath()    const { return mSkyboxPath; }
+        void                            SetSkyboxPath(const std::string& path);
+        std::shared_ptr<TextureCubemap> GetSkyboxCubemap();
+
     private:
         void DrawCameraFrustum(const glm::mat4& world_transform, const CameraComponent& camera);
         void RenderPhysicsColliders();
@@ -95,6 +106,13 @@ namespace Loom {
         std::unique_ptr<Physics3DEventState> mPhysics3DEvents;
 
         bool mShowPhysicsColliders = false;
+
+        // Skybox / IBL state. `mSkyboxCubemap` is rebuilt lazily when `mSkyboxPath`
+        // changes or first access happens after a scene load.
+        std::string                     mSkyboxPath;
+        std::shared_ptr<Texture2D>      mSkyboxEquirect;
+        std::shared_ptr<TextureCubemap> mSkyboxCubemap;
+        bool                            mSkyboxDirty = true;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

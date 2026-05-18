@@ -108,13 +108,19 @@ namespace Weaver {
             else
                 mContext.EditorCamera.ResetMousePosition();
 
-            // Skybox
-            glm::mat4 view    = mContext.EditorCamera.GetViewMatrix();
-            view[3]           = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-            glm::mat4 skyboxVP = mContext.EditorCamera.GetProjectionMatrix() * view;
-            mSkyboxShader->Bind();
-            mSkyboxShader->UploadUniformMat4("uViewProjection", skyboxVP);
-            Loom::RenderCommand::DrawIndexed(mSkyboxVAO.get(), 36);
+            // Skybox — HDR cubemap if the scene has one assigned, otherwise
+            // skip and let the framebuffer clear color show through (dark grey).
+            auto skybox_cube = mContext.ActiveScene->GetSkyboxCubemap();
+            if (skybox_cube) {
+                glm::mat4 view    = mContext.EditorCamera.GetViewMatrix();
+                view[3]           = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                glm::mat4 skyboxVP = mContext.EditorCamera.GetProjectionMatrix() * view;
+                mSkyboxShader->Bind();
+                mSkyboxShader->UploadUniformMat4("uViewProjection", skyboxVP);
+                mSkyboxShader->UploadUniformInt ("uSkybox", 0);
+                skybox_cube->Bind(0);
+                Loom::RenderCommand::DrawIndexed(mSkyboxVAO.get(), 36);
+            }
 
             // Grid
             const auto& gs       = mContext.Grid;
