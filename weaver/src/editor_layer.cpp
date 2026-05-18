@@ -141,8 +141,14 @@ namespace Weaver {
         bool ctrl  = Loom::Input::IsKeyPressed(Loom::Key::LeftControl) || Loom::Input::IsKeyPressed(Loom::Key::RightControl);
         bool shift = Loom::Input::IsKeyPressed(Loom::Key::LeftShift)   || Loom::Input::IsKeyPressed(Loom::Key::RightShift);
 
-        // Gizmo shortcuts only fire when no text widget is focused and the viewport has focus.
-        bool gizmo_input_ok = mContext.ViewportFocused && !ImGui::GetIO().WantTextInput;
+        // Gizmo shortcuts only fire when:
+        //   - no text widget is focused (otherwise typing 'W' would flip the gizmo),
+        //   - the viewport has focus, and
+        //   - the user is NOT driving the editor camera (RMB-orbit + WASD strafe).
+        // The RMB gate is the fix for the "moving the camera randomly flips my gizmo
+        // op mid-drag" bug — WASD strafe shares letter keys with the gizmo ops.
+        bool rmb_held       = Loom::Input::IsMouseButtonPressed(Loom::Mouse::ButtonRight);
+        bool gizmo_input_ok = mContext.ViewportFocused && !ImGui::GetIO().WantTextInput && !rmb_held;
 
         switch ((Loom::Key)event.GetKeyCode()) {
             case Loom::Key::N:

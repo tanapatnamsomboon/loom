@@ -250,6 +250,17 @@ namespace Weaver {
 
         mContext.ViewportFocused = ImGui::IsWindowFocused();
         mContext.ViewportHovered = ImGui::IsWindowHovered();
+
+        // RMB-press inside the viewport force-focuses the window. ImGui defaults
+        // to LMB-only focus switching, so RMB-orbiting the camera while an
+        // Inspector text field had focus would route WASD into the textbox
+        // instead of the camera. SetWindowFocus also clears the active text
+        // widget, dropping WantTextInput so the gizmo shortcut handler unblocks.
+        if (mContext.ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            ImGui::SetWindowFocus();
+            mContext.ViewportFocused = true; // take effect this frame
+        }
+
         Loom::Application::Get().GetImGuiLayer()->BlockEvents(!mContext.ViewportHovered);
 
         UpdateViewportBounds();
