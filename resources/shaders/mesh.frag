@@ -38,11 +38,24 @@ uniform vec3  uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
 // Always-on ambient term — placeholder until the IBL slice replaces it with
-// diffuse irradiance + specular prefilter sampling. 0.08 is a compromise:
-// energy-conserving rendering wants this much lower than Phong's 0.20, but
-// without IBL OR tonemapping the scene looks unreadably dark below ~0.05.
-const vec3  kFallbackAmbient = vec3(0.08);
+// diffuse irradiance + specular prefilter sampling. Restored to a properly
+// low PBR value (0.03) now that tonemap + gamma at output lift the perceived
+// brightness back to a reasonable level.
+const vec3  kFallbackAmbient = vec3(0.03);
 const float kPI              = 3.14159265359;
+const float kGamma           = 2.2;
+
+// ACES filmic tonemap — Krzysztof Narkowicz's curve-fit approximation. Maps
+// open-ended HDR radiance to [0, 1] LDR with film-like roll-off in highlights
+// and bottom-end contrast; matches what Unity HDRP / Unreal use by default.
+vec3 ACESFilm(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
 
 // ── Cook-Torrance microfacet BRDF ─────────────────────────────────────────
 // Standard metallic-roughness model. References:
@@ -162,7 +175,10 @@ float SampleShadow(vec3 N, vec3 L) {
 
 void main() {
     vec4 albedo_sample = texture(uAlbedoTexture, vTexCoord) * uAlbedoColor;
-    vec3 albedo        = albedo_sample.rgb;
+    // sRGB -> linear: color textures + inspector color picker values are stored
+    // in display (sRGB) space; PBR math must run in linear space. Alpha is
+    // unitless and passes through unchanged.
+    vec3 albedo        = pow(albedo_sample.rgb, vec3(kGamma));
     vec3 N             = normalize(vWorldNormal);
     vec3 V             = normalize(uViewPos - vWorldPos);
 
@@ -205,6 +221,11 @@ void main() {
         lit += EvaluatePBRLight(N, V, L, radiance, albedo, roughness, metallic, F0);
     }
 
-    oColor    = vec4(lit, albedo_sample.a);
+    // HDR -> LDR via ACES tonemapping, then linear -> sRGB for the framebuffer
+    // (which is RGBA8 displayed verbatim — no GPU sRGB conversion in the chain).
+    vec3 tonemapped = ACESFilm(lit);
+    vec3 display    = pow(tonemapped, vec3(1.0 / kGamma));
+
+    oColor    = vec4(display, albedo_sample.a);
     oEntityID = uEntityID;
 }
