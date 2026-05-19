@@ -21,6 +21,7 @@ The project ships three distinct targets: the **Loom** engine library, the **Wea
 - **Play / Stop** — enter runtime in-editor; physics, scripting, and audio activate on play and are torn down cleanly on stop
 - **Project & Scene I/O** — New / Open / Save / Save As for both projects and scenes; "unsaved changes" guard modal; recently opened projects list
 - **Project Settings** — configure window title, resolution, and start scene from a dedicated modal; settings round-trip through the `.loomproj` file and are consumed by WeaverRuntime at launch
+- **Scene Properties panel** — Unreal-style "World Settings" window for scene-level data that gets serialized into the `.loom` (currently the skybox HDR path; designed to grow as ambient color / fog / default gravity / etc. land)
 - **Undo / Redo** — 50-step command history (`Ctrl+Z` / `Ctrl+Shift+Z`); covers entity creation and deletion, component add/remove, gizmo transforms, and every inspector property edit; title-bar dirty indicator is driven by history depth rather than a manual flag
 - **Editor camera persistence** — camera position, pitch, and yaw saved per scene and restored exactly on re-open
 
@@ -42,7 +43,8 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 ### Renderer
 
 - **Renderer2D** — batched quads, textures, color tint, tiling factor, lines, circles, signed-distance text (stb_truetype glyph atlas), tilemap rendering
-- **Renderer3D** — mesh facade with one draw call per submission; Blinn-Phong lighting with directional and point lights; albedo color + texture + roughness/metallic uniforms (PBR upgrade planned for Phase 5)
+- **Renderer3D** — mesh facade with one draw call per submission; physically-based shading via Cook-Torrance microfacet BRDF (GGX + Smith + Schlick) for direct lighting + full Karis split-sum IBL (HDR equirect → cubemap skybox, diffuse irradiance, GGX-importance-sampled prefilter, BRDF LUT); ACES tonemap + sRGB pipeline; up to 4 directional + 16 point lights; meaningful `Roughness` / `Metallic` material sliders
+- **HDR skybox & IBL** — assign a `.hdr` environment per scene; engine builds the env cubemap + diffuse irradiance + roughness-prefiltered specular cubemap on first load. Editor layers a default HDR fallback so PBR materials are never pitch-black during level construction; Play mode honors the scene's exact env (empty env = solid clear + zero ambient, by design)
 - **Shadow mapping** — directional cascaded shadow maps (4 cascades, practical split scheme, 3×3 PCF softening, slope-scale bias, per-cascade sphere-fit + texel-snap stabilization)
 - **Particles** — CPU-simulated emitters (point/box/circle shape, world or local space) with lifetime / velocity / gravity ranges and color/size curves; live preview in the editor
 - **Sprite animation** — multi-clip `AnimationComponent` (per-clip frames, frame duration, loop); visual spritesheet picker (click cells to add frames); per-frame events dispatched to Lua as `OnAnimationEvent(name)`
@@ -113,7 +115,7 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 
 ## Current Status
 
-Phases 1 through 4 are **complete**. The engine is 2D + 3D feature-complete with shadow-mapped cascades, a working standalone runtime, and a polished editor. Active work is **Phase 5 — Advanced Rendering**.
+Phases 1 through 5 are **complete**. The engine is 2D + 3D feature-complete with cascaded shadow maps, full PBR + IBL shading, a working standalone runtime, and a polished editor. Active work is **Phase 6 — Graphics API Expansion** (Vulkan + DirectX 12 backends).
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -122,7 +124,7 @@ Phases 1 through 4 are **complete**. The engine is 2D + 3D feature-complete with
 | Phase 2 | WeaverRuntime standalone executable | ✅ Complete |
 | Phase 3 | Editor & Tools Polish — undo/redo (Command Pattern), text/HUD rendering, tilemap (paint tool + per-tile collision), particle system, custom gizmos, animation polish (multi-clip + events + visual picker) | ✅ Complete |
 | Phase 4 | 3D Foundation — GLTF mesh loading (cgltf), `Renderer3D`, Blinn-Phong lighting (directional + point), Jolt 3D physics with Box/Sphere/Capsule colliders + collision events | ✅ Complete |
-| Phase 5 | Advanced Rendering — directional cascaded shadow maps ✅ done; PBR shading + IBL ⏳ in progress | ⏳ In progress |
+| Phase 5 | Advanced Rendering — directional cascaded shadow maps; PBR shading (Cook-Torrance direct + Karis split-sum IBL, ACES tonemap, sRGB pipeline); HDR skybox / per-scene env | ✅ Complete |
 | Phase 6 | Graphics API Expansion — Vulkan and DirectX 12 backends | 🔲 Planned |
 
 ---
@@ -218,7 +220,7 @@ engine/           Core engine library (Loom)
     project/      Project and ProjectSerializer
 weaver/           Editor application (Weaver)
   src/
-    panels/       Viewport (gizmo + tile paint), scene hierarchy, content browser, toolbar
+    panels/       Viewport (gizmo + tile paint), scene hierarchy, content browser, toolbar, scene properties
     editor/       Scene and project I/O managers, undo/redo command history
     scripts/      Native C++ script examples
 weaver_runtime/   Standalone runtime executable (WeaverRuntime)
