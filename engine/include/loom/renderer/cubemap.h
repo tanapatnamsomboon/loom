@@ -51,6 +51,16 @@ namespace Loom {
         static std::shared_ptr<TextureCubemap> CreateIrradiance(
             const std::shared_ptr<TextureCubemap>& env_cubemap,
             uint32_t face_size = 32);
+
+        // Specular prefilter cubemap (Karis 2013 split-sum). Allocates a full
+        // mip chain; each mip is convolved with a GGX importance-sampled
+        // kernel where roughness = mip / (maxMip - 1). Mip 0 is the
+        // mirror-roughness sample; the deepest mip is fully rough. The PBR
+        // shader samples this via `textureLod(prefilter, R, roughness * maxLOD)`
+        // and combines with a BRDF LUT to produce the specular IBL term.
+        static std::shared_ptr<TextureCubemap> CreatePrefiltered(
+            const std::shared_ptr<TextureCubemap>& env_cubemap,
+            uint32_t face_size = 256);
     };
 
 } // namespace Loom

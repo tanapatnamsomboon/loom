@@ -34,14 +34,15 @@ namespace Loom {
         static std::shared_ptr<Scene> Copy(std::shared_ptr<Scene> other);
         void                          OnViewportResize(uint32_t width, uint32_t height);
 
-        // `fallback_irradiance` is used in editor mode when the scene has no
-        // environment of its own — typically the editor's default-HDR-derived
-        // irradiance — so PBR materials never go pitch-black while a level is
-        // being built. Pass null to skip the fallback (materials with no IBL
-        // will fall back to zero ambient in mesh.frag). Play mode never gets a
-        // fallback: `OnUpdateRuntime` uses only the scene's own irradiance.
+        // `fallback_irradiance` + `fallback_prefilter` drive editor-mode IBL
+        // when the scene has no environment of its own — typically built from
+        // the editor's default HDR — so PBR materials never go pitch-black
+        // while a level is being built. Pass null on either to skip that
+        // half of the fallback. Play mode never receives a fallback:
+        // `OnUpdateRuntime` uses only the scene's own IBL.
         void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
-                            std::shared_ptr<TextureCubemap> fallback_irradiance = nullptr);
+                            std::shared_ptr<TextureCubemap> fallback_irradiance = nullptr,
+                            std::shared_ptr<TextureCubemap> fallback_prefilter  = nullptr);
         void OnRuntimeStart();
         void OnUpdateRuntime(Timestep ts);
         void OnRuntimeStop();
@@ -98,6 +99,10 @@ namespace Loom {
         // built the first time after the skybox cubemap is available. Null
         // when no skybox exists.
         std::shared_ptr<TextureCubemap> GetIrradianceCubemap();
+        // Specular prefilter cubemap (Karis split-sum). Roughness-convolved
+        // per mip. Same lazy-build + lifetime semantics as the irradiance
+        // map; null when no skybox exists.
+        std::shared_ptr<TextureCubemap> GetPrefilterCubemap();
 
         // Debug visualization for the IBL pipeline. Picks which cubemap the
         // viewport renders as its skybox. `Irradiance` displays the convolved
@@ -137,6 +142,7 @@ namespace Loom {
         std::shared_ptr<Texture2D>      mSkyboxEquirect;
         std::shared_ptr<TextureCubemap> mSkyboxCubemap;
         std::shared_ptr<TextureCubemap> mIrradianceCubemap;
+        std::shared_ptr<TextureCubemap> mPrefilterCubemap;
         bool                            mSkyboxDirty  = true;
         SkyboxSource                    mSkyboxSource = SkyboxSource::Env;
 

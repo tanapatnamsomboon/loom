@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-7.304659, 2.797192, 4.0807385]
-  Pitch: 0.12299941
-  Yaw: -3.8309324
+  Position: [-8.181438, 3.4229648, 3.554119]
+  Pitch: 0.17699942
+  Yaw: -3.632926
 SkyboxPath: environments/kloppenheim_06_puresky_4k.hdr
 Entities:
   - Entity: 9443136952789325132
@@ -26,8 +26,8 @@ Entities:
       MeshPath: models/sphere.glb
       AlbedoColor: [1, 0.65882355, 0.29803923, 1]
       AlbedoTexturePath: ""
-      Roughness: 0.304
-      Metallic: 0
+      Roughness: 0
+      Metallic: 1
   - Entity: 16983997089760853697
     TagComponent:
       Tag: MainCamera

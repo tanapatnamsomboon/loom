@@ -47,10 +47,16 @@ namespace Loom {
         static void SetLights(const DirectionalLight* dir_lights, int dir_count,
                               const PointLight*       point_lights, int point_count);
 
-        // IBL environment — irradiance cubemap drives the ambient diffuse term
-        // in mesh.frag. Pass null to fall back to the constant grey ambient.
-        // (Slice B.3 will add a prefilter cubemap + Slice B.4 a BRDF LUT here.)
+        // IBL environment. Pass null to disable IBL for the next draws.
+        //   * `SetIrradianceMap` — diffuse ambient term (Lambertian-convolved
+        //     env cubemap, B.2).
+        //   * `SetPrefilterMap` — specular IBL via the Karis split-sum
+        //     approximation (B.3). Cubemap is roughness-convolved per mip;
+        //     the shader samples `textureLod(prefilter, R, roughness * maxLOD)`.
+        //     The BRDF LUT half of the split-sum is owned by Renderer3D
+        //     internally (generated once at Init).
         static void SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance);
+        static void SetPrefilterMap(const std::shared_ptr<TextureCubemap>& prefilter);
 
         // Renders `cubemap` as a skybox using the currently-bound framebuffer
         // and viewport. `view` is the camera view matrix (translation is zeroed

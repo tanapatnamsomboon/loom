@@ -1,5 +1,6 @@
 #include "loom/renderer/renderer_3d.h"
 #include "loom/asset/asset_manager.h"
+#include "loom/core/log.h"
 #include "loom/project/project.h"
 #include "loom/renderer/buffer.h"
 #include "loom/renderer/framebuffer.h"
@@ -38,8 +39,22 @@ namespace Loom {
         int       PointLightCount = 0;
 
         // ── IBL state ──
-        // Bound at texture unit 5 in Submit (units 0=albedo, 1-4=shadow cascades).
+        // Texture unit layout in Submit:
+        //   0     = albedo
+        //   1-4   = shadow cascades
+        //   5     = irradiance cubemap (diffuse ambient)
+        //   6     = prefiltered env cubemap (specular IBL, mips = roughness)
+        //   7     = BRDF LUT (split-sum scale+bias, generated once at Init)
         std::shared_ptr<TextureCubemap> IrradianceMap;
+        std::shared_ptr<TextureCubemap> PrefilterMap;
+        // BRDF LUT is an RG16F 2D texture owned as raw GL state — Texture2D's
+        // abstraction is RGBA8-only and adding a format-enum just for this
+        // single-instance global texture isn't worth it. Generated at Init,
+        // freed at Shutdown.
+        GLuint                          BRDFLUT      = 0;
+        // log2(prefilter face size) — uploaded to the shader so it knows the
+        // max LOD to clamp roughness against. 0 when no prefilter is bound.
+        float                           MaxReflectionLOD = 0.0f;
 
         // Debug visualization mode (see mesh.frag uDebugViz). 0 = normal PBR.
         int DebugViz = 0;
@@ -67,6 +82,114 @@ namespace Loom {
 
     static Renderer3DStorage sData;
 
+    namespace {
+        // Generates the BRDF LUT for the Karis split-sum IBL approximation —
+        // 512×512 RG16F, axes = (NdotV, roughness), values = (scale, bias) for
+        // F = F0 * scale + bias. Runs once at Renderer3D::Init.
+        GLuint GenerateBRDFLUT(uint32_t size) {
+            constexpr GLuint   kBindTextureUnit = 7; // matches the mesh-shader uniform
+            const std::string  shader_path =
+                Project::GetEngineAssetFileSystemPath("shaders/brdf_lut").generic_string();
+            std::shared_ptr<Shader> shader = AssetManager::GetShader(shader_path);
+            if (!shader) return 0;
+
+            GLuint lut = 0;
+            glCreateTextures(GL_TEXTURE_2D, 1, &lut);
+            glTextureStorage2D(lut, 1, GL_RG16F, size, size);
+            glTextureParameteri(lut, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+            glTextureParameteri(lut, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
+            glTextureParameteri(lut, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTextureParameteri(lut, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            // Snapshot caller state so this Init helper restores cleanly.
+            // GL state leaked from this pass into long-lived render state has
+            // bitten us once already: forgetting to restore GL_BLEND turned
+            // transparent grid / icon edges opaque for the rest of the
+            // session. Save everything we touch, restore on the way out.
+            GLint     prev_fbo = 0, prev_viewport[4] = { 0, 0, 0, 0 };
+            GLint     prev_vao = 0;
+            GLfloat   prev_clear_color[4] = { 0, 0, 0, 0 };
+            GLboolean prev_color_mask[4]  = { GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE };
+            GLboolean prev_depth, prev_cull, prev_blend;
+            glGetIntegerv (GL_FRAMEBUFFER_BINDING,  &prev_fbo);
+            glGetIntegerv (GL_VIEWPORT,             prev_viewport);
+            glGetIntegerv (GL_VERTEX_ARRAY_BINDING, &prev_vao);
+            glGetFloatv   (GL_COLOR_CLEAR_VALUE,    prev_clear_color);
+            glGetBooleanv (GL_COLOR_WRITEMASK,      prev_color_mask);
+            prev_depth = glIsEnabled(GL_DEPTH_TEST);
+            prev_cull  = glIsEnabled(GL_CULL_FACE);
+            prev_blend = glIsEnabled(GL_BLEND);
+
+            // Scratch FBO + VAO (core profile requires a VAO bound even for
+            // gl_VertexID-only draws; the brdf_lut.vert reads no attributes).
+            GLuint fbo = 0, vao = 0;
+            glCreateFramebuffers(1, &fbo);
+            glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, lut, 0);
+            // Explicit draw-buffer mapping. New FBOs technically default to
+            // GL_COLOR_ATTACHMENT0, but a handful of drivers (and some debug
+            // captures) have shipped with that initial state set to GL_NONE.
+            // Setting it explicitly is free and rules the class of bug out.
+            GLenum draw_bufs[] = { GL_COLOR_ATTACHMENT0 };
+            glNamedFramebufferDrawBuffers(fbo, 1, draw_bufs);
+            GLenum fb_status = glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+            if (fb_status != GL_FRAMEBUFFER_COMPLETE) {
+                LOOM_CORE_ERROR("IBL: BRDF LUT framebuffer incomplete (status 0x{:X})", fb_status);
+                glDeleteFramebuffers(1, &fbo);
+                glDeleteTextures(1, &lut);
+                return 0;
+            }
+            glCreateVertexArrays(1, &vao);
+
+            // Guard against color-write masks leaking in from earlier draws.
+            // (None should at engine-init time, but Renderer3D::Init runs
+            // after Application has touched GL once, so we're paranoid.)
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_BLEND);
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+            glViewport(0, 0, size, size);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            shader->Bind();
+            glBindVertexArray(vao);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            // Verify a non-zero pixel landed. If the texture is still all
+            // zero after the draw, something silently no-op'd (most often
+            // a shader linkage / draw-buffer issue) and the LUT-sampled
+            // specular IBL will be invisible — surface the error early.
+            float pixel[4] = { 0, 0, 0, 0 };
+            glGetTextureSubImage(lut, 0, (GLint)(size / 2), (GLint)(size / 2), 0,
+                                 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(pixel), pixel);
+            if (pixel[0] == 0.0f && pixel[1] == 0.0f) {
+                LOOM_CORE_ERROR("IBL: BRDF LUT pass wrote zero — split-sum specular will be black. "
+                                "Check brdf_lut.{{vert,frag}} compile log + driver output.");
+            } else {
+                LOOM_CORE_TRACE("IBL: BRDF LUT center sample = ({}, {}) — generation OK.",
+                                pixel[0], pixel[1]);
+            }
+
+            glDeleteFramebuffers(1, &fbo);
+            glDeleteVertexArrays(1, &vao);
+
+            // Restore caller state.
+            if (prev_depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+            if (prev_cull)  glEnable(GL_CULL_FACE);  else glDisable(GL_CULL_FACE);
+            if (prev_blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
+            glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+            glClearColor(prev_clear_color[0], prev_clear_color[1], prev_clear_color[2], prev_clear_color[3]);
+            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+            glBindVertexArray((GLuint)prev_vao);
+            glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+
+            (void)kBindTextureUnit;
+            LOOM_CORE_TRACE("IBL: BRDF LUT generated ({}x{} RG16F, split-sum)", size, size);
+            return lut;
+        }
+    } // anonymous namespace
+
     void Renderer3D::Init() {
         std::string mesh_path   = Project::GetEngineAssetFileSystemPath("shaders/mesh").generic_string();
         sData.MeshShader        = AssetManager::GetShader(mesh_path);
@@ -90,7 +213,7 @@ namespace Loom {
         }
 
         // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount,
-        // IBL irradiance on 5 (prefilter/BRDF LUT slots reserved at 6/7 for later).
+        // IBL irradiance on 5, prefilter cubemap on 6, BRDF LUT on 7.
         sData.MeshShader->Bind();
         sData.MeshShader->UploadUniformInt("uAlbedoTexture",  0);
         sData.MeshShader->UploadUniformInt("uShadowMap0",     1);
@@ -98,6 +221,11 @@ namespace Loom {
         sData.MeshShader->UploadUniformInt("uShadowMap2",     3);
         sData.MeshShader->UploadUniformInt("uShadowMap3",     4);
         sData.MeshShader->UploadUniformInt("uIrradianceMap",  5);
+        sData.MeshShader->UploadUniformInt("uPrefilterMap",   6);
+        sData.MeshShader->UploadUniformInt("uBRDFLUT",        7);
+
+        // BRDF LUT — environment-independent, generated once at engine init.
+        sData.BRDFLUT = GenerateBRDFLUT(512);
 
         // Skybox cube: 8 unique vertices, 36 indices via IBO. Same layout the
         // editor used to keep inline — moved here so the play-mode path can
@@ -135,6 +263,12 @@ namespace Loom {
         sData.SkyboxShader.reset();
         sData.SkyboxVAO.reset();
         sData.SkyboxVBO.reset();
+        sData.IrradianceMap.reset();
+        sData.PrefilterMap.reset();
+        if (sData.BRDFLUT) {
+            glDeleteTextures(1, &sData.BRDFLUT);
+            sData.BRDFLUT = 0;
+        }
         for (int i = 0; i < kCascadeCount; ++i) sData.ShadowFramebuffers[i].reset();
     }
 
@@ -169,6 +303,19 @@ namespace Loom {
 
     void Renderer3D::SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance) {
         sData.IrradianceMap = irradiance;
+    }
+
+    void Renderer3D::SetPrefilterMap(const std::shared_ptr<TextureCubemap>& prefilter) {
+        sData.PrefilterMap = prefilter;
+        // The shader samples `textureLod(uPrefilterMap, R, roughness * uMaxReflectionLOD)`,
+        // so MaxLOD must match the cubemap's last mip index. For a face_size
+        // of N, mip count is floor(log2(N)) + 1 — the last mip's LOD index
+        // is mip_count - 1.
+        if (prefilter && prefilter->GetMipLevels() > 0) {
+            sData.MaxReflectionLOD = float(prefilter->GetMipLevels() - 1);
+        } else {
+            sData.MaxReflectionLOD = 0.0f;
+        }
     }
 
     void Renderer3D::DrawSkybox(const glm::mat4& view, const glm::mat4& projection,
@@ -287,11 +434,17 @@ namespace Loom {
             sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
         }
 
-        // IBL — bind irradiance cubemap at unit 5 + flag the shader.
-        sData.MeshShader->UploadUniformInt("uHasIBL", sData.IrradianceMap ? 1 : 0);
-        if (sData.IrradianceMap) {
-            sData.IrradianceMap->Bind(5);
-        }
+        // IBL — bind irradiance (5), prefilter (6), BRDF LUT (7). The `uHasIBL`
+        // gate flips on when *any* of the three is present; the shader handles
+        // a missing prefilter/LUT by skipping just the specular IBL term. In
+        // practice the scene either has the full triple bound or nothing.
+        bool has_ibl = sData.IrradianceMap || sData.PrefilterMap;
+        sData.MeshShader->UploadUniformInt  ("uHasIBL",          has_ibl ? 1 : 0);
+        sData.MeshShader->UploadUniformInt  ("uHasPrefilter",    sData.PrefilterMap ? 1 : 0);
+        sData.MeshShader->UploadUniformFloat("uMaxReflectionLOD", sData.MaxReflectionLOD);
+        if (sData.IrradianceMap) sData.IrradianceMap->Bind(5);
+        if (sData.PrefilterMap)  sData.PrefilterMap->Bind(6);
+        if (sData.BRDFLUT)       glBindTextureUnit(7, sData.BRDFLUT);
 
         // Debug visualization mode (0 = normal PBR path).
         sData.MeshShader->UploadUniformInt("uDebugViz", sData.DebugViz);

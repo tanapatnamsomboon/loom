@@ -75,6 +75,7 @@ namespace Loom {
             GLuint                  capture_fbo = 0;   // persistent — reused across passes
             std::shared_ptr<Shader> equirect_shader;
             std::shared_ptr<Shader> irradiance_shader;
+            std::shared_ptr<Shader> prefilter_shader;
             bool                    initialized = false;
         };
         CubeCaptureState g_conv;
@@ -132,8 +133,10 @@ namespace Loom {
 
             std::string equirect_path   = Project::GetEngineAssetFileSystemPath("shaders/equirect_to_cubemap").generic_string();
             std::string irradiance_path = Project::GetEngineAssetFileSystemPath("shaders/irradiance_convolution").generic_string();
+            std::string prefilter_path  = Project::GetEngineAssetFileSystemPath("shaders/prefilter_convolution").generic_string();
             g_conv.equirect_shader   = AssetManager::GetShader(equirect_path);
             g_conv.irradiance_shader = AssetManager::GetShader(irradiance_path);
+            g_conv.prefilter_shader  = AssetManager::GetShader(prefilter_path);
 
             g_conv.initialized = true;
             LOOM_CORE_TRACE("IBL: cube-capture state initialized (VAO + persistent FBO + shaders loaded)");
@@ -288,6 +291,44 @@ namespace Loom {
         glGenerateTextureMipmap(cubemap->GetRendererID());
 
         LOOM_CORE_TRACE("IBL: built irradiance cubemap {}x{} ({} mips) from {}x{} env",
+                        face_size, face_size, mip_levels,
+                        env_cubemap->GetFaceSize(), env_cubemap->GetFaceSize());
+        return cubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> TextureCubemap::CreatePrefiltered(
+        const std::shared_ptr<TextureCubemap>& env_cubemap, uint32_t face_size) {
+
+        if (!env_cubemap) {
+            LOOM_CORE_ERROR("CreatePrefiltered: null source cubemap");
+            return nullptr;
+        }
+        EnsureConversionState();
+
+        // Full mip chain — each mip stores the env convolved at a different
+        // roughness. mip 0 = mirror, deepest mip = fully rough. The shader
+        // samples this with `textureLod(prefilter, R, roughness * maxLOD)`.
+        const uint32_t mip_levels = MipCountForFaceSize(face_size);
+        auto cubemap = Create(face_size, CubemapFormat::RGB16F, mip_levels);
+
+        g_conv.prefilter_shader->Bind();
+        g_conv.prefilter_shader->UploadUniformInt   ("uEnvironment",    0);
+        g_conv.prefilter_shader->UploadUniformFloat ("uSourceFaceSize",
+                                                      (float)env_cubemap->GetFaceSize());
+        env_cubemap->Bind(0);
+
+        for (uint32_t mip = 0; mip < mip_levels; ++mip) {
+            // Roughness sweep: mip 0 → 0.0 (perfect mirror), last mip → 1.0.
+            // The single-mip degenerate case (face_size = 1) maps to roughness
+            // 0 — harmless since there's no meaningful convolution to do.
+            float roughness = (mip_levels > 1)
+                ? float(mip) / float(mip_levels - 1)
+                : 0.0f;
+            g_conv.prefilter_shader->UploadUniformFloat("uRoughness", roughness);
+            RenderToCubemapFaces(*cubemap, *g_conv.prefilter_shader, mip);
+        }
+
+        LOOM_CORE_TRACE("IBL: built prefilter cubemap {}x{} ({} mips) from {}x{} env",
                         face_size, face_size, mip_levels,
                         env_cubemap->GetFaceSize(), env_cubemap->GetFaceSize());
         return cubemap;

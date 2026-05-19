@@ -115,10 +115,12 @@ namespace Weaver {
         auto skybox = Loom::TextureCubemap::CreateFromEquirect(equirect, 2048);
         if (!skybox) return;
         auto irradiance = Loom::TextureCubemap::CreateIrradiance(skybox, 128);
+        auto prefilter  = Loom::TextureCubemap::CreatePrefiltered(skybox, 256);
 
         mContext.FallbackEnvironment.Equirect   = std::move(equirect);
         mContext.FallbackEnvironment.Skybox     = std::move(skybox);
         mContext.FallbackEnvironment.Irradiance = std::move(irradiance);
+        mContext.FallbackEnvironment.Prefilter  = std::move(prefilter);
         LOOM_CORE_INFO("Editor fallback environment loaded from {}", engine_default.generic_string());
     }
 

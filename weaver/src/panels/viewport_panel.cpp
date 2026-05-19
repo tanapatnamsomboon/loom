@@ -128,7 +128,8 @@ namespace Weaver {
             case SceneState::Edit:
                 mContext.ActiveScene->OnUpdateEditor(ts, mContext.EditorCamera,
                                                      mContext.HierarchyPanel->GetSelectedEntity(),
-                                                     mContext.FallbackEnvironment.Irradiance);
+                                                     mContext.FallbackEnvironment.Irradiance,
+                                                     mContext.FallbackEnvironment.Prefilter);
                 break;
             case SceneState::Play:
                 mContext.ActiveScene->OnUpdateRuntime(ts);

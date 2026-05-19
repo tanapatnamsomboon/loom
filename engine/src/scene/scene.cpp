@@ -49,6 +49,7 @@ namespace Loom {
         mSkyboxEquirect.reset();
         mSkyboxCubemap.reset();
         mIrradianceCubemap.reset();
+        mPrefilterCubemap.reset();
         mSkyboxDirty   = true;
     }
 
@@ -102,6 +103,19 @@ namespace Loom {
         // that interpolation is imperceptible. Cost: 128×128×6×6 ≈ 600 KB.
         mIrradianceCubemap = TextureCubemap::CreateIrradiance(env, 128);
         return mIrradianceCubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetPrefilterCubemap() {
+        if (mPrefilterCubemap) return mPrefilterCubemap;
+        auto env = GetSkyboxCubemap();
+        if (!env) return nullptr;
+        // 256² with a full mip chain (mips 0..8). Roughness 0 = mip 0 (mirror,
+        // matches env resolution), roughness 1 = mip 8 (4² fully-rough). Cost:
+        // ~525 KB RGB16F with the mip chain. The build is the most expensive
+        // step in the IBL pipeline (1024 samples × 6 faces × Σ mip texels),
+        // takes ~half a second on a mid-range GPU — runs once per scene load.
+        mPrefilterCubemap = TextureCubemap::CreatePrefiltered(env, 256);
+        return mPrefilterCubemap;
     }
 
     template<typename Component>
@@ -192,6 +206,7 @@ namespace Loom {
         new_scene->mSkyboxEquirect    = other->mSkyboxEquirect;
         new_scene->mSkyboxCubemap     = other->mSkyboxCubemap;
         new_scene->mIrradianceCubemap = other->mIrradianceCubemap;
+        new_scene->mPrefilterCubemap  = other->mPrefilterCubemap;
         new_scene->mSkyboxDirty       = other->mSkyboxDirty;
 
         return new_scene;
@@ -676,7 +691,8 @@ namespace Loom {
     }
 
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
-                                std::shared_ptr<TextureCubemap> fallback_irradiance) {
+                                std::shared_ptr<TextureCubemap> fallback_irradiance,
+                                std::shared_ptr<TextureCubemap> fallback_prefilter) {
         // Shadow pass runs first — fills the shadow map (separate FBO), then
         // restores the caller's framebuffer so the main 3D pass renders into
         // the editor viewport as usual.
@@ -685,12 +701,17 @@ namespace Loom {
         // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
         GatherAndUploadLights(this, mRegistry);
-        // Scene's own irradiance takes priority; editor fallback fills in when
-        // the scene has no environment assigned so PBR materials never go
-        // pitch-black during level construction.
+        // Scene's own IBL takes priority; editor fallback fills in when the
+        // scene has no environment assigned so PBR materials never go pitch-
+        // black during level construction. Diffuse + specular fall back
+        // independently — usually together, but the type allows for the
+        // fallback HDR to fail one stage and not the other.
         auto irradiance = GetIrradianceCubemap();
+        auto prefilter  = GetPrefilterCubemap();
         if (!irradiance) irradiance = std::move(fallback_irradiance);
+        if (!prefilter)  prefilter  = std::move(fallback_prefilter);
         Renderer3D::SetIrradianceMap(irradiance);
+        Renderer3D::SetPrefilterMap (prefilter);
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
             DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
         }
@@ -1330,6 +1351,7 @@ namespace Loom {
             Renderer3D::BeginScene(*main_camera, camera_transform);
             GatherAndUploadLights(this, mRegistry);
             Renderer3D::SetIrradianceMap(GetIrradianceCubemap());
+            Renderer3D::SetPrefilterMap (GetPrefilterCubemap());
             for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
                 DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
             }

@@ -160,6 +160,8 @@ namespace Weaver {
                 "NdotL (light 0)",
                 "NdotV",
                 "Albedo only",
+                "Prefilter (R, roughness)",
+                "BRDF LUT (R=scale, G=bias)",
             };
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
             if (ImGui::Combo("##DebugViz", &debug_viz, viz_labels, IM_ARRAYSIZE(viz_labels))) {

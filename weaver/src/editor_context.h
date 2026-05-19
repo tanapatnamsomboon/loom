@@ -47,6 +47,7 @@ namespace Weaver {
         std::shared_ptr<Loom::Texture2D>      Equirect;
         std::shared_ptr<Loom::TextureCubemap> Skybox;
         std::shared_ptr<Loom::TextureCubemap> Irradiance;
+        std::shared_ptr<Loom::TextureCubemap> Prefilter;
     };
 
     struct GridSettings {
