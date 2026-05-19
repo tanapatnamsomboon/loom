@@ -87,10 +87,16 @@ namespace Loom {
             mSkyboxCubemap.reset();
             return nullptr;
         }
-        // 1024 per face: high enough to preserve detail of 1k–4k HDR sources at
-        // typical viewport resolutions (≥1280 wide) without LINEAR-mag softening
-        // when the camera fills the screen with the skybox.
-        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 1024);
+        // 2048 per face: the editor camera uses a 30° FOV, so viewport density
+        // (≈22 px/deg at 660 vp-px tall) is ~2× the cubemap's angular density
+        // at 1024². That mismatch causes a visible bilinear upscale ("looks like
+        // 480p"). 2048² brings cubemap density to ~22.8 px/deg — near 1:1 with
+        // the viewport at typical editor sizes — so cubemap→viewport sampling
+        // doesn't introduce additional softening. Does NOT add detail beyond
+        // what a 4K equirect carries (the HDR is still the information ceiling);
+        // it just removes the upsample-blur step. VRAM cost: ~200 MB RGB16F
+        // with full mip chain.
+        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 2048);
         return mSkyboxCubemap;
     }
 

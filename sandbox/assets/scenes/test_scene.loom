@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-4.075947, 3.6899734, 14.9474325]
-  Pitch: 0.2970012
-  Yaw: -12.758886
+  Position: [-10.1586485, 2.5492928, 13.833241]
+  Pitch: 0.15899923
+  Yaw: -5.5859313
 Entities:
   - Entity: 9443136952789325132
     TagComponent:
@@ -26,31 +26,6 @@ Entities:
       AlbedoColor: [1, 0.65882355, 0.29803923, 1]
       AlbedoTexturePath: ""
       Roughness: 0.304
-      Metallic: 0
-  - Entity: 16470370313087969112
-    TagComponent:
-      Tag: Floor
-    TransformComponent:
-      Translation: [0, 0.9, 90]
-      Rotation: [0, 0, 0]
-      Scale: [150, 0.2, 200]
-    Rigidbody3DComponent:
-      Type: 0
-      FixedRotation: false
-      LinearDamping: 0.05
-      AngularDamping: 0.05
-    BoxCollider3DComponent:
-      Offset: [0, 0, 0]
-      HalfExtents: [0.5, 0.5, 0.5]
-      Density: 1
-      Friction: 0.5
-      Restitution: 0
-      IsSensor: false
-    MeshRendererComponent:
-      MeshPath: models/box_textured.glb
-      AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/plain_blur_grey_black_gradient_texture.jpg
-      Roughness: 0.5
       Metallic: 0
   - Entity: 16983997089760853697
     TagComponent:

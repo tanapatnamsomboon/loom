@@ -27,7 +27,7 @@ namespace Weaver {
 
         mContext.EditorScene    = std::make_shared<Loom::Scene>();
         mContext.ActiveScene    = mContext.EditorScene;
-        mContext.EditorCamera   = Loom::EditorCamera(30.0f, 1.778f, 0.1f, 1000.0f);
+        mContext.EditorCamera   = Loom::EditorCamera(60.0f, 1.778f, 0.1f, 1000.0f);
         mContext.HierarchyPanel = &mSceneHierarchyPanel;
 
         mSceneHierarchyPanel.SetContext(mContext.ActiveScene);
