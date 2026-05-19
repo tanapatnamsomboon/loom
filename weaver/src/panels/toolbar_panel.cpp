@@ -1,11 +1,9 @@
 #include "toolbar_panel.h"
-#include "editor/file_dialog.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <loom/asset/asset_manager.h>
 #include <loom/project/project.h>
 #include <loom/renderer/renderer_3d.h>
-#include <cstring>
 
 namespace Weaver {
 
@@ -134,38 +132,12 @@ namespace Weaver {
         }
 
         ImGui::Spacing();
-        ImGui::TextDisabled("SCENE — SKYBOX");
+        ImGui::TextDisabled("DEBUG VIZ");
         ImGui::Separator();
         {
-            // Project-relative HDR path; empty = no skybox (clear color shows).
-            // Sets on the active scene only; saved to .loom via SceneSerializer.
-            std::string sky = mContext.ActiveScene->GetSkyboxPath();
-            char buf[256] = {};
-            std::strncpy(buf, sky.c_str(), sizeof(buf) - 1);
-            constexpr float browse_w = 28.0f;
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_w - ImGui::GetStyle().ItemSpacing.x);
-            if (ImGui::InputText("##SkyboxPath", buf, sizeof(buf))) {
-                mContext.ActiveScene->SetSkyboxPath(buf);
-                mContext.SceneDirty = true;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("...##SkyboxBrowse", { browse_w, 0.0f })) {
-                FileDialog::Open("BrowseSkybox", "Choose HDR Environment", ".hdr",
-                    [scene = mContext.ActiveScene, dirty = &mContext.SceneDirty](const std::string& abs_path) {
-                        if (!scene) return;
-                        scene->SetSkyboxPath(FileDialog::MakeAssetRelative(abs_path));
-                        *dirty = true;
-                    });
-            }
-            if (sky.empty()) {
-                ImGui::TextDisabled("Empty → using engine default (resources/environments/default.hdr)");
-            } else {
-                ImGui::TextDisabled("HDR (.hdr / Radiance RGBE)");
-            }
-
-            // Debug: render the irradiance map as the skybox to inspect what
-            // the B.2 convolution actually produced. The irradiance cubemap
-            // should look like a very low-frequency smoothed version of the
+            // Render the irradiance map as the skybox to inspect what the B.2
+            // convolution actually produced. The irradiance cubemap should
+            // look like a very low-frequency smoothed version of the
             // environment — if it has any visible high-frequency structure,
             // the convolution is broken.
             using SkyboxSource = Loom::Scene::SkyboxSource;

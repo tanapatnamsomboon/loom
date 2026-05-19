@@ -24,6 +24,7 @@ namespace Weaver {
         : Layer("EditorLayer")
         , mViewportPanel(mContext)
         , mToolbarPanel(mContext)
+        , mScenePropertiesPanel(mContext)
         , mSceneManager(mContext)
         , mProjectManager(mContext, mContentBrowserPanel, mSceneManager) {
 
@@ -339,8 +340,9 @@ namespace Weaver {
         mSceneManager.OnImGuiRender();
         mProjectManager.OnImGuiRender();
 
-        if (mShowSceneHierarchyPanel) mSceneHierarchyPanel.OnImGuiRender();
-        if (mShowContentBrowserPanel) mContentBrowserPanel.OnImGuiRender();
+        if (mShowSceneHierarchyPanel)  mSceneHierarchyPanel.OnImGuiRender();
+        if (mShowContentBrowserPanel)  mContentBrowserPanel.OnImGuiRender();
+        if (mShowScenePropertiesPanel) mScenePropertiesPanel.OnImGuiRender(&mShowScenePropertiesPanel);
 
         mViewportPanel.OnImGuiRender();
         mToolbarPanel.OnImGuiRender(); // must come after viewport (needs updated ViewportBounds)
@@ -398,8 +400,9 @@ namespace Weaver {
             }
 
             if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Scene Hierarchy", nullptr, &mShowSceneHierarchyPanel);
-                ImGui::MenuItem("Content Browser", nullptr, &mShowContentBrowserPanel);
+                ImGui::MenuItem("Scene Hierarchy",  nullptr, &mShowSceneHierarchyPanel);
+                ImGui::MenuItem("Content Browser",  nullptr, &mShowContentBrowserPanel);
+                ImGui::MenuItem("Scene Properties", nullptr, &mShowScenePropertiesPanel);
                 ImGui::EndMenu();
             }
 

@@ -5,6 +5,7 @@
 #include "editor/scene_manager.h"
 #include "panels/content_browser_panel.h"
 #include "panels/scene_hierarchy_panel.h"
+#include "panels/scene_properties_panel.h"
 #include "panels/toolbar_panel.h"
 #include "panels/viewport_panel.h"
 #include <loom/core/layer.h>
@@ -38,18 +39,20 @@ namespace Weaver {
         EditorContext mContext;
 
         // Panels (own their UI state)
-        SceneHierarchyPanel mSceneHierarchyPanel;
-        ContentBrowserPanel mContentBrowserPanel;
-        ViewportPanel       mViewportPanel;
-        ToolbarPanel        mToolbarPanel;
+        SceneHierarchyPanel  mSceneHierarchyPanel;
+        ContentBrowserPanel  mContentBrowserPanel;
+        ViewportPanel        mViewportPanel;
+        ToolbarPanel         mToolbarPanel;
+        ScenePropertiesPanel mScenePropertiesPanel;
 
         // Managers (own business logic + modals)
         SceneManager   mSceneManager;
         ProjectManager mProjectManager;
 
-        bool mShowSceneHierarchyPanel = true;
-        bool mShowContentBrowserPanel = true;
-        bool mShowAboutModal          = false;
+        bool mShowSceneHierarchyPanel  = true;
+        bool mShowContentBrowserPanel  = true;
+        bool mShowScenePropertiesPanel = true;
+        bool mShowAboutModal           = false;
     };
 
 } // namespace Weaver
