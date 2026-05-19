@@ -85,6 +85,21 @@ namespace Loom {
         const std::string&              GetSkyboxPath()    const { return mSkyboxPath; }
         void                            SetSkyboxPath(const std::string& path);
         std::shared_ptr<TextureCubemap> GetSkyboxCubemap();
+        // Diffuse irradiance cubemap convolved from the skybox env. Lazy —
+        // built the first time after the skybox cubemap is available. Null
+        // when no skybox exists.
+        std::shared_ptr<TextureCubemap> GetIrradianceCubemap();
+
+        // Debug visualization for the IBL pipeline. Picks which cubemap the
+        // viewport renders as its skybox. `Irradiance` displays the convolved
+        // map directly — invaluable for verifying B.2 convolution quality.
+        enum class SkyboxSource { Env, Irradiance };
+        void           SetSkyboxSource(SkyboxSource source) { mSkyboxSource = source; }
+        SkyboxSource   GetSkyboxSource() const              { return mSkyboxSource; }
+        std::shared_ptr<TextureCubemap> GetActiveSkyboxCubemap() {
+            return mSkyboxSource == SkyboxSource::Irradiance ? GetIrradianceCubemap()
+                                                             : GetSkyboxCubemap();
+        }
 
     private:
         void DrawCameraFrustum(const glm::mat4& world_transform, const CameraComponent& camera);
@@ -107,12 +122,14 @@ namespace Loom {
 
         bool mShowPhysicsColliders = false;
 
-        // Skybox / IBL state. `mSkyboxCubemap` is rebuilt lazily when `mSkyboxPath`
-        // changes or first access happens after a scene load.
+        // Skybox / IBL state. All rebuilt lazily when `mSkyboxPath` changes
+        // or first access happens after a scene load.
         std::string                     mSkyboxPath;
         std::shared_ptr<Texture2D>      mSkyboxEquirect;
         std::shared_ptr<TextureCubemap> mSkyboxCubemap;
-        bool                            mSkyboxDirty = true;
+        std::shared_ptr<TextureCubemap> mIrradianceCubemap;
+        bool                            mSkyboxDirty  = true;
+        SkyboxSource                    mSkyboxSource = SkyboxSource::Env;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

@@ -1,4 +1,5 @@
 #include "platform/opengl/opengl_renderer_api.h"
+#include "loom/core/log.h"
 #include <glad/glad.h>
 
 namespace Loom {
@@ -10,6 +11,20 @@ namespace Loom {
         glEnable(GL_DEPTH_TEST);
 
         glEnable(GL_MULTISAMPLE);
+
+        // Seamless cubemap sampling: blends across face borders instead of
+        // clamping each face independently. Without this, low-res cubemaps
+        // (notably the irradiance map) show visible 1-2 texel seams at
+        // every face boundary — which read as "pixelated reflections" on a
+        // smooth sphere because the sphere's normal sweeps across cube faces.
+        glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+        // Confirm the state actually took (a few drivers silently no-op this
+        // enable; logging it makes the IBL "I see pixelated seams" case
+        // diagnosable without a debugger).
+        GLboolean seamless = glIsEnabled(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+        LOOM_CORE_TRACE("OpenGLRendererAPI::Init — GL_TEXTURE_CUBE_MAP_SEAMLESS={}",
+                        seamless ? "ON" : "OFF");
     }
 
     void OpenGLRendererAPI::SetClearColor(float r, float g, float b, float a) {

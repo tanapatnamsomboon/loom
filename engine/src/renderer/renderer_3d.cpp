@@ -35,6 +35,13 @@ namespace Loom {
         float     PointLightRange[Renderer3D::kMaxPointLights];
         int       PointLightCount = 0;
 
+        // ── IBL state ──
+        // Bound at texture unit 5 in Submit (units 0=albedo, 1-4=shadow cascades).
+        std::shared_ptr<TextureCubemap> IrradianceMap;
+
+        // Debug visualization mode (see mesh.frag uDebugViz). 0 = normal PBR.
+        int DebugViz = 0;
+
         // ── Shadow state (cascaded) ──
         // One framebuffer per cascade. Sized to a square depth texture each;
         // mesh.frag has kCascadeCount sampler2D uniforms bound at units 1..N.
@@ -73,13 +80,15 @@ namespace Loom {
             sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
         }
 
-        // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount.
+        // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount,
+        // IBL irradiance on 5 (prefilter/BRDF LUT slots reserved at 6/7 for later).
         sData.MeshShader->Bind();
-        sData.MeshShader->UploadUniformInt("uAlbedoTexture", 0);
-        sData.MeshShader->UploadUniformInt("uShadowMap0",    1);
-        sData.MeshShader->UploadUniformInt("uShadowMap1",    2);
-        sData.MeshShader->UploadUniformInt("uShadowMap2",    3);
-        sData.MeshShader->UploadUniformInt("uShadowMap3",    4);
+        sData.MeshShader->UploadUniformInt("uAlbedoTexture",  0);
+        sData.MeshShader->UploadUniformInt("uShadowMap0",     1);
+        sData.MeshShader->UploadUniformInt("uShadowMap1",     2);
+        sData.MeshShader->UploadUniformInt("uShadowMap2",     3);
+        sData.MeshShader->UploadUniformInt("uShadowMap3",     4);
+        sData.MeshShader->UploadUniformInt("uIrradianceMap",  5);
     }
 
     void Renderer3D::Shutdown() {
@@ -117,6 +126,14 @@ namespace Loom {
 
     void Renderer3D::SetCascadeSplits(const float splits[kCascadeCount]) {
         for (int i = 0; i < kCascadeCount; ++i) sData.CascadeSplits[i] = splits[i];
+    }
+
+    void Renderer3D::SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance) {
+        sData.IrradianceMap = irradiance;
+    }
+
+    void Renderer3D::SetDebugViz(int mode) {
+        sData.DebugViz = mode;
     }
 
     void Renderer3D::BeginShadowPass(int cascade_index, const glm::mat4& light_view_projection) {
@@ -214,6 +231,15 @@ namespace Loom {
             sData.MeshShader->UploadUniformFloat3Array("uPointLightColor", sData.PointLightColor, sData.PointLightCount);
             sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
         }
+
+        // IBL — bind irradiance cubemap at unit 5 + flag the shader.
+        sData.MeshShader->UploadUniformInt("uHasIBL", sData.IrradianceMap ? 1 : 0);
+        if (sData.IrradianceMap) {
+            sData.IrradianceMap->Bind(5);
+        }
+
+        // Debug visualization mode (0 = normal PBR path).
+        sData.MeshShader->UploadUniformInt("uDebugViz", sData.DebugViz);
 
         // Shadow uniforms — only meaningful when at least one cascade ran this frame.
         sData.MeshShader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);

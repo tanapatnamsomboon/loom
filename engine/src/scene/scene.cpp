@@ -48,6 +48,7 @@ namespace Loom {
         mSkyboxPath    = path;
         mSkyboxEquirect.reset();
         mSkyboxCubemap.reset();
+        mIrradianceCubemap.reset();
         mSkyboxDirty   = true;
     }
 
@@ -86,8 +87,27 @@ namespace Loom {
             mSkyboxCubemap.reset();
             return nullptr;
         }
-        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 512);
+        // 1024 per face: high enough to preserve detail of 1k–4k HDR sources at
+        // typical viewport resolutions (≥1280 wide) without LINEAR-mag softening
+        // when the camera fills the screen with the skybox.
+        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 1024);
         return mSkyboxCubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetIrradianceCubemap() {
+        if (mIrradianceCubemap) return mIrradianceCubemap;
+        // Trigger skybox load if it hasn't happened. Irradiance derives from
+        // the env cubemap; both share the same dirty flag.
+        auto env = GetSkyboxCubemap();
+        if (!env) return nullptr;
+        // 128² instead of the textbook 32². Diffuse irradiance is low-freq,
+        // but a sphere wrapping the cubemap sees ~face_size × 4 texels along
+        // any great circle — at 32² that's only ~128 discrete samples per
+        // sphere equator, where bilinear interpolation leaves a visibly
+        // stepped gradient. 128² gives ~512 texels per great circle, enough
+        // that interpolation is imperceptible. Cost: 128×128×6×6 ≈ 600 KB.
+        mIrradianceCubemap = TextureCubemap::CreateIrradiance(env, 128);
+        return mIrradianceCubemap;
     }
 
     template<typename Component>
@@ -659,6 +679,7 @@ namespace Loom {
         // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
         GatherAndUploadLights(this, mRegistry);
+        Renderer3D::SetIrradianceMap(GetIrradianceCubemap());
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
             DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
         }
@@ -1287,6 +1308,7 @@ namespace Loom {
             // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
             Renderer3D::BeginScene(*main_camera, camera_transform);
             GatherAndUploadLights(this, mRegistry);
+            Renderer3D::SetIrradianceMap(GetIrradianceCubemap());
             for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
                 DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
             }

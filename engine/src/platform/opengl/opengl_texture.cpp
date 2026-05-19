@@ -31,6 +31,10 @@ namespace Loom {
         mHeight = height;
         mIsHDR  = is_hdr;
 
+        if (is_hdr) {
+            LOOM_CORE_TRACE("Loaded HDR: {} ({}x{}, {} channels)", path, width, height, channels);
+        }
+
         mInternalFormat = 0;
         mDataFormat     = 0;
         if (is_hdr) {
@@ -52,14 +56,21 @@ namespace Loom {
         glCreateTextures(GL_TEXTURE_2D, 1, &mRendererID);
         glTextureStorage2D(mRendererID, levels, mInternalFormat, mWidth, mHeight);
 
+        // HDR equirect maps are photographic data: bilinear filtering is mandatory.
+        // The default TextureSpecification uses FilterMode::Nearest (intended for
+        // pixel-art sprites), so without this override the equirect-to-cubemap
+        // shader's textureLod() call would point-sample the HDR and produce a
+        // chunky, low-resolution-looking cubemap regardless of face size.
+        FilterMode effective_filter = is_hdr ? FilterMode::Linear : spec.Filter;
+
         GLenum min_filter;
         if (spec.GenerateMips) {
-            min_filter = (spec.Filter == FilterMode::Linear)
+            min_filter = (effective_filter == FilterMode::Linear)
                 ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST;
         } else {
-            min_filter = (spec.Filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
+            min_filter = (effective_filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
         }
-        GLenum mag_filter = (spec.Filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
+        GLenum mag_filter = (effective_filter == FilterMode::Linear) ? GL_LINEAR : GL_NEAREST;
         // HDR equirect maps wrap horizontally (sphere) and clamp vertically (poles).
         // Forcing Clamp for HDR avoids visible seams at the bottom of the sphere.
         GLenum wrap       = is_hdr ? GL_CLAMP_TO_EDGE

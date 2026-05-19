@@ -2,6 +2,7 @@
 
 #include "loom/core/core.h"
 #include "loom/renderer/camera.h"
+#include "loom/renderer/cubemap.h"
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/mesh_asset.h"
 #include "loom/renderer/texture.h"
@@ -45,6 +46,15 @@ namespace Loom {
         // Lights beyond the kMax* limits are silently dropped.
         static void SetLights(const DirectionalLight* dir_lights, int dir_count,
                               const PointLight*       point_lights, int point_count);
+
+        // IBL environment — irradiance cubemap drives the ambient diffuse term
+        // in mesh.frag. Pass null to fall back to the constant grey ambient.
+        // (Slice B.3 will add a prefilter cubemap + Slice B.4 a BRDF LUT here.)
+        static void SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance);
+
+        // Debug visualization mode for the mesh shader (see mesh.frag uDebugViz).
+        //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
+        static void SetDebugViz(int mode);
 
         // One draw call per submission (no batching). albedo_texture may be null
         // (a 1x1 white texture is bound in its place). entity_id < 0 leaves the

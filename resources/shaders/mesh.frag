@@ -15,11 +15,25 @@ in vec4 vLightSpacePos3;
 #define MAX_POINT_LIGHTS 16
 #define CASCADE_COUNT    4
 
-uniform sampler2D uAlbedoTexture;
-uniform sampler2D uShadowMap0;
-uniform sampler2D uShadowMap1;
-uniform sampler2D uShadowMap2;
-uniform sampler2D uShadowMap3;
+uniform sampler2D   uAlbedoTexture;
+uniform sampler2D   uShadowMap0;
+uniform sampler2D   uShadowMap1;
+uniform sampler2D   uShadowMap2;
+uniform sampler2D   uShadowMap3;
+uniform samplerCube uIrradianceMap;
+uniform int         uHasIBL;
+
+// Debug visualizations. 0 = PBR (default), >0 = bypass PBR and write the
+// requested intermediate value (post tonemap+gamma where appropriate).
+// Set via Renderer3D::SetDebugViz from the toolbar dropdown.
+//   1 = raw irradiance sample at this fragment's world normal (cubemap content
+//       check — if this looks like recognizable environment features, the
+//       irradiance convolution didn't actually low-pass the source)
+//   2 = world-space normal encoded as color (sanity-check the mesh normals)
+//   3 = NdotL on the first directional light (verifies light direction)
+//   4 = NdotV (verifies view-vector / camera position is sane)
+//   5 = albedo only (no lighting)
+uniform int         uDebugViz;
 uniform float     uCascadeSplits[CASCADE_COUNT]; // world-space far distance per cascade
 uniform vec4      uAlbedoColor;
 uniform float     uRoughness;
@@ -182,6 +196,37 @@ void main() {
     vec3 N             = normalize(vWorldNormal);
     vec3 V             = normalize(uViewPos - vWorldPos);
 
+    // ── Debug visualizations ──────────────────────────────────────────────
+    // These short-circuit before any PBR math so they output the raw quantity.
+    if (uDebugViz != 0) {
+        vec3 dbg = vec3(0.0);
+        if (uDebugViz == 1) {
+            // Raw irradiance at this fragment's normal. Same explicit-mip-0
+            // sample path as the PBR mode so this view honestly reflects
+            // what the PBR shader receives.
+            dbg = textureLod(uIrradianceMap, N, 0.0).rgb;
+            dbg = pow(ACESFilm(dbg), vec3(1.0 / kGamma));
+        } else if (uDebugViz == 2) {
+            // World-space normal as color. Continuous gradient = mesh normals
+            // are smooth; discontinuities = mesh has flat / broken normals.
+            dbg = N * 0.5 + 0.5;
+        } else if (uDebugViz == 3) {
+            // NdotL on first directional light. Bright = light hits front,
+            // black = light hits back. Verifies light direction sanity.
+            vec3 L = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
+            dbg = vec3(max(dot(N, L), 0.0));
+        } else if (uDebugViz == 4) {
+            // NdotV — should be 1 at the silhouette center, 0 at the rim.
+            dbg = vec3(max(dot(N, V), 0.0));
+        } else if (uDebugViz == 5) {
+            // Albedo only (linear → sRGB).
+            dbg = pow(albedo, vec3(1.0 / kGamma));
+        }
+        oColor    = vec4(dbg, 1.0);
+        oEntityID = uEntityID;
+        return;
+    }
+
     float roughness = clamp(uRoughness, 0.04, 1.0); // floor avoids NaN at perfect mirror
     float metallic  = clamp(uMetallic,  0.0,  1.0);
 
@@ -192,9 +237,31 @@ void main() {
     vec3  shadow_L          = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
     float shadow_visibility = SampleShadow(N, shadow_L);
 
-    // Ambient placeholder. IBL slice will replace with diffuse-irradiance +
-    // prefiltered-specular sampling.
-    vec3 lit = kFallbackAmbient * albedo;
+    // Ambient: IBL diffuse irradiance when an env map is bound, else fall back
+    // to a constant grey. Energy-conserving — only the diffuse fraction
+    // (1 - Fresnel_at_normal) * (1 - metallic) survives; specular ambient comes
+    // from prefilter + BRDF LUT in Slice B.3 / B.4.
+    vec3 lit;
+    if (uHasIBL == 1) {
+        // textureLod at mip 0 — diffuse irradiance is low-frequency by
+        // construction (the cubemap stores an already-integrated Lambertian
+        // hemisphere per texel), so it needs no minification anti-aliasing.
+        // Using `texture()` lets the driver pick mip levels from screen-space
+        // derivatives of N, and the trilinear blend between adjacent mips
+        // produces faint concentric rings on curved surfaces. Mip 0 is the
+        // intended content; we read exactly that.
+        // (The cubemap's higher mips still exist — B.3 specular prefilter
+        // writes its roughness-convolved data into mips 1..N for the
+        // specular IBL path.)
+        vec3 irradiance = textureLod(uIrradianceMap, N, 0.0).rgb;
+        // Fresnel-Schlick at the surface normal (V replacement valid because
+        // diffuse contribution averages over all incoming directions).
+        vec3 F_at_N = FresnelSchlick(max(dot(N, V), 0.0), F0);
+        vec3 kD     = (vec3(1.0) - F_at_N) * (1.0 - metallic);
+        lit         = kD * irradiance * albedo;
+    } else {
+        lit = kFallbackAmbient * albedo;
+    }
 
     for (int i = 0; i < uDirLightCount; ++i) {
         vec3 L         = normalize(-uDirLightDir[i]);

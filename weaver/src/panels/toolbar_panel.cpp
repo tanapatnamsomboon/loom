@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <loom/asset/asset_manager.h>
 #include <loom/project/project.h>
+#include <loom/renderer/renderer_3d.h>
 #include <cstring>
 
 namespace Weaver {
@@ -161,6 +162,38 @@ namespace Weaver {
             } else {
                 ImGui::TextDisabled("HDR (.hdr / Radiance RGBE)");
             }
+
+            // Debug: render the irradiance map as the skybox to inspect what
+            // the B.2 convolution actually produced. The irradiance cubemap
+            // should look like a very low-frequency smoothed version of the
+            // environment — if it has any visible high-frequency structure,
+            // the convolution is broken.
+            using SkyboxSource = Loom::Scene::SkyboxSource;
+            int source = (int)mContext.ActiveScene->GetSkyboxSource();
+            const char* labels[] = { "Environment (B.1)", "Irradiance (B.2 debug)" };
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::Combo("##SkyboxSource", &source, labels, IM_ARRAYSIZE(labels))) {
+                mContext.ActiveScene->SetSkyboxSource((SkyboxSource)source);
+            }
+            ImGui::TextDisabled("Skybox Source — what the viewport renders");
+
+            // Debug viz for mesh shading. Bypasses PBR and outputs raw
+            // intermediates so we can isolate where the IBL pipeline is
+            // misbehaving. Reset to PBR (0) on next session.
+            static int debug_viz = 0;
+            const char* viz_labels[] = {
+                "PBR (default)",
+                "Irradiance sample",
+                "World normal",
+                "NdotL (light 0)",
+                "NdotV",
+                "Albedo only",
+            };
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::Combo("##DebugViz", &debug_viz, viz_labels, IM_ARRAYSIZE(viz_labels))) {
+                Loom::Renderer3D::SetDebugViz(debug_viz);
+            }
+            ImGui::TextDisabled("Mesh Debug — what the sphere fragment outputs");
         }
 
         ImGui::EndPopup();

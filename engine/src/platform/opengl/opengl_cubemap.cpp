@@ -6,24 +6,48 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <algorithm>
 
 namespace Loom {
 
     OpenGLTextureCubemap::OpenGLTextureCubemap(uint32_t face_size, CubemapFormat format, uint32_t mip_levels)
         : mFaceSize(face_size), mMipLevels(mip_levels), mFormat(format) {
-        glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &mRendererID);
+        // Non-DSA cubemap creation. DSA (glCreateTextures + glTextureStorage2D
+        // for GL_TEXTURE_CUBE_MAP) miscompiles storage allocation on some
+        // Intel / AMD drivers — silently producing tiny faces. glGenTextures
+        // + per-face glTexImage2D is the universally-supported path.
+        glGenTextures(1, &mRendererID);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, mRendererID);
 
-        GLenum gl_format = (format == CubemapFormat::RGB16F) ? GL_RGB16F : GL_RGBA8;
-        glTextureStorage2D(mRendererID, mip_levels, gl_format, face_size, face_size);
+        GLenum internal_fmt = (format == CubemapFormat::RGB16F) ? GL_RGB16F : GL_RGBA8;
+        GLenum data_fmt     = (format == CubemapFormat::RGB16F) ? GL_RGB    : GL_RGBA;
+        GLenum data_type    = (format == CubemapFormat::RGB16F) ? GL_FLOAT  : GL_UNSIGNED_BYTE;
 
-        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(mRendererID, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-        // Trilinear by default so prefilter mip-chain sampling looks correct in
-        // mesh.frag (caller can override by re-setting params on the returned id).
-        glTextureParameteri(mRendererID, GL_TEXTURE_MIN_FILTER,
-                            mip_levels > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-        glTextureParameteri(mRendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        for (uint32_t mip = 0; mip < mip_levels; ++mip) {
+            uint32_t mip_size = std::max(1u, face_size >> mip);
+            for (int face = 0; face < 6; ++face) {
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face,
+                             (GLint)mip, internal_fmt, mip_size, mip_size, 0,
+                             data_fmt, data_type, nullptr);
+            }
+        }
+
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER,
+                        mip_levels > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Anisotropic — helps the env / skybox cubemap at oblique view angles.
+        // No-op for the 32–64² irradiance map (low-freq content) but cheap.
+        float max_anisotropy = 1.0f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_anisotropy);
+        glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_ANISOTROPY, max_anisotropy);
+
+        LOOM_CORE_TRACE("OpenGLTextureCubemap created: {}x{} face, {} mip(s), format={}",
+                        face_size, face_size, mip_levels,
+                        format == CubemapFormat::RGB16F ? "RGB16F" : "RGBA8");
     }
 
     OpenGLTextureCubemap::~OpenGLTextureCubemap() {
@@ -35,33 +59,46 @@ namespace Loom {
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // Static factories on TextureCubemap (lives here, OpenGL-only for now)
+    // Shared cube-face capture machinery
+    //
+    // Both equirect→cubemap and irradiance-convolution passes share the same
+    // workflow: bind a unit-cube VAO, point an FBO at each of the 6 cubemap
+    // faces in turn, set a per-face view matrix, render. The differences are
+    // (a) which shader runs and (b) what source texture is bound. Anything
+    // else is pure scaffolding and lives in `RenderToCubemapFaces` below.
     // ────────────────────────────────────────────────────────────────────────
-
-    std::shared_ptr<TextureCubemap> TextureCubemap::Create(uint32_t face_size,
-                                                            CubemapFormat format,
-                                                            uint32_t mip_levels) {
-        return std::make_shared<OpenGLTextureCubemap>(face_size, format, mip_levels);
-    }
-
     namespace {
 
-        // Reusable unit-cube geometry for the conversion pass. Built lazily on
-        // first call to CreateFromEquirect, destroyed never — same lifetime as
-        // the OpenGL context.
-        struct EquirectConversionState {
-            GLuint           cube_vao = 0;
-            GLuint           cube_vbo = 0;
-            std::shared_ptr<Shader> shader;
-            bool             initialized = false;
+        struct CubeCaptureState {
+            GLuint                  cube_vao    = 0;
+            GLuint                  cube_vbo    = 0;
+            GLuint                  capture_fbo = 0;   // persistent — reused across passes
+            std::shared_ptr<Shader> equirect_shader;
+            std::shared_ptr<Shader> irradiance_shader;
+            bool                    initialized = false;
         };
-        EquirectConversionState g_conv;
+        CubeCaptureState g_conv;
+
+        glm::mat4 CubeFaceView(int face) {
+            // Standard cube-map face views. Camera at origin, 90° FOV (set by
+            // the caller), Y axis inverted on the +/-X/Z faces because the cube
+            // map convention has +Y down within each face.
+            static const glm::mat4 views[6] = {
+                glm::lookAt(glm::vec3(0), glm::vec3( 1,  0,  0), glm::vec3(0, -1,  0)), // +X
+                glm::lookAt(glm::vec3(0), glm::vec3(-1,  0,  0), glm::vec3(0, -1,  0)), // -X
+                glm::lookAt(glm::vec3(0), glm::vec3( 0,  1,  0), glm::vec3(0,  0,  1)), // +Y
+                glm::lookAt(glm::vec3(0), glm::vec3( 0, -1,  0), glm::vec3(0,  0, -1)), // -Y
+                glm::lookAt(glm::vec3(0), glm::vec3( 0,  0,  1), glm::vec3(0, -1,  0)), // +Z
+                glm::lookAt(glm::vec3(0), glm::vec3( 0,  0, -1), glm::vec3(0, -1,  0)), // -Z
+            };
+            return views[face];
+        }
 
         void EnsureConversionState() {
             if (g_conv.initialized) return;
 
-            // Unit cube centered on origin, with positions only.
-            // 36 vertices, no index buffer (matches the existing skybox layout).
+            // Unit cube centered on origin, position-only. 36 vertices, no
+            // index buffer (matches the existing skybox layout exactly).
             float vertices[] = {
                 // +X
                  1, -1, -1,   1,  1, -1,   1,  1,  1,
@@ -91,13 +128,100 @@ namespace Loom {
             glVertexArrayAttribFormat(g_conv.cube_vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
             glVertexArrayAttribBinding(g_conv.cube_vao, 0, 0);
 
-            std::string shader_path = Project::GetEngineAssetFileSystemPath("shaders/equirect_to_cubemap").generic_string();
-            g_conv.shader = AssetManager::GetShader(shader_path);
+            glCreateFramebuffers(1, &g_conv.capture_fbo);
+
+            std::string equirect_path   = Project::GetEngineAssetFileSystemPath("shaders/equirect_to_cubemap").generic_string();
+            std::string irradiance_path = Project::GetEngineAssetFileSystemPath("shaders/irradiance_convolution").generic_string();
+            g_conv.equirect_shader   = AssetManager::GetShader(equirect_path);
+            g_conv.irradiance_shader = AssetManager::GetShader(irradiance_path);
 
             g_conv.initialized = true;
+            LOOM_CORE_TRACE("IBL: cube-capture state initialized (VAO + persistent FBO + shaders loaded)");
+        }
+
+        // Renders the unit cube into all 6 faces of `target_cubemap` at the
+        // given mip level. The caller is expected to have already bound the
+        // shader, set source textures, and uploaded uEquirect / uEnvironment
+        // uniforms. This helper handles uProjection + per-face uView upload,
+        // FBO attach, GL state save/restore, and the 6 draws.
+        void RenderToCubemapFaces(TextureCubemap& target_cubemap,
+                                  Shader&         shader,
+                                  uint32_t        mip_level = 0) {
+            EnsureConversionState();
+
+            const uint32_t face_size = std::max(1u, target_cubemap.GetFaceSize() >> mip_level);
+            const GLuint   cube_tex  = target_cubemap.GetRendererID();
+
+            // Snapshot caller state.
+            GLint     prev_fbo = 0, prev_viewport[4] = { 0, 0, 0, 0 };
+            GLboolean prev_depth, prev_cull;
+            GLint     prev_cull_mode = GL_BACK;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+            glGetIntegerv(GL_VIEWPORT,            prev_viewport);
+            prev_depth = glIsEnabled(GL_DEPTH_TEST);
+            prev_cull  = glIsEnabled(GL_CULL_FACE);
+            glGetIntegerv(GL_CULL_FACE_MODE, &prev_cull_mode);
+
+            // Pass setup. Camera at origin looking outward; 90° FOV means each
+            // cube face exactly fills the framebuffer when its 6 vertices are
+            // rendered alone. No depth test needed (no overlap possible), no
+            // face culling needed (single planar quad, two triangles, both
+            // facing the camera from inside the cube).
+            //
+            // Crucial: draw ONLY the 6 vertices for the current face, NOT all
+            // 36. If we drew all 36, the other 4 visible faces' triangles
+            // would also project into this view's framebuffer (their corners
+            // sit inside the 90° frustum) and — with no depth test — the
+            // last-drawn face would overwrite the intended face's edges.
+            // That's the bug that turns the irradiance cubemap into a
+            // patchwork of face-content cross-contamination, visible as hard
+            // colored regions on a sphere wrapping the cubemap.
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            glViewport(0, 0, face_size, face_size);
+
+            glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+            shader.UploadUniformMat4("uProjection", proj);
+
+            glBindVertexArray(g_conv.cube_vao);
+            glBindFramebuffer(GL_FRAMEBUFFER, g_conv.capture_fbo);
+
+            for (int face = 0; face < 6; ++face) {
+                shader.UploadUniformMat4("uView", CubeFaceView(face));
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       GL_TEXTURE_CUBE_MAP_POSITIVE_X + face,
+                                       cube_tex, (GLint)mip_level);
+                glClear(GL_COLOR_BUFFER_BIT);
+                glDrawArrays(GL_TRIANGLES, 6 * face, 6);
+            }
+
+            // Restore caller state. Order matters — restore depth/cull before
+            // FBO so the next user's first draw doesn't inherit our scratch.
+            if (prev_depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+            if (prev_cull)  glEnable(GL_CULL_FACE);   else glDisable(GL_CULL_FACE);
+            glCullFace((GLenum)prev_cull_mode);
+            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+            glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
         }
 
     } // anonymous namespace
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Static factories on TextureCubemap (OpenGL impl, lives here)
+    // ────────────────────────────────────────────────────────────────────────
+
+    std::shared_ptr<TextureCubemap> TextureCubemap::Create(uint32_t face_size,
+                                                            CubemapFormat format,
+                                                            uint32_t mip_levels) {
+        return std::make_shared<OpenGLTextureCubemap>(face_size, format, mip_levels);
+    }
+
+    namespace {
+        // log2(N) + 1, i.e. full mip chain length for an NxN face.
+        uint32_t MipCountForFaceSize(uint32_t face_size) {
+            return (uint32_t)std::floor(std::log2((double)face_size)) + 1u;
+        }
+    }
 
     std::shared_ptr<TextureCubemap> TextureCubemap::CreateFromEquirect(
         const std::shared_ptr<Texture2D>& equirect, uint32_t face_size) {
@@ -106,63 +230,66 @@ namespace Loom {
             LOOM_CORE_ERROR("CreateFromEquirect: null source texture");
             return nullptr;
         }
-
         EnsureConversionState();
 
-        auto cubemap = Create(face_size, CubemapFormat::RGB16F, 1);
-        uint32_t cube_tex = cubemap->GetRendererID();
+        // Full mip chain — skybox sampling on the env cubemap is a minification
+        // problem at oblique angles, so we need lower mips for trilinear
+        // filtering to anti-alias. B.3 (specular prefilter) will also store
+        // roughness-convolved variants in these mip slots.
+        const uint32_t mip_levels = MipCountForFaceSize(face_size);
+        auto cubemap = Create(face_size, CubemapFormat::RGB16F, mip_levels);
 
-        // Six face view matrices. lookAt directions hit each cube face from origin.
-        // Up vectors are flipped Y for the cubemap face convention (OpenGL cubemap
-        // coordinates are left-handed in face layout).
-        glm::mat4 proj  = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-        glm::mat4 views[6] = {
-            glm::lookAt(glm::vec3(0), glm::vec3( 1,  0,  0), glm::vec3(0, -1,  0)), // +X
-            glm::lookAt(glm::vec3(0), glm::vec3(-1,  0,  0), glm::vec3(0, -1,  0)), // -X
-            glm::lookAt(glm::vec3(0), glm::vec3( 0,  1,  0), glm::vec3(0,  0,  1)), // +Y
-            glm::lookAt(glm::vec3(0), glm::vec3( 0, -1,  0), glm::vec3(0,  0, -1)), // -Y
-            glm::lookAt(glm::vec3(0), glm::vec3( 0,  0,  1), glm::vec3(0, -1,  0)), // +Z
-            glm::lookAt(glm::vec3(0), glm::vec3( 0,  0, -1), glm::vec3(0, -1,  0)), // -Z
-        };
-
-        // Snapshot prior GL state so this pass doesn't disturb the caller.
-        GLint prev_fbo = 0, prev_viewport[4] = { 0, 0, 0, 0 };
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
-        glGetIntegerv(GL_VIEWPORT, prev_viewport);
-        GLboolean prev_depth   = glIsEnabled(GL_DEPTH_TEST);
-        GLboolean prev_cull    = glIsEnabled(GL_CULL_FACE);
-
-        // Conversion pass has no depth attachment and renders the cube from
-        // inside; both tests would only get in the way.
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE);
-
-        GLuint capture_fbo = 0;
-        glCreateFramebuffers(1, &capture_fbo);
-        glViewport(0, 0, face_size, face_size);
-
-        g_conv.shader->Bind();
-        g_conv.shader->UploadUniformInt("uEquirect", 0);
-        g_conv.shader->UploadUniformMat4("uProjection", proj);
+        g_conv.equirect_shader->Bind();
+        g_conv.equirect_shader->UploadUniformInt("uEquirect", 0);
         equirect->Bind(0);
 
-        glBindVertexArray(g_conv.cube_vao);
-        glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+        RenderToCubemapFaces(*cubemap, *g_conv.equirect_shader);
 
-        for (int face = 0; face < 6; ++face) {
-            g_conv.shader->UploadUniformMat4("uView", views[face]);
-            glNamedFramebufferTextureLayer(capture_fbo, GL_COLOR_ATTACHMENT0, cube_tex, 0, face);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+        // Fill mip 1..N-1 by averaging from mip 0 (bilinear box filter).
+        // For the skybox path this is enough; the specular prefilter slice
+        // will overwrite these mips with proper roughness-convolved variants.
+        glGenerateTextureMipmap(cubemap->GetRendererID());
+
+        LOOM_CORE_TRACE("IBL: built env cubemap {}x{} ({} mips) from {}x{} HDR equirect",
+                        face_size, face_size, mip_levels,
+                        equirect->GetWidth(), equirect->GetHeight());
+        return cubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> TextureCubemap::CreateIrradiance(
+        const std::shared_ptr<TextureCubemap>& env_cubemap, uint32_t face_size) {
+
+        if (!env_cubemap) {
+            LOOM_CORE_ERROR("CreateIrradiance: null source cubemap");
+            return nullptr;
         }
+        EnsureConversionState();
 
-        // Restore caller's GL state.
-        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
-        glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
-        if (prev_depth) glEnable(GL_DEPTH_TEST);
-        if (prev_cull)  glEnable(GL_CULL_FACE);
-        glDeleteFramebuffers(1, &capture_fbo);
+        // Full mip chain so trilinear filtering can anti-alias the irradiance
+        // sample on curved surfaces. Without mips, the bilinear samples on a
+        // sphere alias against the cubemap texel grid → visible moiré bands
+        // (the artifact we're fixing here).
+        const uint32_t mip_levels = MipCountForFaceSize(face_size);
+        auto cubemap = Create(face_size, CubemapFormat::RGB16F, mip_levels);
 
+        g_conv.irradiance_shader->Bind();
+        g_conv.irradiance_shader->UploadUniformInt   ("uEnvironment",    0);
+        // Tell the convolution shader the source resolution so it can pick a
+        // mip LOD matching our sample density (Karis pre-filtering trick).
+        g_conv.irradiance_shader->UploadUniformFloat ("uSourceFaceSize",
+                                                       (float)env_cubemap->GetFaceSize());
+        env_cubemap->Bind(0);
+
+        RenderToCubemapFaces(*cubemap, *g_conv.irradiance_shader);
+
+        // Bilinear-averaged mip chain. Diffuse irradiance is already low-pass
+        // by construction, so a box-filter mip is an accurate enough lower-
+        // frequency representation for minification.
+        glGenerateTextureMipmap(cubemap->GetRendererID());
+
+        LOOM_CORE_TRACE("IBL: built irradiance cubemap {}x{} ({} mips) from {}x{} env",
+                        face_size, face_size, mip_levels,
+                        env_cubemap->GetFaceSize(), env_cubemap->GetFaceSize());
         return cubemap;
     }
 

@@ -42,6 +42,15 @@ namespace Loom {
         static std::shared_ptr<TextureCubemap> CreateFromEquirect(
             const std::shared_ptr<Texture2D>& equirect,
             uint32_t face_size = 512);
+
+        // Diffuse irradiance map from an HDR environment cubemap. One-time GPU
+        // pass: each output texel is the Lambertian-weighted integral of the
+        // environment over the hemisphere oriented around that texel's
+        // direction. 32^2 is sufficient — diffuse irradiance is very low-
+        // frequency so a small cubemap is plenty.
+        static std::shared_ptr<TextureCubemap> CreateIrradiance(
+            const std::shared_ptr<TextureCubemap>& env_cubemap,
+            uint32_t face_size = 32);
     };
 
 } // namespace Loom

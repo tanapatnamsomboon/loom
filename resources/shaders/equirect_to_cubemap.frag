@@ -18,6 +18,10 @@ vec2 SampleSphericalMap(vec3 v) {
 void main() {
     vec3 dir   = normalize(vLocalPos);
     vec2 uv    = SampleSphericalMap(dir);
-    vec3 color = texture(uEquirect, uv).rgb;
+    // Force mip 0 — the rate-of-change of UV across cube-face corners is high
+    // (spherical compression), so automatic mip selection would otherwise sample
+    // a tiny mip level near corners and produce a blurry / blocky cubemap. The
+    // equirect's full resolution is what we want here.
+    vec3 color = textureLod(uEquirect, uv, 0.0).rgb;
     oColor = vec4(color, 1.0);
 }

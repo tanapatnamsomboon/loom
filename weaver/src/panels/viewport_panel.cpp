@@ -110,7 +110,9 @@ namespace Weaver {
 
             // Skybox — HDR cubemap if the scene has one assigned, otherwise
             // skip and let the framebuffer clear color show through (dark grey).
-            auto skybox_cube = mContext.ActiveScene->GetSkyboxCubemap();
+            // GetActiveSkyboxCubemap returns env by default; switches to the
+            // irradiance map when the IBL debug toggle is set in the toolbar.
+            auto skybox_cube = mContext.ActiveScene->GetActiveSkyboxCubemap();
             if (skybox_cube) {
                 glm::mat4 view    = mContext.EditorCamera.GetViewMatrix();
                 view[3]           = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);

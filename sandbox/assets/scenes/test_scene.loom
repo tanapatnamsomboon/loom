@@ -1,42 +1,15 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-6.677431, 6.115487, -8.516844]
-  Pitch: 0.22200137
-  Yaw: -3.2489965
+  Position: [-4.075947, 3.6899734, 14.9474325]
+  Pitch: 0.2970012
+  Yaw: -12.758886
 Entities:
-  - Entity: 8746896974421769953
-    TagComponent:
-      Tag: Box 4
-    TransformComponent:
-      Translation: [0, 2, 150]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    MeshRendererComponent:
-      MeshPath: models/box_textured.glb
-      AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/box_texture.jpg
-      Roughness: 0.5
-      Metallic: 0
-    ParentID: 8938328147363150278
-  - Entity: 8938328147363150278
-    TagComponent:
-      Tag: Box 1
-    TransformComponent:
-      Translation: [0, 2, 5]
-      Rotation: [0, -0, 0]
-      Scale: [1, 1, 1]
-    MeshRendererComponent:
-      MeshPath: models/box_textured.glb
-      AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/box_texture.jpg
-      Roughness: 0.5
-      Metallic: 0
   - Entity: 9443136952789325132
     TagComponent:
       Tag: Light
     TransformComponent:
       Translation: [0, 0, 0]
-      Rotation: [-0.8999965, 0.39999455, 0]
+      Rotation: [-2.9670596, 0.39999455, 0]
       Scale: [1, 1, 1]
     DirectionalLightComponent:
       Color: [1, 1, 1]
@@ -46,42 +19,14 @@ Entities:
       Tag: Sphere
     TransformComponent:
       Translation: [-5, 2, 9]
-      Rotation: [0, 0, 0]
+      Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: models/sphere.glb
-      AlbedoColor: [1, 0.87058824, 0.34117648, 1]
+      AlbedoColor: [1, 0.65882355, 0.29803923, 1]
       AlbedoTexturePath: ""
       Roughness: 0.304
-      Metallic: 1
-  - Entity: 11561706066258833238
-    TagComponent:
-      Tag: Box 2
-    TransformComponent:
-      Translation: [0, 2, 30]
-      Rotation: [0, -0, 0]
-      Scale: [1, 1, 1]
-    MeshRendererComponent:
-      MeshPath: models/box_textured.glb
-      AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/box_texture.jpg
-      Roughness: 0.5
       Metallic: 0
-    ParentID: 8938328147363150278
-  - Entity: 12995355045989005531
-    TagComponent:
-      Tag: Box 3
-    TransformComponent:
-      Translation: [0, 2, 80]
-      Rotation: [0, -0, 0]
-      Scale: [1, 1, 1]
-    MeshRendererComponent:
-      MeshPath: models/box_textured.glb
-      AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: textures/box_texture.jpg
-      Roughness: 0.5
-      Metallic: 0
-    ParentID: 8938328147363150278
   - Entity: 16470370313087969112
     TagComponent:
       Tag: Floor
@@ -111,9 +56,9 @@ Entities:
     TagComponent:
       Tag: MainCamera
     TransformComponent:
-      Translation: [-5, 5, -4.9999995]
-      Rotation: [0, 3.1415927, 0]
-      Scale: [1, 1, 1]
+      Translation: [-1.7309579, 3.9760318, 17.97467]
+      Rotation: [0.017778479, 0.19204606, 0.0033898088]
+      Scale: [0.9999924, 0.99999905, 1]
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
