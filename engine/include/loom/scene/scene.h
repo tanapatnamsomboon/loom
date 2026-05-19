@@ -3,6 +3,7 @@
 #include "loom/core/core.h"
 #include "loom/core/timestep.h"
 #include "loom/core/uuid.h"
+#include "loom/renderer/cubemap.h"
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/texture.h"
 #include <box2d/id.h>
@@ -33,7 +34,15 @@ namespace Loom {
         static std::shared_ptr<Scene> Copy(std::shared_ptr<Scene> other);
         void                          OnViewportResize(uint32_t width, uint32_t height);
 
-        void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
+        // `fallback_irradiance` + `fallback_prefilter` drive editor-mode IBL
+        // when the scene has no environment of its own — typically built from
+        // the editor's default HDR — so PBR materials never go pitch-black
+        // while a level is being built. Pass null on either to skip that
+        // half of the fallback. Play mode never receives a fallback:
+        // `OnUpdateRuntime` uses only the scene's own IBL.
+        void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
+                            std::shared_ptr<TextureCubemap> fallback_irradiance = nullptr,
+                            std::shared_ptr<TextureCubemap> fallback_prefilter  = nullptr);
         void OnRuntimeStart();
         void OnUpdateRuntime(Timestep ts);
         void OnRuntimeStop();
@@ -75,6 +84,37 @@ namespace Loom {
         void SetShowPhysicsColliders(bool show) { mShowPhysicsColliders = show; }
         bool IsShowingPhysicsColliders() const { return mShowPhysicsColliders; }
 
+        // ── Skybox / IBL environment ──────────────────────────────────────
+        // Path is project-relative (`environments/foo.hdr` etc.). Setting the
+        // path triggers a lazy load + equirect→cubemap conversion on the next
+        // GetSkyboxCubemap(). Empty path => the scene has *no* environment
+        // assigned. Both GetSkyboxCubemap() and GetIrradianceCubemap() return
+        // null in that case. The editor layers its own fallback environment
+        // on top when displaying the scene in edit mode; play mode renders
+        // exactly what the scene specifies.
+        const std::string&              GetSkyboxPath()    const { return mSkyboxPath; }
+        void                            SetSkyboxPath(const std::string& path);
+        std::shared_ptr<TextureCubemap> GetSkyboxCubemap();
+        // Diffuse irradiance cubemap convolved from the skybox env. Lazy —
+        // built the first time after the skybox cubemap is available. Null
+        // when no skybox exists.
+        std::shared_ptr<TextureCubemap> GetIrradianceCubemap();
+        // Specular prefilter cubemap (Karis split-sum). Roughness-convolved
+        // per mip. Same lazy-build + lifetime semantics as the irradiance
+        // map; null when no skybox exists.
+        std::shared_ptr<TextureCubemap> GetPrefilterCubemap();
+
+        // Debug visualization for the IBL pipeline. Picks which cubemap the
+        // viewport renders as its skybox. `Irradiance` displays the convolved
+        // map directly — invaluable for verifying B.2 convolution quality.
+        enum class SkyboxSource { Env, Irradiance };
+        void           SetSkyboxSource(SkyboxSource source) { mSkyboxSource = source; }
+        SkyboxSource   GetSkyboxSource() const              { return mSkyboxSource; }
+        std::shared_ptr<TextureCubemap> GetActiveSkyboxCubemap() {
+            return mSkyboxSource == SkyboxSource::Irradiance ? GetIrradianceCubemap()
+                                                             : GetSkyboxCubemap();
+        }
+
     private:
         void DrawCameraFrustum(const glm::mat4& world_transform, const CameraComponent& camera);
         void RenderPhysicsColliders();
@@ -95,6 +135,16 @@ namespace Loom {
         std::unique_ptr<Physics3DEventState> mPhysics3DEvents;
 
         bool mShowPhysicsColliders = false;
+
+        // Skybox / IBL state. All rebuilt lazily when `mSkyboxPath` changes
+        // or first access happens after a scene load.
+        std::string                     mSkyboxPath;
+        std::shared_ptr<Texture2D>      mSkyboxEquirect;
+        std::shared_ptr<TextureCubemap> mSkyboxCubemap;
+        std::shared_ptr<TextureCubemap> mIrradianceCubemap;
+        std::shared_ptr<TextureCubemap> mPrefilterCubemap;
+        bool                            mSkyboxDirty  = true;
+        SkyboxSource                    mSkyboxSource = SkyboxSource::Env;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

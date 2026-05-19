@@ -63,10 +63,6 @@ namespace Weaver {
 
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
 
-        std::shared_ptr<Loom::VertexArray>  mSkyboxVAO;
-        std::shared_ptr<Loom::VertexBuffer> mSkyboxVBO;
-        std::shared_ptr<Loom::Shader>       mSkyboxShader;
-
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;
         std::shared_ptr<Loom::Shader>       mGridShader;

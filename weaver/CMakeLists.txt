@@ -8,6 +8,7 @@ add_executable(Weaver
   src/panels/content_browser_panel.cpp
   src/panels/viewport_panel.cpp
   src/panels/toolbar_panel.cpp
+  src/panels/scene_properties_panel.cpp
   src/editor/editor_history.cpp
   src/editor/scene_manager.cpp
   src/editor/project_manager.cpp

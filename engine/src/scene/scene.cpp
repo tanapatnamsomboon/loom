@@ -11,6 +11,7 @@
 #include "loom/scripting/scripting_engine.h"
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <limits>
 #include <random>
 #include <unordered_set>
@@ -40,6 +41,81 @@ namespace Loom {
 
     Scene::~Scene() {
         OnRuntimeStop();
+    }
+
+    void Scene::SetSkyboxPath(const std::string& path) {
+        if (mSkyboxPath == path) return;
+        mSkyboxPath    = path;
+        mSkyboxEquirect.reset();
+        mSkyboxCubemap.reset();
+        mIrradianceCubemap.reset();
+        mPrefilterCubemap.reset();
+        mSkyboxDirty   = true;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetSkyboxCubemap() {
+        if (!mSkyboxDirty) return mSkyboxCubemap;
+        mSkyboxDirty = false;
+
+        // Empty path = scene has no environment assigned. Returns null; the
+        // editor layers its own fallback HDR on top for build-time UX, play
+        // mode honours the scene's empty config and renders no skybox.
+        if (mSkyboxPath.empty()) {
+            mSkyboxEquirect.reset();
+            mSkyboxCubemap.reset();
+            return nullptr;
+        }
+
+        std::string abs_path = Project::GetAssetFileSystemPath(mSkyboxPath).generic_string();
+
+        // Lazy load: HDR equirect → 6-face cubemap. Conversion happens via a
+        // one-time GPU pass in TextureCubemap::CreateFromEquirect.
+        mSkyboxEquirect = AssetManager::GetTexture(abs_path);
+        if (!mSkyboxEquirect) {
+            LOOM_CORE_WARN("Skybox HDR failed to load: {}", abs_path);
+            mSkyboxCubemap.reset();
+            return nullptr;
+        }
+        // 2048 per face: the editor camera uses a 30° FOV, so viewport density
+        // (≈22 px/deg at 660 vp-px tall) is ~2× the cubemap's angular density
+        // at 1024². That mismatch causes a visible bilinear upscale ("looks like
+        // 480p"). 2048² brings cubemap density to ~22.8 px/deg — near 1:1 with
+        // the viewport at typical editor sizes — so cubemap→viewport sampling
+        // doesn't introduce additional softening. Does NOT add detail beyond
+        // what a 4K equirect carries (the HDR is still the information ceiling);
+        // it just removes the upsample-blur step. VRAM cost: ~200 MB RGB16F
+        // with full mip chain.
+        mSkyboxCubemap = TextureCubemap::CreateFromEquirect(mSkyboxEquirect, 2048);
+        return mSkyboxCubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetIrradianceCubemap() {
+        if (mIrradianceCubemap) return mIrradianceCubemap;
+        // Trigger skybox load if it hasn't happened. Irradiance derives from
+        // the env cubemap; both share the same dirty flag.
+        auto env = GetSkyboxCubemap();
+        if (!env) return nullptr;
+        // 128² instead of the textbook 32². Diffuse irradiance is low-freq,
+        // but a sphere wrapping the cubemap sees ~face_size × 4 texels along
+        // any great circle — at 32² that's only ~128 discrete samples per
+        // sphere equator, where bilinear interpolation leaves a visibly
+        // stepped gradient. 128² gives ~512 texels per great circle, enough
+        // that interpolation is imperceptible. Cost: 128×128×6×6 ≈ 600 KB.
+        mIrradianceCubemap = TextureCubemap::CreateIrradiance(env, 128);
+        return mIrradianceCubemap;
+    }
+
+    std::shared_ptr<TextureCubemap> Scene::GetPrefilterCubemap() {
+        if (mPrefilterCubemap) return mPrefilterCubemap;
+        auto env = GetSkyboxCubemap();
+        if (!env) return nullptr;
+        // 256² with a full mip chain (mips 0..8). Roughness 0 = mip 0 (mirror,
+        // matches env resolution), roughness 1 = mip 8 (4² fully-rough). Cost:
+        // ~525 KB RGB16F with the mip chain. The build is the most expensive
+        // step in the IBL pipeline (1024 samples × 6 faces × Σ mip texels),
+        // takes ~half a second on a mid-range GPU — runs once per scene load.
+        mPrefilterCubemap = TextureCubemap::CreatePrefiltered(env, 256);
+        return mPrefilterCubemap;
     }
 
     template<typename Component>
@@ -120,6 +196,18 @@ namespace Loom {
             }
             dst_registry.emplace_or_replace<RelationshipComponent>(dst_entity_id, dst_rel);
         }
+
+        // Environment carries over to the play-mode copy. Skipping this leaves
+        // the runtime scene with no skybox + zero IBL even when the source
+        // scene had an HDR assigned — surfaces as "skybox disappears when I
+        // hit Play". Sharing the prebuilt cubemap pointers also avoids
+        // rebuilding the (~200 MB) env + irradiance pair on every play start.
+        new_scene->mSkyboxPath        = other->mSkyboxPath;
+        new_scene->mSkyboxEquirect    = other->mSkyboxEquirect;
+        new_scene->mSkyboxCubemap     = other->mSkyboxCubemap;
+        new_scene->mIrradianceCubemap = other->mIrradianceCubemap;
+        new_scene->mPrefilterCubemap  = other->mPrefilterCubemap;
+        new_scene->mSkyboxDirty       = other->mSkyboxDirty;
 
         return new_scene;
     }
@@ -602,7 +690,9 @@ namespace Loom {
             tc.SheetColumns, tc.SheetRows, tc.Tiles, (int)(uint32_t)e);
     }
 
-    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
+    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
+                                std::shared_ptr<TextureCubemap> fallback_irradiance,
+                                std::shared_ptr<TextureCubemap> fallback_prefilter) {
         // Shadow pass runs first — fills the shadow map (separate FBO), then
         // restores the caller's framebuffer so the main 3D pass renders into
         // the editor viewport as usual.
@@ -611,6 +701,17 @@ namespace Loom {
         // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
         GatherAndUploadLights(this, mRegistry);
+        // Scene's own IBL takes priority; editor fallback fills in when the
+        // scene has no environment assigned so PBR materials never go pitch-
+        // black during level construction. Diffuse + specular fall back
+        // independently — usually together, but the type allows for the
+        // fallback HDR to fail one stage and not the other.
+        auto irradiance = GetIrradianceCubemap();
+        auto prefilter  = GetPrefilterCubemap();
+        if (!irradiance) irradiance = std::move(fallback_irradiance);
+        if (!prefilter)  prefilter  = std::move(fallback_prefilter);
+        Renderer3D::SetIrradianceMap(irradiance);
+        Renderer3D::SetPrefilterMap (prefilter);
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
             DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
         }
@@ -930,6 +1031,72 @@ namespace Loom {
         mPhysics3DEvents->body_to_entity.clear();
     }
 
+    // Aggregates a tilemap's solid cells into merged collision rectangles.
+    // Shared by the runtime fixture generator and the debug overlay so the
+    // editor previews the exact shapes Box2D will collide against.
+    //
+    // Two-pass: (1) per-row greedy horizontal runs, (2) extend a run from
+    // the previous row down by one if it has the same ColStart + Count.
+    // Catches rectangular regions (the common solid-floor / wall-block
+    // case) without paying for true max-rectangle decomposition.
+    //
+    // Staggered regions (e.g. an L-shape) still emit one rect per row of
+    // the staggered part — same physical behavior as the row-only version,
+    // just no improvement there. Real games rarely have such shapes.
+    struct TilemapColliderRect {
+        int RowStart;  // inclusive
+        int RowEnd;    // inclusive (== RowStart for a single-row rect)
+        int ColStart;  // inclusive
+        int Count;     // columns; rect spans [ColStart, ColStart + Count)
+    };
+
+    template <typename SolidPredicate>
+    static std::vector<TilemapColliderRect> ComputeTilemapColliderRects(
+        int rows, int cols, SolidPredicate&& is_solid) {
+
+        struct OpenRect { int RowStart; int ColStart; int Count; };
+        std::vector<TilemapColliderRect> out;
+        std::vector<OpenRect>            prev_open;  // runs from row r-1 still eligible to grow
+        std::vector<OpenRect>            cur_open;   // runs from row r
+
+        for (int r = 0; r < rows; ++r) {
+            cur_open.clear();
+
+            int c = 0;
+            while (c < cols) {
+                if (!is_solid(r, c)) { ++c; continue; }
+                int start = c;
+                while (c < cols && is_solid(r, c)) ++c;
+                int count = c - start;
+
+                // Try to fuse with a matching open run from the previous row.
+                // Linear scan is fine — runs per row are typically a handful.
+                auto it = std::find_if(prev_open.begin(), prev_open.end(),
+                    [&](const OpenRect& o) { return o.ColStart == start && o.Count == count; });
+                if (it != prev_open.end()) {
+                    cur_open.push_back({ it->RowStart, it->ColStart, it->Count });
+                    prev_open.erase(it);
+                } else {
+                    cur_open.push_back({ r, start, count });
+                }
+            }
+
+            // Anything left in prev_open didn't extend into this row — emit.
+            for (const auto& o : prev_open) {
+                out.push_back({ o.RowStart, r - 1, o.ColStart, o.Count });
+            }
+            prev_open.swap(cur_open);
+        }
+
+        // Flush remaining open rects at end of grid.
+        int last_row = rows - 1;
+        for (const auto& o : prev_open) {
+            out.push_back({ o.RowStart, last_row, o.ColStart, o.Count });
+        }
+
+        return out;
+    }
+
     void Scene::OnRuntimeStart() {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
             anim.CurrentFrame   = 0;
@@ -1060,25 +1227,19 @@ namespace Loom {
             const float hw = tc.Columns * tc.TileWidth  * 0.5f;
             const float hh = tc.Rows    * tc.TileHeight * 0.5f;
 
-            for (int r = 0; r < tc.Rows; ++r) {
-                int c = 0;
-                while (c < tc.Columns) {
-                    if (!is_solid(r, c)) { ++c; continue; }
-                    int start = c;
-                    while (c < tc.Columns && is_solid(r, c)) ++c;
-                    int count = c - start;
+            auto rects = ComputeTilemapColliderRects(tc.Rows, tc.Columns, is_solid);
+            for (const auto& rect : rects) {
+                int   span_rows = rect.RowEnd - rect.RowStart + 1;
+                float box_hw    = rect.Count * tc.TileWidth  * 0.5f;
+                float box_hh    = span_rows  * tc.TileHeight * 0.5f;
+                float center_x  = -hw + (rect.ColStart + rect.Count   * 0.5f) * tc.TileWidth;
+                float center_y  =  hh - (rect.RowStart + span_rows    * 0.5f) * tc.TileHeight;
 
-                    float box_hw   = count * tc.TileWidth  * 0.5f;
-                    float box_hh   = tc.TileHeight * 0.5f;
-                    float center_x = -hw + (start + count * 0.5f) * tc.TileWidth;
-                    float center_y =  hh - (r + 0.5f) * tc.TileHeight;
-
-                    b2ShapeDef shape_def = b2DefaultShapeDef();
-                    shape_def.enableContactEvents = true;
-                    b2Polygon box = b2MakeOffsetBox(box_hw, box_hh,
-                                                    { center_x, center_y }, b2MakeRot(0.0f));
-                    b2CreatePolygonShape(tc.RuntimeBody, &shape_def, &box);
-                }
+                b2ShapeDef shape_def = b2DefaultShapeDef();
+                shape_def.enableContactEvents = true;
+                b2Polygon box = b2MakeOffsetBox(box_hw, box_hh,
+                                                { center_x, center_y }, b2MakeRot(0.0f));
+                b2CreatePolygonShape(tc.RuntimeBody, &shape_def, &box);
             }
         }
 
@@ -1230,6 +1391,16 @@ namespace Loom {
         }
 
         if (main_camera) {
+            // Skybox — play mode uses ONLY the scene's own environment. No
+            // editor fallback: if the level was authored with no skybox, the
+            // shipped game shows the framebuffer clear color (and meshes get
+            // zero IBL ambient).
+            if (auto scene_skybox = GetSkyboxCubemap()) {
+                Renderer3D::DrawSkybox(glm::inverse(camera_transform),
+                                       main_camera->GetProjectionMatrix(),
+                                       scene_skybox);
+            }
+
             // Shadow pass first — runs even in Play mode so cast shadows are part
             // of the shipped experience, not just an editor preview.
             RunShadowPass(this, mRegistry,
@@ -1239,6 +1410,8 @@ namespace Loom {
             // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
             Renderer3D::BeginScene(*main_camera, camera_transform);
             GatherAndUploadLights(this, mRegistry);
+            Renderer3D::SetIrradianceMap(GetIrradianceCubemap());
+            Renderer3D::SetPrefilterMap (GetPrefilterCubemap());
             for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
                 DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
             }
@@ -1551,29 +1724,23 @@ namespace Loom {
                            * glm::rotate(glm::mat4(1.0f), transform.Rotation.z, { 0, 0, 1 });
             int eid = (int)(uint32_t)e;
 
-            for (int r = 0; r < tc.Rows; ++r) {
-                int c = 0;
-                while (c < tc.Columns) {
-                    if (!is_solid(r, c)) { ++c; continue; }
-                    int start = c;
-                    while (c < tc.Columns && is_solid(r, c)) ++c;
-                    int count = c - start;
+            auto rects = ComputeTilemapColliderRects(tc.Rows, tc.Columns, is_solid);
+            for (const auto& rect : rects) {
+                int   span_rows = rect.RowEnd - rect.RowStart + 1;
+                float box_hw    = rect.Count * tc.TileWidth  * 0.5f;
+                float box_hh    = span_rows  * tc.TileHeight * 0.5f;
+                float cx        = -hw + (rect.ColStart + rect.Count   * 0.5f) * tc.TileWidth;
+                float cy        =  hh - (rect.RowStart + span_rows    * 0.5f) * tc.TileHeight;
 
-                    float box_hw = count * tc.TileWidth  * 0.5f;
-                    float box_hh = tc.TileHeight * 0.5f;
-                    float cx = -hw + (start + count * 0.5f) * tc.TileWidth;
-                    float cy =  hh - (r + 0.5f) * tc.TileHeight;
+                glm::vec3 p0 = base * glm::vec4(cx - box_hw, cy - box_hh, 0.001f, 1.0f);
+                glm::vec3 p1 = base * glm::vec4(cx + box_hw, cy - box_hh, 0.001f, 1.0f);
+                glm::vec3 p2 = base * glm::vec4(cx + box_hw, cy + box_hh, 0.001f, 1.0f);
+                glm::vec3 p3 = base * glm::vec4(cx - box_hw, cy + box_hh, 0.001f, 1.0f);
 
-                    glm::vec3 p0 = base * glm::vec4(cx - box_hw, cy - box_hh, 0.001f, 1.0f);
-                    glm::vec3 p1 = base * glm::vec4(cx + box_hw, cy - box_hh, 0.001f, 1.0f);
-                    glm::vec3 p2 = base * glm::vec4(cx + box_hw, cy + box_hh, 0.001f, 1.0f);
-                    glm::vec3 p3 = base * glm::vec4(cx - box_hw, cy + box_hh, 0.001f, 1.0f);
-
-                    Renderer2D::DrawLine(p0, p1, collider_color, eid);
-                    Renderer2D::DrawLine(p1, p2, collider_color, eid);
-                    Renderer2D::DrawLine(p2, p3, collider_color, eid);
-                    Renderer2D::DrawLine(p3, p0, collider_color, eid);
-                }
+                Renderer2D::DrawLine(p0, p1, collider_color, eid);
+                Renderer2D::DrawLine(p1, p2, collider_color, eid);
+                Renderer2D::DrawLine(p2, p3, collider_color, eid);
+                Renderer2D::DrawLine(p3, p0, collider_color, eid);
             }
         }
     }

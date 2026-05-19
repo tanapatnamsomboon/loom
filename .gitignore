@@ -5,6 +5,9 @@ imgui.ini
 bin/
 bin-int/
 
+# Runtime logs (spdlog file sink — truncated each run)
+logs/
+
 # CMake
 CMakeCache.txt
 CMakeUserPresets.json

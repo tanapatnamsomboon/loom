@@ -15,11 +15,34 @@ in vec4 vLightSpacePos3;
 #define MAX_POINT_LIGHTS 16
 #define CASCADE_COUNT    4
 
-uniform sampler2D uAlbedoTexture;
-uniform sampler2D uShadowMap0;
-uniform sampler2D uShadowMap1;
-uniform sampler2D uShadowMap2;
-uniform sampler2D uShadowMap3;
+uniform sampler2D   uAlbedoTexture;
+uniform sampler2D   uShadowMap0;
+uniform sampler2D   uShadowMap1;
+uniform sampler2D   uShadowMap2;
+uniform sampler2D   uShadowMap3;
+uniform samplerCube uIrradianceMap;
+uniform samplerCube uPrefilterMap;
+uniform sampler2D   uBRDFLUT;
+uniform int         uHasIBL;
+uniform int         uHasPrefilter;
+uniform float       uMaxReflectionLOD;   // log2(prefilter face size)
+
+// Debug visualizations. 0 = PBR (default), >0 = bypass PBR and write the
+// requested intermediate value (post tonemap+gamma where appropriate).
+// Set via Renderer3D::SetDebugViz from the toolbar dropdown.
+//   1 = raw irradiance sample at this fragment's world normal (cubemap content
+//       check — if this looks like recognizable environment features, the
+//       irradiance convolution didn't actually low-pass the source)
+//   2 = world-space normal encoded as color (sanity-check the mesh normals)
+//   3 = NdotL on the first directional light (verifies light direction)
+//   4 = NdotV (verifies view-vector / camera position is sane)
+//   5 = albedo only (no lighting)
+//   6 = prefilter sample along reflection vector at the surface's roughness
+//       (verifies B.3 prefilter quality — low roughness should look mirror-
+//       like, high roughness should look like the diffuse irradiance)
+//   7 = BRDF LUT lookup as (R=scale, G=bias) — should be a smooth gradient,
+//       bias dark at low NdotV/roughness, scale dim at high roughness
+uniform int         uDebugViz;
 uniform float     uCascadeSplits[CASCADE_COUNT]; // world-space far distance per cascade
 uniform vec4      uAlbedoColor;
 uniform float     uRoughness;
@@ -37,11 +60,6 @@ uniform vec3  uPointLightPos[MAX_POINT_LIGHTS];
 uniform vec3  uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
-// Always-on ambient term — placeholder until the IBL slice replaces it with
-// diffuse irradiance + specular prefilter sampling. Restored to a properly
-// low PBR value (0.03) now that tonemap + gamma at output lift the perceived
-// brightness back to a reasonable level.
-const vec3  kFallbackAmbient = vec3(0.03);
 const float kPI              = 3.14159265359;
 const float kGamma           = 2.2;
 
@@ -182,6 +200,51 @@ void main() {
     vec3 N             = normalize(vWorldNormal);
     vec3 V             = normalize(uViewPos - vWorldPos);
 
+    // ── Debug visualizations ──────────────────────────────────────────────
+    // These short-circuit before any PBR math so they output the raw quantity.
+    if (uDebugViz != 0) {
+        vec3 dbg = vec3(0.0);
+        if (uDebugViz == 1) {
+            // Raw irradiance at this fragment's normal. Same explicit-mip-0
+            // sample path as the PBR mode so this view honestly reflects
+            // what the PBR shader receives.
+            dbg = textureLod(uIrradianceMap, N, 0.0).rgb;
+            dbg = pow(ACESFilm(dbg), vec3(1.0 / kGamma));
+        } else if (uDebugViz == 2) {
+            // World-space normal as color. Continuous gradient = mesh normals
+            // are smooth; discontinuities = mesh has flat / broken normals.
+            dbg = N * 0.5 + 0.5;
+        } else if (uDebugViz == 3) {
+            // NdotL on first directional light. Bright = light hits front,
+            // black = light hits back. Verifies light direction sanity.
+            vec3 L = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
+            dbg = vec3(max(dot(N, L), 0.0));
+        } else if (uDebugViz == 4) {
+            // NdotV — should be 1 at the silhouette center, 0 at the rim.
+            dbg = vec3(max(dot(N, V), 0.0));
+        } else if (uDebugViz == 5) {
+            // Albedo only (linear → sRGB).
+            dbg = pow(albedo, vec3(1.0 / kGamma));
+        } else if (uDebugViz == 6) {
+            // Prefilter sample along the reflection vector at the surface's
+            // actual roughness. Mirror surfaces (roughness ≈ 0) should look
+            // like the env cubemap; rough surfaces should look blurry.
+            float r_dbg = clamp(uRoughness, 0.04, 1.0);
+            vec3  R     = reflect(-V, N);
+            dbg         = textureLod(uPrefilterMap, R, r_dbg * uMaxReflectionLOD).rgb;
+            dbg         = pow(ACESFilm(dbg), vec3(1.0 / kGamma));
+        } else if (uDebugViz == 7) {
+            // BRDF LUT lookup. Use NdotV from the actual fragment to be useful.
+            float r_dbg = clamp(uRoughness, 0.04, 1.0);
+            float cosNV = max(dot(N, V), 0.0);
+            vec2  lut   = texture(uBRDFLUT, vec2(cosNV, r_dbg)).rg;
+            dbg         = vec3(lut, 0.0);
+        }
+        oColor    = vec4(dbg, 1.0);
+        oEntityID = uEntityID;
+        return;
+    }
+
     float roughness = clamp(uRoughness, 0.04, 1.0); // floor avoids NaN at perfect mirror
     float metallic  = clamp(uMetallic,  0.0,  1.0);
 
@@ -192,9 +255,48 @@ void main() {
     vec3  shadow_L          = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
     float shadow_visibility = SampleShadow(N, shadow_L);
 
-    // Ambient placeholder. IBL slice will replace with diffuse-irradiance +
-    // prefiltered-specular sampling.
-    vec3 lit = kFallbackAmbient * albedo;
+    // Ambient: split-sum IBL — diffuse irradiance (low-freq Lambertian)
+    // + roughness-convolved specular prefilter modulated by the precomputed
+    // BRDF LUT. No fallback grey: the editor binds its own fallback IBL
+    // during level construction; play mode with no scene environment
+    // intentionally has zero ambient so materials reveal direct-light-only
+    // behavior (which is what the shipped game will show).
+    vec3 lit = vec3(0.0);
+    if (uHasIBL == 1) {
+        // Roughness-aware Fresnel. Standard Schlick saturates F to 1.0 at
+        // grazing angles regardless of roughness — physically correct for
+        // mirrors but too bright for rough surfaces, which scatter most of
+        // the grazing reflection. Lazarov-style "F0 grows with smoothness"
+        // term softens this for IBL specifically.
+        float cosNV   = max(dot(N, V), 0.0);
+        vec3  F_at_N  = F0 + (max(vec3(1.0 - roughness), F0) - F0)
+                              * pow(clamp(1.0 - cosNV, 0.0, 1.0), 5.0);
+        vec3  kS      = F_at_N;
+        vec3  kD      = (vec3(1.0) - kS) * (1.0 - metallic);
+
+        // Diffuse IBL — textureLod at mip 0 because the irradiance map is
+        // low-frequency by construction (Lambertian-convolved). Letting the
+        // driver pick mips from screen-space derivatives produces faint
+        // concentric rings on curved surfaces ("LOD lottery").
+        vec3 irradiance = textureLod(uIrradianceMap, N, 0.0).rgb;
+        vec3 diffuseIBL = kD * irradiance * albedo;
+
+        // Specular IBL — Karis 2013 split-sum:
+        //   prefilter(R, roughness) * (F * envBRDF.r + envBRDF.g)
+        // The prefilter cubemap is roughness-convolved per mip, so we
+        // sample at LOD = roughness * maxLOD. The BRDF LUT is environment-
+        // independent and stores (scale, bias) such that the specular
+        // contribution reconstructs as F0*scale + bias.
+        vec3 specularIBL = vec3(0.0);
+        if (uHasPrefilter == 1) {
+            vec3  R           = reflect(-V, N);
+            vec3  prefiltered = textureLod(uPrefilterMap, R, roughness * uMaxReflectionLOD).rgb;
+            vec2  envBRDF     = texture(uBRDFLUT, vec2(cosNV, roughness)).rg;
+            specularIBL       = prefiltered * (F_at_N * envBRDF.x + envBRDF.y);
+        }
+
+        lit = diffuseIBL + specularIBL;
+    }
 
     for (int i = 0; i < uDirLightCount; ++i) {
         vec3 L         = normalize(-uDirLightDir[i]);

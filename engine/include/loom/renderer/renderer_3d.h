@@ -2,6 +2,7 @@
 
 #include "loom/core/core.h"
 #include "loom/renderer/camera.h"
+#include "loom/renderer/cubemap.h"
 #include "loom/renderer/editor_camera.h"
 #include "loom/renderer/mesh_asset.h"
 #include "loom/renderer/texture.h"
@@ -45,6 +46,29 @@ namespace Loom {
         // Lights beyond the kMax* limits are silently dropped.
         static void SetLights(const DirectionalLight* dir_lights, int dir_count,
                               const PointLight*       point_lights, int point_count);
+
+        // IBL environment. Pass null to disable IBL for the next draws.
+        //   * `SetIrradianceMap` — diffuse ambient term (Lambertian-convolved
+        //     env cubemap, B.2).
+        //   * `SetPrefilterMap` — specular IBL via the Karis split-sum
+        //     approximation (B.3). Cubemap is roughness-convolved per mip;
+        //     the shader samples `textureLod(prefilter, R, roughness * maxLOD)`.
+        //     The BRDF LUT half of the split-sum is owned by Renderer3D
+        //     internally (generated once at Init).
+        static void SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance);
+        static void SetPrefilterMap(const std::shared_ptr<TextureCubemap>& prefilter);
+
+        // Renders `cubemap` as a skybox using the currently-bound framebuffer
+        // and viewport. `view` is the camera view matrix (translation is zeroed
+        // internally so the skybox is camera-centered); `projection` is the
+        // camera projection. No-op when `cubemap` is null. Cubemap binds to
+        // texture unit 0 for the duration of the draw.
+        static void DrawSkybox(const glm::mat4& view, const glm::mat4& projection,
+                               const std::shared_ptr<TextureCubemap>& cubemap);
+
+        // Debug visualization mode for the mesh shader (see mesh.frag uDebugViz).
+        //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
+        static void SetDebugViz(int mode);
 
         // One draw call per submission (no batching). albedo_texture may be null
         // (a 1x1 white texture is bound in its place). entity_id < 0 leaves the

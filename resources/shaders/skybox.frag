@@ -3,22 +3,26 @@
 layout (location = 0) out vec4 oColor;
 layout (location = 1) out int  oEntityID;
 
-in vec3 vTexCoords;
+in vec3 vDirection;
+
+uniform samplerCube uSkybox;
+
+// Inline tonemap + sRGB to match mesh.frag's output pipeline. Without this the
+// skybox would look much brighter than equivalent lit geometry, because lit
+// geometry goes through ACES + gamma but the skybox would write raw HDR linear
+// values.
+const float kGamma = 2.2;
+
+vec3 ACESFilm(vec3 x) {
+    const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
 
 void main() {
-    vec3 dir = normalize(vTexCoords);
+    vec3 hdr        = texture(uSkybox, normalize(vDirection)).rgb;
+    vec3 tonemapped = ACESFilm(hdr);
+    vec3 display    = pow(tonemapped, vec3(1.0 / kGamma));
 
-    vec3 top_color     = vec3(0.20, 0.45, 0.75);
-    vec3 horizon_color = vec3(0.75, 0.82, 0.88);
-    vec3 ground_color  = vec3(0.18, 0.18, 0.18);
-
-    float sky_t = pow(max(dir.y, 0.0), 0.5);
-    vec3 sky_gradient = mix(horizon_color, top_color, sky_t);
-
-    float horizon_blur = smoothstep(-0.02, 0.02, dir.y);
-
-    vec3 final_color = mix(ground_color, sky_gradient, horizon_blur);
-
-    oColor = vec4(final_color, 1.0);
+    oColor    = vec4(display, 1.0);
     oEntityID = -1;
 }

@@ -1329,6 +1329,15 @@ namespace Weaver {
                 if (ImGui::DragInt2("Sheet (cols x rows)", sheet, 1, 1, 64)) {
                     tm.SheetColumns = std::max(1, sheet[0]);
                     tm.SheetRows    = std::max(1, sheet[1]);
+                    // Solid is keyed by sheet-tile index — must resize in the
+                    // same frame so the palette render below doesn't read past
+                    // the old end. The top-of-block defensive resize only
+                    // catches mismatches at *frame start*; growing the sheet
+                    // mid-frame slips past it. Existing flags keep their
+                    // linear indices (so growing rows preserves the in-place
+                    // mapping; growing columns shifts which (row,col) each
+                    // flag points at — acceptable, the user can re-mark).
+                    tm.Solid.resize(tm.SheetColumns * tm.SheetRows, false);
                     is_modified     = true;
                 }
 

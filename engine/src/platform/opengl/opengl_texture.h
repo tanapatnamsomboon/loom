@@ -33,6 +33,7 @@ namespace Loom {
         uint32_t             mWidth = 0, mHeight = 0;
         uint32_t             mRendererID = 0;
         GLenum               mInternalFormat = 0, mDataFormat = 0;
+        bool                 mIsHDR = false;
     };
 
 } // namespace Loom

@@ -3,7 +3,9 @@
 #include "editor/editor_history.h"
 #include "panels/scene_hierarchy_panel.h"
 #include <glm/glm.hpp>
+#include <loom/renderer/cubemap.h>
 #include <loom/renderer/editor_camera.h>
+#include <loom/renderer/texture.h>
 #include <loom/scene/entity.h>
 #include <loom/scene/scene.h>
 #include <memory>
@@ -34,6 +36,18 @@ namespace Weaver {
     enum class ToolMode {
         Transform = 0,
         TilePaint = 1,
+    };
+
+    // Engine-default HDR pre-built into a cubemap + irradiance map at editor
+    // startup. The editor layers this on top of any scene that has no
+    // environment of its own, so PBR materials are never pitch-black during
+    // level construction. Play mode bypasses this entirely — it renders only
+    // the scene's explicit environment, by design.
+    struct EditorEnvironment {
+        std::shared_ptr<Loom::Texture2D>      Equirect;
+        std::shared_ptr<Loom::TextureCubemap> Skybox;
+        std::shared_ptr<Loom::TextureCubemap> Irradiance;
+        std::shared_ptr<Loom::TextureCubemap> Prefilter;
     };
 
     struct GridSettings {
@@ -88,6 +102,10 @@ namespace Weaver {
 
         // Non-owning pointer to the scene hierarchy panel (owned by EditorLayer)
         SceneHierarchyPanel* HierarchyPanel = nullptr;
+
+        // Engine-default HDR environment used as the editor's fallback when
+        // the active scene has no environment of its own.
+        EditorEnvironment FallbackEnvironment;
     };
 
 } // namespace Weaver

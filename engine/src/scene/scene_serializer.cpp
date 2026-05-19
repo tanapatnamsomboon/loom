@@ -480,6 +480,11 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Skybox (HDR environment) — project-relative path, omitted when unset.
+        if (!mScene->GetSkyboxPath().empty()) {
+            out << YAML::Key << "SkyboxPath" << YAML::Value << mScene->GetSkyboxPath();
+        }
+
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
 
         // Sort by UUID so the on-disk order is stable across save/load round-trips.
@@ -536,6 +541,10 @@ namespace Loom {
                 float     yaw   = YAML_GET(cam_node["Yaw"],      float,     0.0f);
                 out_camera->SetState(pos, pitch, yaw);
             }
+        }
+
+        if (auto sky_node = data["SkyboxPath"]) {
+            mScene->SetSkyboxPath(sky_node.as<std::string>());
         }
 
         auto entities_node = data["Entities"];

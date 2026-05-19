@@ -11,6 +11,7 @@
 #include <loom/math/math.h>
 #include <loom/project/project.h>
 #include <loom/renderer/render_command.h>
+#include <loom/renderer/renderer_3d.h>
 #include <loom/scene/components.h>
 #include <algorithm>
 #include <cmath>
@@ -35,30 +36,7 @@ namespace Weaver {
     }
 
     void ViewportPanel::Init() {
-        std::string skybox_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
-        std::string grid_path   = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
-
-        float skybox_vertices[] = {
-            -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,
-            -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f
-        };
-        uint32_t skybox_indices[] = {
-            1, 2, 6, 6, 5, 1, // Right
-            0, 4, 7, 7, 3, 0, // Left
-            3, 7, 6, 6, 2, 3, // Top
-            0, 1, 5, 5, 4, 0, // Bottom
-            5, 6, 7, 7, 4, 5, // Back
-            1, 0, 3, 3, 2, 1  // Front
-        };
-
-        mSkyboxVAO = Loom::VertexArray::Create();
-        mSkyboxVBO = Loom::VertexBuffer::Create(sizeof(skybox_vertices));
-        mSkyboxVBO->SetData(skybox_vertices, sizeof(skybox_vertices));
-        mSkyboxVBO->SetLayout({ { Loom::ShaderDataType::Float3, "aPosition" } });
-        mSkyboxVAO->AddVertexBuffer(mSkyboxVBO);
-        auto skybox_ibo = Loom::IndexBuffer::Create(skybox_indices, sizeof(skybox_indices) / sizeof(uint32_t));
-        mSkyboxVAO->SetIndexBuffer(skybox_ibo);
-        mSkyboxShader = Loom::AssetManager::GetShader(skybox_path);
+        std::string grid_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
 
         float grid_vertices[] = {
             -1.0f, 0.0f, -1.0f,
@@ -108,13 +86,24 @@ namespace Weaver {
             else
                 mContext.EditorCamera.ResetMousePosition();
 
-            // Skybox
-            glm::mat4 view    = mContext.EditorCamera.GetViewMatrix();
-            view[3]           = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-            glm::mat4 skyboxVP = mContext.EditorCamera.GetProjectionMatrix() * view;
-            mSkyboxShader->Bind();
-            mSkyboxShader->UploadUniformMat4("uViewProjection", skyboxVP);
-            Loom::RenderCommand::DrawIndexed(mSkyboxVAO.get(), 36);
+            // Skybox — scene's own env if assigned, else the editor's fallback
+            // HDR. The B.2 debug toggle (toolbar "Skybox Source") swaps env for
+            // irradiance so we can inspect convolution quality directly.
+            // Either side may resolve to null if the user has no scene env
+            // AND the engine default failed to load; in that case nothing
+            // draws and the clear color shows through.
+            auto scene_skybox     = mContext.ActiveScene->GetSkyboxCubemap();
+            auto scene_irradiance = mContext.ActiveScene->GetIrradianceCubemap();
+            auto effective_skybox     = scene_skybox     ? scene_skybox
+                                                         : mContext.FallbackEnvironment.Skybox;
+            auto effective_irradiance = scene_irradiance ? scene_irradiance
+                                                         : mContext.FallbackEnvironment.Irradiance;
+            auto debug_cubemap = (mContext.ActiveScene->GetSkyboxSource() == Loom::Scene::SkyboxSource::Irradiance)
+                                 ? effective_irradiance
+                                 : effective_skybox;
+            Loom::Renderer3D::DrawSkybox(mContext.EditorCamera.GetViewMatrix(),
+                                          mContext.EditorCamera.GetProjectionMatrix(),
+                                          debug_cubemap);
 
             // Grid
             const auto& gs       = mContext.Grid;
@@ -137,7 +126,10 @@ namespace Weaver {
 
         switch (mContext.SceneState) {
             case SceneState::Edit:
-                mContext.ActiveScene->OnUpdateEditor(ts, mContext.EditorCamera, mContext.HierarchyPanel->GetSelectedEntity());
+                mContext.ActiveScene->OnUpdateEditor(ts, mContext.EditorCamera,
+                                                     mContext.HierarchyPanel->GetSelectedEntity(),
+                                                     mContext.FallbackEnvironment.Irradiance,
+                                                     mContext.FallbackEnvironment.Prefilter);
                 break;
             case SceneState::Play:
                 mContext.ActiveScene->OnUpdateRuntime(ts);
