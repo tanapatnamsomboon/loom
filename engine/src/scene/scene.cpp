@@ -1031,6 +1031,72 @@ namespace Loom {
         mPhysics3DEvents->body_to_entity.clear();
     }
 
+    // Aggregates a tilemap's solid cells into merged collision rectangles.
+    // Shared by the runtime fixture generator and the debug overlay so the
+    // editor previews the exact shapes Box2D will collide against.
+    //
+    // Two-pass: (1) per-row greedy horizontal runs, (2) extend a run from
+    // the previous row down by one if it has the same ColStart + Count.
+    // Catches rectangular regions (the common solid-floor / wall-block
+    // case) without paying for true max-rectangle decomposition.
+    //
+    // Staggered regions (e.g. an L-shape) still emit one rect per row of
+    // the staggered part — same physical behavior as the row-only version,
+    // just no improvement there. Real games rarely have such shapes.
+    struct TilemapColliderRect {
+        int RowStart;  // inclusive
+        int RowEnd;    // inclusive (== RowStart for a single-row rect)
+        int ColStart;  // inclusive
+        int Count;     // columns; rect spans [ColStart, ColStart + Count)
+    };
+
+    template <typename SolidPredicate>
+    static std::vector<TilemapColliderRect> ComputeTilemapColliderRects(
+        int rows, int cols, SolidPredicate&& is_solid) {
+
+        struct OpenRect { int RowStart; int ColStart; int Count; };
+        std::vector<TilemapColliderRect> out;
+        std::vector<OpenRect>            prev_open;  // runs from row r-1 still eligible to grow
+        std::vector<OpenRect>            cur_open;   // runs from row r
+
+        for (int r = 0; r < rows; ++r) {
+            cur_open.clear();
+
+            int c = 0;
+            while (c < cols) {
+                if (!is_solid(r, c)) { ++c; continue; }
+                int start = c;
+                while (c < cols && is_solid(r, c)) ++c;
+                int count = c - start;
+
+                // Try to fuse with a matching open run from the previous row.
+                // Linear scan is fine — runs per row are typically a handful.
+                auto it = std::find_if(prev_open.begin(), prev_open.end(),
+                    [&](const OpenRect& o) { return o.ColStart == start && o.Count == count; });
+                if (it != prev_open.end()) {
+                    cur_open.push_back({ it->RowStart, it->ColStart, it->Count });
+                    prev_open.erase(it);
+                } else {
+                    cur_open.push_back({ r, start, count });
+                }
+            }
+
+            // Anything left in prev_open didn't extend into this row — emit.
+            for (const auto& o : prev_open) {
+                out.push_back({ o.RowStart, r - 1, o.ColStart, o.Count });
+            }
+            prev_open.swap(cur_open);
+        }
+
+        // Flush remaining open rects at end of grid.
+        int last_row = rows - 1;
+        for (const auto& o : prev_open) {
+            out.push_back({ o.RowStart, last_row, o.ColStart, o.Count });
+        }
+
+        return out;
+    }
+
     void Scene::OnRuntimeStart() {
         mRegistry.view<AnimationComponent>().each([](AnimationComponent& anim) {
             anim.CurrentFrame   = 0;
@@ -1161,25 +1227,19 @@ namespace Loom {
             const float hw = tc.Columns * tc.TileWidth  * 0.5f;
             const float hh = tc.Rows    * tc.TileHeight * 0.5f;
 
-            for (int r = 0; r < tc.Rows; ++r) {
-                int c = 0;
-                while (c < tc.Columns) {
-                    if (!is_solid(r, c)) { ++c; continue; }
-                    int start = c;
-                    while (c < tc.Columns && is_solid(r, c)) ++c;
-                    int count = c - start;
+            auto rects = ComputeTilemapColliderRects(tc.Rows, tc.Columns, is_solid);
+            for (const auto& rect : rects) {
+                int   span_rows = rect.RowEnd - rect.RowStart + 1;
+                float box_hw    = rect.Count * tc.TileWidth  * 0.5f;
+                float box_hh    = span_rows  * tc.TileHeight * 0.5f;
+                float center_x  = -hw + (rect.ColStart + rect.Count   * 0.5f) * tc.TileWidth;
+                float center_y  =  hh - (rect.RowStart + span_rows    * 0.5f) * tc.TileHeight;
 
-                    float box_hw   = count * tc.TileWidth  * 0.5f;
-                    float box_hh   = tc.TileHeight * 0.5f;
-                    float center_x = -hw + (start + count * 0.5f) * tc.TileWidth;
-                    float center_y =  hh - (r + 0.5f) * tc.TileHeight;
-
-                    b2ShapeDef shape_def = b2DefaultShapeDef();
-                    shape_def.enableContactEvents = true;
-                    b2Polygon box = b2MakeOffsetBox(box_hw, box_hh,
-                                                    { center_x, center_y }, b2MakeRot(0.0f));
-                    b2CreatePolygonShape(tc.RuntimeBody, &shape_def, &box);
-                }
+                b2ShapeDef shape_def = b2DefaultShapeDef();
+                shape_def.enableContactEvents = true;
+                b2Polygon box = b2MakeOffsetBox(box_hw, box_hh,
+                                                { center_x, center_y }, b2MakeRot(0.0f));
+                b2CreatePolygonShape(tc.RuntimeBody, &shape_def, &box);
             }
         }
 
@@ -1664,29 +1724,23 @@ namespace Loom {
                            * glm::rotate(glm::mat4(1.0f), transform.Rotation.z, { 0, 0, 1 });
             int eid = (int)(uint32_t)e;
 
-            for (int r = 0; r < tc.Rows; ++r) {
-                int c = 0;
-                while (c < tc.Columns) {
-                    if (!is_solid(r, c)) { ++c; continue; }
-                    int start = c;
-                    while (c < tc.Columns && is_solid(r, c)) ++c;
-                    int count = c - start;
+            auto rects = ComputeTilemapColliderRects(tc.Rows, tc.Columns, is_solid);
+            for (const auto& rect : rects) {
+                int   span_rows = rect.RowEnd - rect.RowStart + 1;
+                float box_hw    = rect.Count * tc.TileWidth  * 0.5f;
+                float box_hh    = span_rows  * tc.TileHeight * 0.5f;
+                float cx        = -hw + (rect.ColStart + rect.Count   * 0.5f) * tc.TileWidth;
+                float cy        =  hh - (rect.RowStart + span_rows    * 0.5f) * tc.TileHeight;
 
-                    float box_hw = count * tc.TileWidth  * 0.5f;
-                    float box_hh = tc.TileHeight * 0.5f;
-                    float cx = -hw + (start + count * 0.5f) * tc.TileWidth;
-                    float cy =  hh - (r + 0.5f) * tc.TileHeight;
+                glm::vec3 p0 = base * glm::vec4(cx - box_hw, cy - box_hh, 0.001f, 1.0f);
+                glm::vec3 p1 = base * glm::vec4(cx + box_hw, cy - box_hh, 0.001f, 1.0f);
+                glm::vec3 p2 = base * glm::vec4(cx + box_hw, cy + box_hh, 0.001f, 1.0f);
+                glm::vec3 p3 = base * glm::vec4(cx - box_hw, cy + box_hh, 0.001f, 1.0f);
 
-                    glm::vec3 p0 = base * glm::vec4(cx - box_hw, cy - box_hh, 0.001f, 1.0f);
-                    glm::vec3 p1 = base * glm::vec4(cx + box_hw, cy - box_hh, 0.001f, 1.0f);
-                    glm::vec3 p2 = base * glm::vec4(cx + box_hw, cy + box_hh, 0.001f, 1.0f);
-                    glm::vec3 p3 = base * glm::vec4(cx - box_hw, cy + box_hh, 0.001f, 1.0f);
-
-                    Renderer2D::DrawLine(p0, p1, collider_color, eid);
-                    Renderer2D::DrawLine(p1, p2, collider_color, eid);
-                    Renderer2D::DrawLine(p2, p3, collider_color, eid);
-                    Renderer2D::DrawLine(p3, p0, collider_color, eid);
-                }
+                Renderer2D::DrawLine(p0, p1, collider_color, eid);
+                Renderer2D::DrawLine(p1, p2, collider_color, eid);
+                Renderer2D::DrawLine(p2, p3, collider_color, eid);
+                Renderer2D::DrawLine(p3, p0, collider_color, eid);
             }
         }
     }
