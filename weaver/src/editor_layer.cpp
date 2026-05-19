@@ -6,7 +6,9 @@
 #include <loom/asset/asset_manager.h>
 #include <loom/core/application.h>
 #include <loom/core/input.h>
+#include <loom/core/log.h>
 #include <loom/project/project.h>
+#include <loom/renderer/cubemap.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_loader.h>
 #include <loom/scene/scene_serializer.h>
@@ -83,7 +85,40 @@ namespace Weaver {
         mToolbarPanel.SetOnPlayPressed([this] { mSceneManager.OnScenePlay(); });
         mToolbarPanel.SetOnStopPressed([this] { mSceneManager.OnSceneStop(); });
 
+        LoadFallbackEnvironment();
+
         mProjectManager.ShowWizard();
+    }
+
+    void EditorLayer::LoadFallbackEnvironment() {
+        // Editor-only fallback: when a scene has no environment of its own,
+        // the editor renders this on top so the user always sees a lit world
+        // while building. Play mode never uses it — that path is governed by
+        // the scene's explicit (possibly empty) environment.
+        std::filesystem::path engine_default =
+            Loom::Project::GetEngineAssetFileSystemPath("environments/default.hdr");
+        if (!std::filesystem::exists(engine_default)) {
+            LOOM_CORE_WARN("Editor fallback HDR not found at {} — scenes with no environment will render with zero IBL.",
+                           engine_default.generic_string());
+            return;
+        }
+
+        auto equirect = Loom::AssetManager::GetTexture(engine_default.generic_string());
+        if (!equirect) {
+            LOOM_CORE_WARN("Editor fallback HDR failed to load.");
+            return;
+        }
+
+        // Same face_size as a scene env (matches viewport density at typical
+        // editor FOVs — see scene.cpp comment).
+        auto skybox = Loom::TextureCubemap::CreateFromEquirect(equirect, 2048);
+        if (!skybox) return;
+        auto irradiance = Loom::TextureCubemap::CreateIrradiance(skybox, 128);
+
+        mContext.FallbackEnvironment.Equirect   = std::move(equirect);
+        mContext.FallbackEnvironment.Skybox     = std::move(skybox);
+        mContext.FallbackEnvironment.Irradiance = std::move(irradiance);
+        LOOM_CORE_INFO("Editor fallback environment loaded from {}", engine_default.generic_string());
     }
 
 #pragma endregion

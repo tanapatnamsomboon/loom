@@ -1,8 +1,9 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-10.1586485, 2.5492928, 13.833241]
-  Pitch: 0.15899923
-  Yaw: -5.5859313
+  Position: [-7.304659, 2.797192, 4.0807385]
+  Pitch: 0.12299941
+  Yaw: -3.8309324
+SkyboxPath: environments/kloppenheim_06_puresky_4k.hdr
 Entities:
   - Entity: 9443136952789325132
     TagComponent:

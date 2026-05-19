@@ -32,6 +32,8 @@ namespace Weaver {
         void RenderMainMenuBar();
         void RenderAboutModal();
 
+        void LoadFallbackEnvironment();
+
     private:
         EditorContext mContext;
 

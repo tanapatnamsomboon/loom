@@ -1,9 +1,11 @@
 #include "loom/renderer/renderer_3d.h"
 #include "loom/asset/asset_manager.h"
 #include "loom/project/project.h"
+#include "loom/renderer/buffer.h"
 #include "loom/renderer/framebuffer.h"
 #include "loom/renderer/render_command.h"
 #include "loom/renderer/shader.h"
+#include "loom/renderer/vertex_array.h"
 #include <glad/glad.h>
 #include <algorithm>
 
@@ -41,6 +43,13 @@ namespace Loom {
 
         // Debug visualization mode (see mesh.frag uDebugViz). 0 = normal PBR.
         int DebugViz = 0;
+
+        // ── Skybox state ──
+        // Unit cube + skybox shader owned here so both the editor and scene
+        // play-mode paths can call DrawSkybox without duplicating setup.
+        std::shared_ptr<Shader>       SkyboxShader;
+        std::shared_ptr<VertexArray>  SkyboxVAO;
+        std::shared_ptr<VertexBuffer> SkyboxVBO;
 
         // ── Shadow state (cascaded) ──
         // One framebuffer per cascade. Sized to a square depth texture each;
@@ -89,6 +98,33 @@ namespace Loom {
         sData.MeshShader->UploadUniformInt("uShadowMap2",     3);
         sData.MeshShader->UploadUniformInt("uShadowMap3",     4);
         sData.MeshShader->UploadUniformInt("uIrradianceMap",  5);
+
+        // Skybox cube: 8 unique vertices, 36 indices via IBO. Same layout the
+        // editor used to keep inline — moved here so the play-mode path can
+        // also draw a skybox without duplicating geometry/shader setup.
+        float skybox_vertices[] = {
+            -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f
+        };
+        uint32_t skybox_indices[] = {
+            1, 2, 6, 6, 5, 1, // Right
+            0, 4, 7, 7, 3, 0, // Left
+            3, 7, 6, 6, 2, 3, // Top
+            0, 1, 5, 5, 4, 0, // Bottom
+            5, 6, 7, 7, 4, 5, // Back
+            1, 0, 3, 3, 2, 1  // Front
+        };
+
+        sData.SkyboxVAO = VertexArray::Create();
+        sData.SkyboxVBO = VertexBuffer::Create(sizeof(skybox_vertices));
+        sData.SkyboxVBO->SetData(skybox_vertices, sizeof(skybox_vertices));
+        sData.SkyboxVBO->SetLayout({ { ShaderDataType::Float3, "aPosition" } });
+        sData.SkyboxVAO->AddVertexBuffer(sData.SkyboxVBO);
+        auto skybox_ibo = IndexBuffer::Create(skybox_indices, sizeof(skybox_indices) / sizeof(uint32_t));
+        sData.SkyboxVAO->SetIndexBuffer(skybox_ibo);
+
+        std::string skybox_shader_path = Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
+        sData.SkyboxShader             = AssetManager::GetShader(skybox_shader_path);
     }
 
     void Renderer3D::Shutdown() {
@@ -96,6 +132,9 @@ namespace Loom {
         sData.ShadowShader.reset();
         sData.WhiteTexture.reset();
         sData.CameraUniformBuffer.reset();
+        sData.SkyboxShader.reset();
+        sData.SkyboxVAO.reset();
+        sData.SkyboxVBO.reset();
         for (int i = 0; i < kCascadeCount; ++i) sData.ShadowFramebuffers[i].reset();
     }
 
@@ -130,6 +169,22 @@ namespace Loom {
 
     void Renderer3D::SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance) {
         sData.IrradianceMap = irradiance;
+    }
+
+    void Renderer3D::DrawSkybox(const glm::mat4& view, const glm::mat4& projection,
+                                const std::shared_ptr<TextureCubemap>& cubemap) {
+        if (!cubemap || !sData.SkyboxShader || !sData.SkyboxVAO) return;
+
+        // Zero the translation so the cube stays centered on the camera.
+        glm::mat4 view_no_trans = view;
+        view_no_trans[3]        = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glm::mat4 vp            = projection * view_no_trans;
+
+        sData.SkyboxShader->Bind();
+        sData.SkyboxShader->UploadUniformMat4("uViewProjection", vp);
+        sData.SkyboxShader->UploadUniformInt ("uSkybox",         0);
+        cubemap->Bind(0);
+        RenderCommand::DrawIndexed(sData.SkyboxVAO.get(), 36);
     }
 
     void Renderer3D::SetDebugViz(int mode) {

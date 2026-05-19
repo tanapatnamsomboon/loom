@@ -34,7 +34,14 @@ namespace Loom {
         static std::shared_ptr<Scene> Copy(std::shared_ptr<Scene> other);
         void                          OnViewportResize(uint32_t width, uint32_t height);
 
-        void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity);
+        // `fallback_irradiance` is used in editor mode when the scene has no
+        // environment of its own — typically the editor's default-HDR-derived
+        // irradiance — so PBR materials never go pitch-black while a level is
+        // being built. Pass null to skip the fallback (materials with no IBL
+        // will fall back to zero ambient in mesh.frag). Play mode never gets a
+        // fallback: `OnUpdateRuntime` uses only the scene's own irradiance.
+        void OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
+                            std::shared_ptr<TextureCubemap> fallback_irradiance = nullptr);
         void OnRuntimeStart();
         void OnUpdateRuntime(Timestep ts);
         void OnRuntimeStop();
@@ -79,9 +86,11 @@ namespace Loom {
         // ── Skybox / IBL environment ──────────────────────────────────────
         // Path is project-relative (`environments/foo.hdr` etc.). Setting the
         // path triggers a lazy load + equirect→cubemap conversion on the next
-        // GetSkyboxCubemap(). Empty path => no skybox; viewport falls back to
-        // the framebuffer clear color, and IBL contributions use the neutral
-        // grey fallback in mesh.frag.
+        // GetSkyboxCubemap(). Empty path => the scene has *no* environment
+        // assigned. Both GetSkyboxCubemap() and GetIrradianceCubemap() return
+        // null in that case. The editor layers its own fallback environment
+        // on top when displaying the scene in edit mode; play mode renders
+        // exactly what the scene specifies.
         const std::string&              GetSkyboxPath()    const { return mSkyboxPath; }
         void                            SetSkyboxPath(const std::string& path);
         std::shared_ptr<TextureCubemap> GetSkyboxCubemap();

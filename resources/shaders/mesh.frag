@@ -51,11 +51,6 @@ uniform vec3  uPointLightPos[MAX_POINT_LIGHTS];
 uniform vec3  uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
-// Always-on ambient term — placeholder until the IBL slice replaces it with
-// diffuse irradiance + specular prefilter sampling. Restored to a properly
-// low PBR value (0.03) now that tonemap + gamma at output lift the perceived
-// brightness back to a reasonable level.
-const vec3  kFallbackAmbient = vec3(0.03);
 const float kPI              = 3.14159265359;
 const float kGamma           = 2.2;
 
@@ -237,11 +232,12 @@ void main() {
     vec3  shadow_L          = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
     float shadow_visibility = SampleShadow(N, shadow_L);
 
-    // Ambient: IBL diffuse irradiance when an env map is bound, else fall back
-    // to a constant grey. Energy-conserving — only the diffuse fraction
-    // (1 - Fresnel_at_normal) * (1 - metallic) survives; specular ambient comes
-    // from prefilter + BRDF LUT in Slice B.3 / B.4.
-    vec3 lit;
+    // Ambient: IBL diffuse irradiance when an env map is bound, else zero.
+    // No fallback grey — the editor binds its own fallback IBL during level
+    // construction; play mode with no scene environment intentionally has
+    // zero ambient so materials reveal direct-light-only behavior (which is
+    // what the shipped game will show).
+    vec3 lit = vec3(0.0);
     if (uHasIBL == 1) {
         // textureLod at mip 0 — diffuse irradiance is low-frequency by
         // construction (the cubemap stores an already-integrated Lambertian
@@ -259,8 +255,6 @@ void main() {
         vec3 F_at_N = FresnelSchlick(max(dot(N, V), 0.0), F0);
         vec3 kD     = (vec3(1.0) - F_at_N) * (1.0 - metallic);
         lit         = kD * irradiance * albedo;
-    } else {
-        lit = kFallbackAmbient * albedo;
     }
 
     for (int i = 0; i < uDirLightCount; ++i) {

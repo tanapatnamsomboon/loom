@@ -56,28 +56,16 @@ namespace Loom {
         if (!mSkyboxDirty) return mSkyboxCubemap;
         mSkyboxDirty = false;
 
-        // Resolve which HDR to load:
-        //   1. Scene's explicit `mSkyboxPath` (project-relative) — takes priority.
-        //   2. Engine default at `resources/environments/default.hdr` —
-        //      ships with the engine so every project has a working IBL
-        //      environment out-of-the-box; per-scene overrides still win.
-        //   3. Nothing — viewport shows clear color, mesh.frag uses fallback
-        //      neutral grey ambient.
-        std::string abs_path;
-        if (!mSkyboxPath.empty()) {
-            abs_path = Project::GetAssetFileSystemPath(mSkyboxPath).generic_string();
-        } else {
-            std::filesystem::path engine_default =
-                Project::GetEngineAssetFileSystemPath("environments/default.hdr");
-            if (std::filesystem::exists(engine_default))
-                abs_path = engine_default.generic_string();
-        }
-
-        if (abs_path.empty()) {
+        // Empty path = scene has no environment assigned. Returns null; the
+        // editor layers its own fallback HDR on top for build-time UX, play
+        // mode honours the scene's empty config and renders no skybox.
+        if (mSkyboxPath.empty()) {
             mSkyboxEquirect.reset();
             mSkyboxCubemap.reset();
             return nullptr;
         }
+
+        std::string abs_path = Project::GetAssetFileSystemPath(mSkyboxPath).generic_string();
 
         // Lazy load: HDR equirect → 6-face cubemap. Conversion happens via a
         // one-time GPU pass in TextureCubemap::CreateFromEquirect.
@@ -194,6 +182,17 @@ namespace Loom {
             }
             dst_registry.emplace_or_replace<RelationshipComponent>(dst_entity_id, dst_rel);
         }
+
+        // Environment carries over to the play-mode copy. Skipping this leaves
+        // the runtime scene with no skybox + zero IBL even when the source
+        // scene had an HDR assigned — surfaces as "skybox disappears when I
+        // hit Play". Sharing the prebuilt cubemap pointers also avoids
+        // rebuilding the (~200 MB) env + irradiance pair on every play start.
+        new_scene->mSkyboxPath        = other->mSkyboxPath;
+        new_scene->mSkyboxEquirect    = other->mSkyboxEquirect;
+        new_scene->mSkyboxCubemap     = other->mSkyboxCubemap;
+        new_scene->mIrradianceCubemap = other->mIrradianceCubemap;
+        new_scene->mSkyboxDirty       = other->mSkyboxDirty;
 
         return new_scene;
     }
@@ -676,7 +675,8 @@ namespace Loom {
             tc.SheetColumns, tc.SheetRows, tc.Tiles, (int)(uint32_t)e);
     }
 
-    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity) {
+    void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
+                                std::shared_ptr<TextureCubemap> fallback_irradiance) {
         // Shadow pass runs first — fills the shadow map (separate FBO), then
         // restores the caller's framebuffer so the main 3D pass renders into
         // the editor viewport as usual.
@@ -685,7 +685,12 @@ namespace Loom {
         // 3D pass — opaque meshes write depth so 2D sprites overlay correctly.
         Renderer3D::BeginScene(camera);
         GatherAndUploadLights(this, mRegistry);
-        Renderer3D::SetIrradianceMap(GetIrradianceCubemap());
+        // Scene's own irradiance takes priority; editor fallback fills in when
+        // the scene has no environment assigned so PBR materials never go
+        // pitch-black during level construction.
+        auto irradiance = GetIrradianceCubemap();
+        if (!irradiance) irradiance = std::move(fallback_irradiance);
+        Renderer3D::SetIrradianceMap(irradiance);
         for (auto e : mRegistry.view<TransformComponent, MeshRendererComponent>()) {
             DrawMeshEntity(this, mRegistry, e, mRegistry.get<MeshRendererComponent>(e));
         }
@@ -1305,6 +1310,16 @@ namespace Loom {
         }
 
         if (main_camera) {
+            // Skybox — play mode uses ONLY the scene's own environment. No
+            // editor fallback: if the level was authored with no skybox, the
+            // shipped game shows the framebuffer clear color (and meshes get
+            // zero IBL ambient).
+            if (auto scene_skybox = GetSkyboxCubemap()) {
+                Renderer3D::DrawSkybox(glm::inverse(camera_transform),
+                                       main_camera->GetProjectionMatrix(),
+                                       scene_skybox);
+            }
+
             // Shadow pass first — runs even in Play mode so cast shadows are part
             // of the shipped experience, not just an editor preview.
             RunShadowPass(this, mRegistry,

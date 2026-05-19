@@ -52,6 +52,14 @@ namespace Loom {
         // (Slice B.3 will add a prefilter cubemap + Slice B.4 a BRDF LUT here.)
         static void SetIrradianceMap(const std::shared_ptr<TextureCubemap>& irradiance);
 
+        // Renders `cubemap` as a skybox using the currently-bound framebuffer
+        // and viewport. `view` is the camera view matrix (translation is zeroed
+        // internally so the skybox is camera-centered); `projection` is the
+        // camera projection. No-op when `cubemap` is null. Cubemap binds to
+        // texture unit 0 for the duration of the draw.
+        static void DrawSkybox(const glm::mat4& view, const glm::mat4& projection,
+                               const std::shared_ptr<TextureCubemap>& cubemap);
+
         // Debug visualization mode for the mesh shader (see mesh.frag uDebugViz).
         //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
         static void SetDebugViz(int mode);
