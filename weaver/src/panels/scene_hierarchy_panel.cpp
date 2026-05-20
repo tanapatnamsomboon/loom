@@ -1737,7 +1737,8 @@ namespace Weaver {
                                 std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
                             std::filesystem::path abs_tex = model_dir / gm.BaseColorTexture;
                             if (std::filesystem::exists(abs_tex)) {
-                                if (auto new_tex = Loom::AssetManager::GetTexture(abs_tex.generic_string())) {
+                                if (auto new_tex = Loom::AssetManager::GetTexture(
+                                        abs_tex.generic_string(), Loom::kMeshAlbedoTextureSpec)) {
                                     mrc.AlbedoTexture     = new_tex;
                                     mrc.AlbedoTexturePath = std::filesystem::relative(
                                         abs_tex, Loom::Project::GetAssetDirectory()).generic_string();
@@ -1783,7 +1784,8 @@ namespace Weaver {
                             auto ext = dropped.extension();
                             if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
                                 auto full = Loom::Project::GetAssetFileSystemPath(dropped);
-                                auto new_tex = Loom::AssetManager::GetTexture(full.generic_string());
+                                auto new_tex = Loom::AssetManager::GetTexture(
+                                    full.generic_string(), Loom::kMeshAlbedoTextureSpec);
                                 if (new_tex) {
                                     mrc.AlbedoTexture     = new_tex;
                                     mrc.AlbedoTexturePath = dropped.generic_string();
@@ -1802,7 +1804,7 @@ namespace Weaver {
                             [uuid, scene, modified](const std::string& abs_path) {
                                 Loom::Entity e = scene->GetEntityByUUID(uuid);
                                 if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
-                                auto new_tex = Loom::AssetManager::GetTexture(abs_path);
+                                auto new_tex = Loom::AssetManager::GetTexture(abs_path, Loom::kMeshAlbedoTextureSpec);
                                 if (new_tex) {
                                     auto& m = e.GetComponent<Loom::MeshRendererComponent>();
                                     m.AlbedoTexture     = new_tex;

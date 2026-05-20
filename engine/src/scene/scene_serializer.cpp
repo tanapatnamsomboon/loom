@@ -682,7 +682,7 @@ namespace Loom {
                 }
                 if (!mrc.AlbedoTexturePath.empty()) {
                     std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
-                    mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string());
+                    mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
                 }
             }
 
@@ -1015,7 +1015,7 @@ namespace Loom {
             }
             if (!mrc.AlbedoTexturePath.empty()) {
                 std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
-                mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string());
+                mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
             }
         }
 

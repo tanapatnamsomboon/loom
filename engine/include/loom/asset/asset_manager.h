@@ -11,6 +11,15 @@
 #include <unordered_map>
 
 namespace Loom {
+
+    // Filtering preset for 3D mesh albedo textures. The default
+    // TextureSpecification uses Nearest — correct for pixel-art 2D sprites,
+    // but it makes mesh albedo blocky/aliased. Mesh albedo wants trilinear.
+    // Every mesh-albedo load site must pass this same spec, since the
+    // AssetManager texture cache is keyed on the spec.
+    inline constexpr TextureSpecification kMeshAlbedoTextureSpec{
+        FilterMode::Linear, WrapMode::Repeat, /*GenerateMips=*/true };
+
     class LOOM_API AssetManager {
     public:
         static std::shared_ptr<Texture2D> GetTexture(const std::string& path,

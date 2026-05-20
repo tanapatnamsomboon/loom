@@ -670,7 +670,7 @@ namespace Loom {
         if (!mrc.AlbedoTexturePath.empty()) {
             std::string abs_tex = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath).generic_string();
             if (!mrc.AlbedoTexture || mrc.AlbedoTexture->GetPath() != abs_tex)
-                mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex);
+                mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex, kMeshAlbedoTextureSpec);
         }
 
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
