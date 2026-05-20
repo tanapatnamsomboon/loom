@@ -102,8 +102,17 @@ namespace Loom {
                     cgltf_accessor_read_float(pos_acc, i, &v.Position.x, 3);
                     if (nrm_acc) cgltf_accessor_read_float(nrm_acc, i, &v.Normal.x, 3);
                     else         v.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
-                    if (uv_acc)  cgltf_accessor_read_float(uv_acc,  i, &v.TexCoord.x, 2);
-                    else         v.TexCoord = glm::vec2(0.0f);
+                    if (uv_acc) {
+                        cgltf_accessor_read_float(uv_acc, i, &v.TexCoord.x, 2);
+                        // glTF UV origin is top-left (+V down). The engine loads
+                        // every texture with stbi flip-vertically-on-load (so
+                        // Renderer2D's bottom-left quad UVs show sprites upright),
+                        // which puts GL t=0 at the image bottom. Flip mesh V here
+                        // so glTF UVs land on the correct texel rows.
+                        v.TexCoord.y = 1.0f - v.TexCoord.y;
+                    } else {
+                        v.TexCoord = glm::vec2(0.0f);
+                    }
                 }
 
                 if (prim.indices) {

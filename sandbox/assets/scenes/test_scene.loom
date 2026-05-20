@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [4.626114, 2.1547923, -2.6105194]
-  Pitch: 0.10499995
-  Yaw: 4.050064
+  Position: [-1.2951076, 2.5153887, -2.581427]
+  Pitch: 0.27399793
+  Yaw: -16.172972
 SkyboxPath: environments/kloppenheim_06_puresky_4k.hdr
 Entities:
   - Entity: 9443136952789325132
@@ -25,8 +25,8 @@ Entities:
     MeshRendererComponent:
       MeshPath: models/damaged_helmet.glb
       AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: ""
-      Roughness: 1
+      AlbedoTexturePath: textures/default_albedo.jpg
+      Roughness: 0.164
       Metallic: 1
   - Entity: 10670608302811258847
     TagComponent:
