@@ -56,7 +56,7 @@ coins, score in the HUD, ambient music.
 ### Asset wishlist
 
 **Required:**
-- `textures/player.png` — ~64×64 transparent character sprite.
+- `textures/player_sheet.png` — character **sprite sheet** with idle + run frames (jump frame optional); the Sprite Animator picks frames from it.
 - `textures/tileset.png` — small grid (16×16 or 32×32 per tile); needs at least
   a "grass top" and a "dirt" cell.
 - `textures/platform.png` — single ~96×24 platform sprite (wood / stone).
@@ -82,7 +82,7 @@ Source suggestions: [Kenney.nl](https://kenney.nl),
 | Platform_1 | Transform, SpriteRenderer, Rigidbody2D (Static), BoxCollider2D | `textures/platform.png`. Pos `(3, -2, 0)`. Scale `(2, 0.4, 1)`. Box half-extents `(1, 0.2)` |
 | Platform_2 | same | Pos `(-3, -1, 0)` |
 | Platform_3 | same | Pos `(0, 1, 0)` |
-| Player | Transform, SpriteRenderer, Rigidbody2D (Dynamic, FixedRotation = true), BoxCollider2D, LuaScript, AudioSource | Tag = `Player`. `textures/player.png`. Pos `(-3, 2, 0)`. Box half-extents `(0.4, 0.4)`. Script = `scripts/player_2d.lua`. AudioSource = `sounds/jump.wav`, AutoPlay = false, Volume = 0.6 |
+| Player | Transform, SpriteRenderer, **Animation**, Rigidbody2D (Dynamic, FixedRotation = true), BoxCollider2D, LuaScript, AudioSource | Tag = `Player`. `textures/player_sheet.png`. Animation clips named **`idle` / `run` / `jump`** (the script drives them). Pos `(-3, 2, 0)`. Box half-extents `(0.4, 0.4)`. Script = `scripts/player_2d.lua`. AudioSource = `sounds/jump.wav`, AutoPlay = false, Volume = 0.6 |
 | SFXPlayer | AudioSource | Tag = `SFXPlayer`. AssetPath = `sounds/pickup.wav`. AutoPlay = false. Volume = 0.7 |
 | Coin_1 … Coin_3 | Transform, SpriteRenderer, Animation, Rigidbody2D (Static), BoxCollider2D (IsSensor = true), LuaScript | See **prefab** note below. `textures/coin_sheet.png`. 8-frame spin clip, ~0.1s/frame, looping. Box half-extents `(0.3, 0.3)`. Script = `scripts/collectible.lua`. Positions `(3, -1.4, 0)`, `(-3, -0.4, 0)`, `(0, 1.6, 0)` |
 | Score | Transform, Text | Tag = `Score`. Pos `(-10, 6, 0)`. Font = `fonts/<your>.ttf`. Text = `"Score: 0"`. FontSize ≈ 0.6. White |
@@ -104,6 +104,7 @@ also reusable in later scenes.
 
 - [ ] Player falls and lands on the tilemap floor (tilemap per-tile collision)
 - [ ] A/D moves laterally; Space jumps only when grounded
+- [ ] Player animates: `idle` when still, `run` when moving, `jump` when airborne; sprite flips to face the move direction
 - [ ] Player lands and stands on each platform (BoxCollider2D)
 - [ ] Walking into a coin bumps `Score: N → N+1` and the coin disappears
 - [ ] Coin spin animation loops smoothly
