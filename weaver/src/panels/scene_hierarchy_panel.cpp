@@ -3,6 +3,7 @@
 #include "editor/commands.h"
 #include "editor/file_dialog.h"
 #include <loom/asset/asset_manager.h>
+#include <loom/core/log.h>
 #include <loom/scene/components.h>
 #include <loom/scene/scene_serializer.h>
 #include <loom/scene/script_registry.h>
@@ -1719,6 +1720,44 @@ namespace Weaver {
                                             mrc.Mesh->GetVertexCount(), mrc.Mesh->GetIndexCount());
                     }
                     ImGui::PopID();
+                }
+
+                // ---- Import material from glTF ----------------------------------
+                {
+                    const bool has_gltf_mat = mrc.Mesh && mrc.Mesh->GetMaterial().HasMaterial;
+                    ImGui::BeginDisabled(!has_gltf_mat);
+                    if (ImGui::Button("Import Material from glTF")) {
+                        const auto& gm  = mrc.Mesh->GetMaterial();
+                        mrc.AlbedoColor = gm.BaseColorFactor;
+                        mrc.Roughness   = gm.RoughnessFactor;
+                        mrc.Metallic    = gm.MetallicFactor;
+                        if (!gm.BaseColorTexture.empty()) {
+                            // glTF texture URI is relative to the model file's directory.
+                            std::filesystem::path model_dir =
+                                std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
+                            std::filesystem::path abs_tex = model_dir / gm.BaseColorTexture;
+                            if (std::filesystem::exists(abs_tex)) {
+                                if (auto new_tex = Loom::AssetManager::GetTexture(abs_tex.generic_string())) {
+                                    mrc.AlbedoTexture     = new_tex;
+                                    mrc.AlbedoTexturePath = std::filesystem::relative(
+                                        abs_tex, Loom::Project::GetAssetDirectory()).generic_string();
+                                }
+                            } else {
+                                LOOM_CORE_WARN("Import Material: base-color texture '{}' not found "
+                                               "next to the model — factors imported, texture skipped.",
+                                               abs_tex.generic_string());
+                            }
+                        }
+                        is_modified = true;
+                    }
+                    ImGui::EndDisabled();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                        ImGui::SetTooltip(has_gltf_mat
+                            ? "Copy baseColor / metallic / roughness (and any external\n"
+                              "base-color texture) from the assigned glTF onto this material."
+                            : "Assign a glTF/glb mesh that carries a pbrMetallicRoughness\n"
+                              "material to enable import.");
+                    }
                 }
 
                 ImGui::Separator();

@@ -14,6 +14,22 @@ namespace Loom {
         glm::vec2 TexCoord;
     };
 
+    // glTF pbrMetallicRoughness material data, extracted at import time. A
+    // mesh never applies this itself — it is surfaced so the Game Developer
+    // can copy it onto a MeshRendererComponent via the inspector's
+    // "Import Material from glTF" button.
+    struct MeshMaterial {
+        bool      HasMaterial     = false;                  // false = primitive had no material
+        glm::vec4 BaseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
+        float     MetallicFactor  = 1.0f;                   // glTF spec default
+        float     RoughnessFactor = 1.0f;                   // glTF spec default
+        // Base-color texture URI as authored in the glTF, relative to the
+        // model file's own directory. Empty when the primitive has no
+        // base-color texture, or when the texture is embedded (.glb buffer
+        // view / data-URI) — embedded textures can't resolve to an asset path.
+        std::string BaseColorTexture;
+    };
+
     class LOOM_API MeshAsset {
     public:
         // Loads a glTF (.gltf) or binary glTF (.glb) file from disk.
@@ -26,12 +42,15 @@ namespace Loom {
         uint32_t GetVertexCount() const { return mVertexCount; }
         uint32_t GetIndexCount()  const { return mIndexCount; }
         const std::string& GetPath() const { return mPath; }
+        // pbrMetallicRoughness material of the first primitive that carries one.
+        const MeshMaterial& GetMaterial() const { return mMaterial; }
 
     private:
         std::shared_ptr<VertexArray> mVertexArray;
         std::string mPath;
         uint32_t mVertexCount = 0;
         uint32_t mIndexCount  = 0;
+        MeshMaterial mMaterial;
     };
 
 } // namespace Loom

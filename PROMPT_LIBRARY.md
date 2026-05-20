@@ -6,7 +6,6 @@ Use these prompts to guide Claude Code efficiently while maintaining project rul
 ```text
 Context: We are resuming work on the Loom Engine. 
 Please read `CLAUDE.md` and `PROJECT_LOG.md` to restore your context. 
-Remember our workflow: I handle ImGui/UI, you handle Engine/Backend logic.
 Briefly summarize our current status and propose the next step from the roadmap.
 ```
 

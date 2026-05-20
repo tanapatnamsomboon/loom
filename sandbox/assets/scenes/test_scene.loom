@@ -1,8 +1,8 @@
 Scene: test_scene
 EditorCamera:
-  Position: [-8.181438, 3.4229648, 3.554119]
-  Pitch: 0.17699942
-  Yaw: -3.632926
+  Position: [4.626114, 2.1547923, -2.6105194]
+  Pitch: 0.10499995
+  Yaw: 4.050064
 SkyboxPath: environments/kloppenheim_06_puresky_4k.hdr
 Entities:
   - Entity: 9443136952789325132
@@ -15,6 +15,19 @@ Entities:
     DirectionalLightComponent:
       Color: [1, 1, 1]
       Intensity: 1
+  - Entity: 10463658515328672367
+    TagComponent:
+      Tag: DamagedHelmet
+    TransformComponent:
+      Translation: [0, 1.7036415, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: models/damaged_helmet.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 1
+      Metallic: 1
   - Entity: 10670608302811258847
     TagComponent:
       Tag: Sphere

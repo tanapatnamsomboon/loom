@@ -5,6 +5,7 @@
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#include <cstring>
 #include <vector>
 
 namespace Loom {
@@ -57,6 +58,10 @@ namespace Loom {
         bool any_uvs     = false;
         bool any_normals = false;
 
+        // First primitive material wins — our import concatenates every
+        // primitive into a single VAO, so the mesh carries one material.
+        const cgltf_material* material_src = nullptr;
+
         for (cgltf_size mi = 0; mi < data->meshes_count; ++mi) {
             const cgltf_mesh& mesh = data->meshes[mi];
             for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi) {
@@ -65,6 +70,7 @@ namespace Loom {
                     LOOM_CORE_WARN("MeshAsset: skipping non-triangle primitive in '{}'", path);
                     continue;
                 }
+                if (!material_src && prim.material) material_src = prim.material;
 
                 const cgltf_accessor* pos_acc = nullptr;
                 const cgltf_accessor* nrm_acc = nullptr;
@@ -116,6 +122,32 @@ namespace Loom {
             }
         }
 
+        // ── Material (pbrMetallicRoughness) ──────────────────────────────
+        // Extracted before cgltf_free since material_src points into `data`.
+        MeshMaterial material;
+        if (material_src && material_src->has_pbr_metallic_roughness) {
+            const cgltf_pbr_metallic_roughness& pbr = material_src->pbr_metallic_roughness;
+            material.HasMaterial     = true;
+            material.BaseColorFactor = glm::vec4(pbr.base_color_factor[0], pbr.base_color_factor[1],
+                                                 pbr.base_color_factor[2], pbr.base_color_factor[3]);
+            material.MetallicFactor  = pbr.metallic_factor;
+            material.RoughnessFactor = pbr.roughness_factor;
+
+            const cgltf_texture* base_tex = pbr.base_color_texture.texture;
+            const char*          uri      = (base_tex && base_tex->image) ? base_tex->image->uri : nullptr;
+            if (uri && uri[0] != '\0' && std::strncmp(uri, "data:", 5) != 0) {
+                // glTF URIs may be percent-encoded; decode in a mutable copy.
+                std::string decoded(uri);
+                cgltf_decode_uri(&decoded[0]);
+                decoded.resize(std::strlen(decoded.c_str()));
+                material.BaseColorTexture = decoded;
+            } else if (base_tex && base_tex->image) {
+                LOOM_CORE_WARN("MeshAsset: '{}' has an embedded base-color texture — "
+                               "import will bring factors only; extract the texture and "
+                               "assign it manually for textured albedo.", path);
+            }
+        }
+
         cgltf_free(data);
 
         if (vertices.empty() || indices.empty()) {
@@ -141,11 +173,13 @@ namespace Loom {
         asset->mPath        = path;
         asset->mVertexCount = (uint32_t)vertices.size();
         asset->mIndexCount  = (uint32_t)indices.size();
+        asset->mMaterial    = material;
 
-        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={})",
+        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={})",
                         path, asset->mVertexCount, asset->mIndexCount,
                         any_normals ? "yes" : "NO (defaulted to +Z)",
-                        any_uvs     ? "yes" : "NO (defaulted to (0,0) - albedo texture will show as flat color)");
+                        any_uvs     ? "yes" : "NO (defaulted to (0,0) - albedo texture will show as flat color)",
+                        material.HasMaterial ? "yes" : "none");
         if (!any_uvs)
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "
                            "Re-export the model with UVs (Blender: 'UV -> Smart UV Project' or 'Cube Projection' before glTF export).", path);
