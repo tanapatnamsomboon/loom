@@ -1,4 +1,5 @@
 #include "editor_layer.h"
+#include "editor/commands.h"
 #include "editor/file_dialog.h"
 #include <imgui.h>
 #include <ImGuizmo.h>
@@ -218,6 +219,22 @@ namespace Weaver {
                 break;
             case Loom::Key::Y:
                 if (ctrl) { mContext.History.Redo(); return; }
+                break;
+            case Loom::Key::D:
+                // Ctrl+D — duplicate the selected entity (edit mode only).
+                if (ctrl && !ImGui::GetIO().WantTextInput
+                    && mContext.SceneState == SceneState::Edit) {
+                    Loom::Entity selected = mSceneHierarchyPanel.GetSelectedEntity();
+                    if (selected && mContext.ActiveScene) {
+                        auto  cmd = std::make_unique<EntityDuplicateCommand>(mContext.ActiveScene, selected);
+                        auto* raw = cmd.get();
+                        mContext.History.Push(std::move(cmd));
+                        if (raw->GetNewUUID())
+                            mSceneHierarchyPanel.SetSelectedEntity(
+                                mContext.ActiveScene->GetEntityByUUID(Loom::UUID(raw->GetNewUUID())));
+                    }
+                    return;
+                }
                 break;
             case Loom::Key::Q:
                 if (ctrl) { mSceneManager.RequestQuit(); return; }

@@ -129,6 +129,17 @@ namespace Loom {
         }
     }
 
+    // Copy every listed component that exists on `src` onto `dst`, within one
+    // registry. Component copy-constructors null out runtime handles (physics
+    // bodies, sounds, GPU resources) — the same contract Scene::Copy relies on.
+    template<typename... Component>
+    static void CopyEntityComponents(entt::registry& reg, entt::entity dst, entt::entity src) {
+        ([&] {
+            if (reg.all_of<Component>(src))
+                reg.emplace_or_replace<Component>(dst, reg.get<Component>(src));
+        }(), ...);
+    }
+
     std::shared_ptr<Scene> Scene::Copy(std::shared_ptr<Scene> other) {
         std::shared_ptr<Scene>                 new_scene = std::make_shared<Scene>();
         std::unordered_map<UUID, entt::entity> entt_map;
@@ -284,6 +295,46 @@ namespace Loom {
 
         mEntityMap.erase(entity.GetComponent<IDComponent>().ID);
         mRegistry.destroy(entity);
+    }
+
+    Entity Scene::DuplicateEntity(Entity src) {
+        if (!src) return {};
+
+        std::string name = src.HasComponent<TagComponent>()
+            ? src.GetComponent<TagComponent>().Tag : std::string{};
+        Entity dst = CreateEntity(name);
+
+        CopyEntityComponents<
+            TransformComponent, SpriteRendererComponent, MeshRendererComponent,
+            AnimationComponent, CameraComponent, LuaScriptComponent,
+            TilemapComponent, TextComponent, AudioSourceComponent,
+            ParticleComponent, Rigidbody2DComponent, BoxCollider2DComponent,
+            CircleCollider2DComponent, DirectionalLightComponent,
+            PointLightComponent, Rigidbody3DComponent, BoxCollider3DComponent,
+            SphereCollider3DComponent, CapsuleCollider3DComponent
+        >(mRegistry, (entt::entity)dst, (entt::entity)src);
+
+        // Native scripts: copy the binding, never alias the live instance.
+        if (src.HasComponent<NativeScriptComponent>()) {
+            auto& dst_nsc = dst.AddComponent<NativeScriptComponent>(
+                src.GetComponent<NativeScriptComponent>());
+            dst_nsc.Instance = nullptr;
+            if (!dst_nsc.ScriptName.empty())
+                dst_nsc.BindByName(dst_nsc.ScriptName);
+        }
+
+        // Recurse into the child subtree, parenting each copy under dst.
+        for (Entity child : src.GetChildren()) {
+            Entity dup_child = DuplicateEntity(child);
+            if (dup_child) SetParent(dup_child, dst);
+        }
+
+        // Place the copy as a sibling of the source (SetParent reparents
+        // cleanly, so a child copy's transient parent is harmless).
+        if (Entity parent = src.GetParent())
+            SetParent(dst, parent);
+
+        return dst;
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity) {

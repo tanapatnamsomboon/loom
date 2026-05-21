@@ -88,6 +88,51 @@ private:
     std::string mYAML;
 };
 
+// ---- EntityDuplicateCommand --------------------------------------------
+// Deep-duplicates an entity. First Execute clones it via Scene::DuplicateEntity
+// and snapshots the result to YAML; redo restores that exact copy (same UUID)
+// so any commands stacked above keep a valid reference. Undo destroys the copy.
+
+class EntityDuplicateCommand : public IEditorCommand {
+public:
+    EntityDuplicateCommand(std::shared_ptr<Loom::Scene> scene, Loom::Entity src)
+        : mScene(std::move(scene))
+        , mSrcUUID((uint64_t)src.GetComponent<Loom::IDComponent>().ID)
+        , mTag(src.GetComponent<Loom::TagComponent>().Tag) {}
+
+    void Execute() override {
+        auto scene = mScene.lock();
+        if (!scene) return;
+        if (mYAML.empty()) {
+            Loom::Entity src = scene->GetEntityByUUID(Loom::UUID(mSrcUUID));
+            if (!src) return;
+            Loom::Entity dup = scene->DuplicateEntity(src);
+            if (!dup) return;
+            mNewUUID = (uint64_t)dup.GetComponent<Loom::IDComponent>().ID;
+            mYAML    = Loom::SceneSerializer(scene).SerializePrefabToString(dup);
+        } else {
+            Loom::SceneSerializer::DeserializePrefabIntoFromString(mYAML, scene.get());
+        }
+    }
+
+    void Undo() override {
+        auto scene = mScene.lock();
+        if (!scene || mNewUUID == 0) return;
+        if (Loom::Entity e = scene->GetEntityByUUID(Loom::UUID(mNewUUID)))
+            scene->DestroyEntity(e);
+    }
+
+    uint64_t    GetNewUUID() const { return mNewUUID; }
+    std::string GetDescription() const override { return "Duplicate Entity '" + mTag + "'"; }
+
+private:
+    std::weak_ptr<Loom::Scene> mScene;
+    uint64_t    mSrcUUID;
+    std::string mTag;
+    uint64_t    mNewUUID = 0;
+    std::string mYAML;
+};
+
 // ---- AddComponentCommand<T> --------------------------------------------
 
 template<typename T>

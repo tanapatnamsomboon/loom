@@ -145,6 +145,18 @@ namespace Weaver {
                     if (mSceneModifiedCallback) mSceneModifiedCallback();
                 }
             }
+            if (ImGui::MenuItem("Duplicate Entity", "Ctrl+D")) {
+                if (mCommandCallback) {
+                    auto cmd = std::make_unique<EntityDuplicateCommand>(mContext, entity);
+                    auto* raw = cmd.get();
+                    mCommandCallback(std::move(cmd));
+                    if (raw->GetNewUUID())
+                        mSelectionContext = mContext->GetEntityByUUID(Loom::UUID(raw->GetNewUUID()));
+                } else {
+                    mSelectionContext = mContext->DuplicateEntity(entity);
+                    if (mSceneModifiedCallback) mSceneModifiedCallback();
+                }
+            }
             if (has_parent) {
                 if (ImGui::MenuItem("Detach from Parent")) {
                     mContext->RemoveParent(entity);
