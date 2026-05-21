@@ -1,0 +1,305 @@
+Scene: physics_playground
+EditorCamera:
+  Position: [-6.7622385, 14.347775, 13.207762]
+  Pitch: 0.40700266
+  Yaw: 0.6789928
+SkyboxPath: common/environments/kloppenheim_puresky.hdr
+Entities:
+  - Entity: 904713175390046086
+    TagComponent:
+      Tag: Sphere_2
+    TransformComponent:
+      Translation: [2, 10, -3]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    SphereCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 1547501419547952814
+    TagComponent:
+      Tag: Cube_1
+    TransformComponent:
+      Translation: [3, 9, 3]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 5362426847429019494
+    TagComponent:
+      Tag: Floor
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0.17453292]
+      Scale: [12, 0.5, 12]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.34901962, 0.3019608, 0.2509804, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.799
+      Metallic: 0
+  - Entity: 6482787951803675139
+    TagComponent:
+      Tag: Sphere_1
+    TransformComponent:
+      Translation: [-1, 8, 3]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    SphereCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 6680434295012452241
+    TagComponent:
+      Tag: Capsule_1
+    TransformComponent:
+      Translation: [1, 7.5, -3]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    CapsuleCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      HalfHeight: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/capsule.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 9525373456108546852
+    TagComponent:
+      Tag: Capsule_3
+    TransformComponent:
+      Translation: [6, 11.5, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    CapsuleCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      HalfHeight: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/capsule.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 11143099165752719575
+    TagComponent:
+      Tag: Cube_3
+    TransformComponent:
+      Translation: [0, 11, -3]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 11997904251082766831
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [-0.87266463, -0.5235988, 0]
+      Scale: [1, 1, 1]
+    DirectionalLightComponent:
+      Color: [1, 0.97, 0.92]
+      Intensity: 2
+  - Entity: 12550848095976344572
+    TagComponent:
+      Tag: Cube_2
+    TransformComponent:
+      Translation: [-3, 7, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 13929510452961889989
+    TagComponent:
+      Tag: Capsule_2
+    TransformComponent:
+      Translation: [-2, 9.5, 7]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    CapsuleCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      HalfHeight: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/capsule.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
+  - Entity: 17873331395247612581
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 6, 14]
+      Rotation: [-0.34906584, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 1
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 0
+  - Entity: 17964430151821617538
+    TagComponent:
+      Tag: Sphere_3
+    TransformComponent:
+      Translation: [-2, 12, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    SphereCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: physics_playground/scripts/collision_logger.lua
