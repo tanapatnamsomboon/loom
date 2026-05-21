@@ -74,6 +74,7 @@ short. Exact menu labels may differ slightly — the *flow* is what matters.
 | --- | --- |
 | **New scene** | `File → New Scene`, then `File → Save Scene As…` → save into `assets/scenes/` with the scene's name |
 | **Create entity** | Right-click empty space in the **Scene Hierarchy** → *Create Entity*. It spawns with Tag + Transform already attached |
+| **Duplicate entity** | Select an entity → **Ctrl+D**, or right-click it → *Duplicate Entity*. Deep-copies all components + child subtree; the copy is selected and undoable |
 | **Rename / set Tag** | Select the entity; edit the **Tag** field at the top of the Inspector. Scripts find entities by Tag, so spelling matters |
 | **Add a component** | Select the entity → **Add Component** button in the Inspector → pick from the list |
 | **Parent an entity** | Drag one entity onto another in the Scene Hierarchy |
@@ -581,7 +582,7 @@ which scene to extend.
 
 - [x] `platformer_2d.loom`
 - [x] `material_gallery.loom`
-- [ ] `physics_playground.loom`
+- [x] `physics_playground.loom`
 - [ ] `character_controller.loom`
 - [ ] `next_area.loom`
 - [ ] `particle_lab.loom`
