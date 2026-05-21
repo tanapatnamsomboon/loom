@@ -150,7 +150,7 @@ namespace Weaver {
         mContext.HierarchyPanel->SetPlayMode(true);
 
         Loom::Entity selected     = mContext.HierarchyPanel->GetSelectedEntity();
-        bool         has_selected = (bool)selected;
+        bool         has_selected = selected.IsValid();
         uint64_t     selected_uuid = 0;
         if (has_selected)
             selected_uuid = (uint64_t)selected.GetComponent<Loom::IDComponent>().ID;
@@ -159,16 +159,18 @@ namespace Weaver {
         mContext.ActiveScene->OnRuntimeStart();
         mContext.HierarchyPanel->SetContext(mContext.ActiveScene);
 
-        if (has_selected) {
-            Loom::Entity runtime_entity = mContext.ActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
-            if (runtime_entity)
-                mContext.HierarchyPanel->SetSelectedEntity(runtime_entity);
-        }
+        // Always replace the selection — remap it onto the runtime scene by
+        // UUID, or clear it. Never leave a handle pointing at the editor scene
+        // while the hierarchy's context is the runtime scene.
+        Loom::Entity runtime_entity{};
+        if (has_selected)
+            runtime_entity = mContext.ActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
+        mContext.HierarchyPanel->SetSelectedEntity(runtime_entity);
     }
 
     void SceneManager::OnSceneStop() {
         Loom::Entity selected     = mContext.HierarchyPanel->GetSelectedEntity();
-        bool         has_selected = (bool)selected;
+        bool         has_selected = selected.IsValid();
         uint64_t     selected_uuid = 0;
         if (has_selected)
             selected_uuid = (uint64_t)selected.GetComponent<Loom::IDComponent>().ID;
@@ -180,11 +182,14 @@ namespace Weaver {
         mContext.ActiveScene = mContext.EditorScene;
         mContext.HierarchyPanel->SetContext(mContext.ActiveScene);
 
-        if (has_selected) {
-            Loom::Entity editor_entity = mContext.ActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
-            if (editor_entity)
-                mContext.HierarchyPanel->SetSelectedEntity(editor_entity);
-        }
+        // Always replace the selection. If the runtime selection survived,
+        // remap it onto the editor scene by UUID; otherwise clear it — the
+        // runtime scene (and its registry) is about to be freed, so a handle
+        // into it must never outlive this call.
+        Loom::Entity editor_entity{};
+        if (has_selected)
+            editor_entity = mContext.ActiveScene->GetEntityByUUID(Loom::UUID(selected_uuid));
+        mContext.HierarchyPanel->SetSelectedEntity(editor_entity);
     }
 
     void SceneManager::OnRuntimeSceneTransition(const std::string& relative_path, bool is_reload) {

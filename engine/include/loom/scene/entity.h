@@ -41,6 +41,16 @@ namespace Loom {
         }
 
         operator bool() const { return mEntityHandle != entt::null; }
+
+        // True only if this handle points at a live entity in its scene's
+        // registry. operator bool is a cheap null-check and does NOT catch an
+        // entity destroyed since the handle was taken — use this across scene
+        // swaps and after a runtime Destroy().
+        bool IsValid() const {
+            return mScene && mEntityHandle != entt::null
+                && mScene->mRegistry.valid(mEntityHandle);
+        }
+
         operator uint32_t() const { return (uint32_t)mEntityHandle; }
         operator entt::entity() const { return mEntityHandle; }
 
