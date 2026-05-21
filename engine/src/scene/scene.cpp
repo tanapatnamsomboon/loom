@@ -264,6 +264,24 @@ namespace Loom {
             }
         }
 
+        // Tear down any runtime Box2D body so destroying an entity mid-play
+        // can't leave an orphaned body still emitting contact/sensor events or
+        // being hit by raycasts (which would resolve to this dead entity).
+        if (entity.HasComponent<Rigidbody2DComponent>()) {
+            auto& rb = entity.GetComponent<Rigidbody2DComponent>();
+            if (b2Body_IsValid(rb.RuntimeBody)) {
+                b2DestroyBody(rb.RuntimeBody);
+                rb.RuntimeBody = b2_nullBodyId;
+            }
+        }
+        if (entity.HasComponent<TilemapComponent>()) {
+            auto& tc = entity.GetComponent<TilemapComponent>();
+            if (b2Body_IsValid(tc.RuntimeBody)) {
+                b2DestroyBody(tc.RuntimeBody);
+                tc.RuntimeBody = b2_nullBodyId;
+            }
+        }
+
         mEntityMap.erase(entity.GetComponent<IDComponent>().ID);
         mRegistry.destroy(entity);
     }
@@ -1153,9 +1171,12 @@ namespace Loom {
                 shape_def.density = bc2d.Density;
                 shape_def.material.friction = bc2d.Friction;
                 shape_def.material.restitution = bc2d.Restitution;
+                // Box2D 3.1: a sensor only detects a visitor shape if that
+                // visitor also opts in to sensor events — so enable it on
+                // every shape, sensor or not.
+                shape_def.enableSensorEvents = true;
                 if (bc2d.IsSensor) {
-                    shape_def.isSensor           = true;
-                    shape_def.enableSensorEvents = true;
+                    shape_def.isSensor = true;
                 } else {
                     shape_def.enableContactEvents = true;
                 }
@@ -1177,9 +1198,12 @@ namespace Loom {
                 shape_def.density = cc2d.Density;
                 shape_def.material.friction = cc2d.Friction;
                 shape_def.material.restitution = cc2d.Restitution;
+                // Box2D 3.1: a sensor only detects a visitor shape if that
+                // visitor also opts in to sensor events — so enable it on
+                // every shape, sensor or not.
+                shape_def.enableSensorEvents = true;
                 if (cc2d.IsSensor) {
-                    shape_def.isSensor           = true;
-                    shape_def.enableSensorEvents = true;
+                    shape_def.isSensor = true;
                 } else {
                     shape_def.enableContactEvents = true;
                 }
@@ -1274,35 +1298,42 @@ namespace Loom {
             int32_t sub_step_count = 8;
             b2World_Step(mPhysicsWorld, ts, sub_step_count);
 
-            // Resolve a Box2D body back to an Entity via the stored userData handle.
-            auto resolve_entity = [this](b2BodyId body_id) -> Entity {
+            // Resolve a Box2D shape back to an Entity, validating every hop:
+            // a shape/body destroyed mid-dispatch (e.g. a script calling
+            // entity:Destroy()) must not resurrect a stale entity handle.
+            auto resolve_shape = [this](b2ShapeId shape_id) -> Entity {
+                if (!b2Shape_IsValid(shape_id)) return {};
+                b2BodyId body_id = b2Shape_GetBody(shape_id);
+                if (!b2Body_IsValid(body_id)) return {};
                 void* userdata = b2Body_GetUserData(body_id);
                 auto  raw      = static_cast<entt::id_type>(reinterpret_cast<uintptr_t>(userdata));
-                return { static_cast<entt::entity>(raw), this };
+                entt::entity e = static_cast<entt::entity>(raw);
+                if (!mRegistry.valid(e)) return {};
+                return { e, this };
             };
 
             b2ContactEvents contact_events = b2World_GetContactEvents(mPhysicsWorld);
             for (int i = 0; i < contact_events.beginCount; ++i) {
-                Entity a = resolve_entity(b2Shape_GetBody(contact_events.beginEvents[i].shapeIdA));
-                Entity b = resolve_entity(b2Shape_GetBody(contact_events.beginEvents[i].shapeIdB));
-                ScriptingEngine::OnCollisionBegin(a, b);
+                Entity a = resolve_shape(contact_events.beginEvents[i].shapeIdA);
+                Entity b = resolve_shape(contact_events.beginEvents[i].shapeIdB);
+                if (a && b) ScriptingEngine::OnCollisionBegin(a, b);
             }
             for (int i = 0; i < contact_events.endCount; ++i) {
-                Entity a = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdA));
-                Entity b = resolve_entity(b2Shape_GetBody(contact_events.endEvents[i].shapeIdB));
-                ScriptingEngine::OnCollisionEnd(a, b);
+                Entity a = resolve_shape(contact_events.endEvents[i].shapeIdA);
+                Entity b = resolve_shape(contact_events.endEvents[i].shapeIdB);
+                if (a && b) ScriptingEngine::OnCollisionEnd(a, b);
             }
 
             b2SensorEvents sensor_events = b2World_GetSensorEvents(mPhysicsWorld);
             for (int i = 0; i < sensor_events.beginCount; ++i) {
-                Entity a = resolve_entity(b2Shape_GetBody(sensor_events.beginEvents[i].sensorShapeId));
-                Entity b = resolve_entity(b2Shape_GetBody(sensor_events.beginEvents[i].visitorShapeId));
-                ScriptingEngine::OnSensorBegin(a, b);
+                Entity a = resolve_shape(sensor_events.beginEvents[i].sensorShapeId);
+                Entity b = resolve_shape(sensor_events.beginEvents[i].visitorShapeId);
+                if (a && b) ScriptingEngine::OnSensorBegin(a, b);
             }
             for (int i = 0; i < sensor_events.endCount; ++i) {
-                Entity a = resolve_entity(b2Shape_GetBody(sensor_events.endEvents[i].sensorShapeId));
-                Entity b = resolve_entity(b2Shape_GetBody(sensor_events.endEvents[i].visitorShapeId));
-                ScriptingEngine::OnSensorEnd(a, b);
+                Entity a = resolve_shape(sensor_events.endEvents[i].sensorShapeId);
+                Entity b = resolve_shape(sensor_events.endEvents[i].visitorShapeId);
+                if (a && b) ScriptingEngine::OnSensorEnd(a, b);
             }
 
             auto view = mRegistry.view<Rigidbody2DComponent>();
