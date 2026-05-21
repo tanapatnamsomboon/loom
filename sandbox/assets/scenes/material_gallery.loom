@@ -1,0 +1,203 @@
+Scene: material_gallery
+EditorCamera:
+  Position: [0.75433946, 3.9082446, 14.696223]
+  Pitch: 0.28199932
+  Yaw: -0.1470025
+SkyboxPath: common/environments/kloppenheim_puresky.hdr
+Entities:
+  - Entity: 686106169779647617
+    TagComponent:
+      Tag: Metal_1
+    TransformComponent:
+      Translation: [-2.5, 3, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 0.7764706, 0.34117648, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.25
+      Metallic: 1
+  - Entity: 2780783996705205205
+    TagComponent:
+      Tag: Metal_2
+    TransformComponent:
+      Translation: [0, 3, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 0.7764706, 0.34117648, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 1
+  - Entity: 2971075157732129014
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [-0.87266463, -0.5235988, 0]
+      Scale: [1, 1, 1]
+    DirectionalLightComponent:
+      Color: [1, 0.97, 0.92]
+      Intensity: 2
+  - Entity: 3519178281551372734
+    TagComponent:
+      Tag: Dielectric_4
+    TransformComponent:
+      Translation: [5, 0.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 1
+      Metallic: 0
+  - Entity: 4818736125015145374
+    TagComponent:
+      Tag: Metal_0
+    TransformComponent:
+      Translation: [-5, 3, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 0.7764706, 0.34117648, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0
+      Metallic: 1
+  - Entity: 5488135763092330549
+    TagComponent:
+      Tag: Dielectric_3
+    TransformComponent:
+      Translation: [2.5, 0.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.75
+      Metallic: 0
+  - Entity: 6236095639206947116
+    TagComponent:
+      Tag: Dielectric_2
+    TransformComponent:
+      Translation: [0, 0.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 6540460916186502903
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 2, 12]
+      Rotation: [-0.13962653, -0, 0]
+      Scale: [1, 0.9999984, 0.9999984]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 1
+      PerspectiveFOV: 1.0471976
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 0
+  - Entity: 7398173749083229685
+    TagComponent:
+      Tag: HeroPlinth
+    TransformComponent:
+      Translation: [-6.5, -1, 3]
+      Rotation: [0, -0, 0]
+      Scale: [1.5, 0.5, 1.5]
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.14901961, 0.14901961, 0.16862746, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.601
+      Metallic: 0
+  - Entity: 9326249257803031972
+    TagComponent:
+      Tag: Hero
+    TransformComponent:
+      Translation: [-6.5, 0.5, 3]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.299
+      Metallic: 0
+  - Entity: 9874988102437962133
+    TagComponent:
+      Tag: Metal_3
+    TransformComponent:
+      Translation: [2.5, 3, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 0.7764706, 0.34117648, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.75
+      Metallic: 1
+  - Entity: 15268786537609647005
+    TagComponent:
+      Tag: Metal_4
+    TransformComponent:
+      Translation: [5, 3, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 0.7764706, 0.34117648, 1]
+      AlbedoTexturePath: ""
+      Roughness: 1
+      Metallic: 1
+  - Entity: 15898810103089173338
+    TagComponent:
+      Tag: Dielectric_0
+    TransformComponent:
+      Translation: [-5, 0.5, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0
+      Metallic: 0
+  - Entity: 15911410593602493634
+    TagComponent:
+      Tag: Ground
+    TransformComponent:
+      Translation: [0, -1.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [20, 1, 20]
+    MeshRendererComponent:
+      MeshPath: common/models/plane.glb
+      AlbedoColor: [0.2, 0.2, 0.23529412, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.899
+      Metallic: 0
+  - Entity: 17118524503370242126
+    TagComponent:
+      Tag: Dielectric_1
+    TransformComponent:
+      Translation: [-2.5, 0.5, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.25
+      Metallic: 0

@@ -261,10 +261,11 @@ maps. Pure visual; no scripts.
 Metallic under an HDR sky, all casting shadows onto a ground plane.
 
 > **Extension points (this is the rendering test bed):**
-> - **Hero pedestal** — reserved front-center slot. *Today:* a plain PBR
->   sphere. *Phase 5 follow-up:* swap to a fully-textured model (DamagedHelmet)
->   once metalRoughness / normal / AO / emissive maps land. *Phase 7:* an
->   emissive object beside it becomes the bloom reference.
+> - **Hero pedestal** — a reserved display-stand slot, set **off to one side**
+>   so it never occludes the sphere grid. *Today:* a plain PBR sphere.
+>   *Phase 5 follow-up:* swap to a fully-textured model (DamagedHelmet) once
+>   metalRoughness / normal / AO / emissive maps land. *Phase 7:* an emissive
+>   object beside it becomes the bloom reference.
 > - Keep the sphere grid as labelled rows so a **normal-mapped row** can be
 >   appended later without disturbing the existing sweep.
 
@@ -293,8 +294,11 @@ Source suggestions: [Poly Haven](https://polyhaven.com/hdris) (HDRIs),
    Intensity ≈ `2.0`. Rotate the entity so its local −Z aims down at the grid
    (start X ≈ `-50°`, Y ≈ `-30°`; verify by the shadows in the viewport).
 5. **Ground** — Create Entity, Tag `Ground`. Add `MeshRendererComponent`:
-   Mesh = `common/models/plane.glb`, Roughness ≈ `0.9`, Metallic = `0`.
-   Transform position `(0, -1.5, 0)`, Scale `(20, 1, 20)`.
+   Mesh = `common/models/plane.glb`, **AlbedoColor a dark neutral**
+   `(0.20, 0.20, 0.23, 1.0)`, Roughness ≈ `0.9`, Metallic = `0`. A white
+   ground washes out the white dielectric spheres and hides their shadows —
+   a dark ground makes both read. Transform position `(0, -1.5, 0)`,
+   Scale `(20, 1, 20)`.
 6. **Sphere grid** — Create 10 entities (`Sphere_R0C0` … `Sphere_R1C4`), each
    with `MeshRendererComponent` Mesh = `common/models/sphere.glb`. Lay them out
    as a **5 × 2 grid**, spacing ≈ 2.5 units, centered above the ground:
@@ -304,8 +308,11 @@ Source suggestions: [Poly Haven](https://polyhaven.com/hdris) (HDRIs),
      (e.g. gold `(1.0, 0.78, 0.34, 1.0)`) so the metallic tint reads clearly.
 7. **HeroPlinth** — Create Entity, Tag `HeroPlinth`. Add
    `MeshRendererComponent` Mesh = `common/models/cube.glb` (from `common/`),
-   Roughness ≈ `0.6`, Metallic = `0`. Scale it into a short wide plinth,
-   front-center, raised off the ground.
+   **AlbedoColor a dark neutral** `(0.15, 0.15, 0.17, 1.0)`, Roughness ≈ `0.6`,
+   Metallic = `0`. Scale it into a short wide plinth. Position it **off to one
+   side, clear of the camera→grid sightline** (e.g. front-left, past the
+   leftmost column) so it never occludes the sphere grid — it is a separate
+   display stand, not a centerpiece.
 8. **Hero** — Create Entity, Tag `Hero`. Add `MeshRendererComponent`
    Mesh = `common/models/sphere.glb`, mid-roughness dielectric. Position it
    on top of the plinth. **This is the reserved extension slot** (see note).
@@ -573,7 +580,7 @@ which scene to extend.
 ### Build progress
 
 - [x] `platformer_2d.loom`
-- [ ] `material_gallery.loom`
+- [x] `material_gallery.loom`
 - [ ] `physics_playground.loom`
 - [ ] `character_controller.loom`
 - [ ] `next_area.loom`
