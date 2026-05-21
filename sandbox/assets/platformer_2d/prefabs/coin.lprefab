@@ -1,0 +1,41 @@
+Entity: 1058403404283336160
+TagComponent:
+  Tag: Coin
+TransformComponent:
+  Translation: [0, 0, 0]
+  Rotation: [0, -0, 0]
+  Scale: [0.4, 0.4, 1]
+SpriteRendererComponent:
+  Color: [1, 1, 1, 1]
+  Texture: platformer_2d/textures/coin.png
+  TilingFactor: 1
+  FilterMode: 0
+  WrapMode: 0
+  GenerateMips: true
+LuaScriptComponent:
+  ScriptPath: platformer_2d/scripts/collectible.lua
+Rigidbody2DComponent:
+  BodyType: 0
+  FixedRotation: false
+BoxCollider2DComponent:
+  Offset: [0, 0]
+  Size: [0.5, 0.5]
+  Density: 1
+  Friction: 0.5
+  Restitution: 0
+  RestitutionThreshold: 0.5
+  IsSensor: true
+AnimationComponent:
+  CurrentClip: spin
+  IsPlaying: true
+  PickerCellWidth: 10
+  PickerCellHeight: 10
+  Clips:
+    - Name: spin
+      FrameDuration: 0.1
+      Loop: true
+      Frames:
+        - [0, 0, 0.25, 1]
+        - [0.25, 0, 0.5, 1]
+        - [0.5, 0, 0.75, 1]
+        - [0.75, 0, 1, 1]

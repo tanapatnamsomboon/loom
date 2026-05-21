@@ -1,0 +1,290 @@
+Scene: platformer_2d
+EditorCamera:
+  Position: [0.45175117, 2.6068027, 12.565268]
+  Pitch: 0.07199993
+  Yaw: 0.030999716
+Entities:
+  - Entity: 1880131328386108234
+    TagComponent:
+      Tag: Coin
+    TransformComponent:
+      Translation: [-3.1061823, 5.6018524, -0.5004883]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: platformer_2d/textures/coin.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: platformer_2d/scripts/collectible.lua
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: true
+    AnimationComponent:
+      CurrentClip: spin
+      IsPlaying: true
+      PickerCellWidth: 10
+      PickerCellHeight: 10
+      Clips:
+        - Name: spin
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0, 0.25, 1]
+            - [0.25, 0, 0.5, 1]
+            - [0.5, 0, 0.75, 1]
+            - [0.75, 0, 1, 1]
+  - Entity: 1992158658541942337
+    TagComponent:
+      Tag: Coin
+    TransformComponent:
+      Translation: [7.468376, 2.534146, 0.048706044]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: platformer_2d/textures/coin.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: platformer_2d/scripts/collectible.lua
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: true
+    AnimationComponent:
+      CurrentClip: spin
+      IsPlaying: true
+      PickerCellWidth: 10
+      PickerCellHeight: 10
+      Clips:
+        - Name: spin
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0, 0.25, 1]
+            - [0.25, 0, 0.5, 1]
+            - [0.5, 0, 0.75, 1]
+            - [0.75, 0, 1, 1]
+  - Entity: 2869058233078446948
+    TagComponent:
+      Tag: Background
+    TransformComponent:
+      Translation: [0, 2, -1]
+      Rotation: [0, 0, 0]
+      Scale: [24, 14, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: platformer_2d/textures/background.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+  - Entity: 3245559672677725805
+    TagComponent:
+      Tag: Music
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    AudioSourceComponent:
+      AssetPath: platformer_2d/sounds/music.wav
+      Volume: 0.299
+      Pitch: 1
+      Pan: 0
+      Loop: true
+      AutoPlay: true
+  - Entity: 3811252168546623255
+    TagComponent:
+      Tag: SFXPlayer
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    AudioSourceComponent:
+      AssetPath: platformer_2d/sounds/pickup.wav
+      Volume: 0.701
+      Pitch: 1
+      Pan: 0
+      Loop: false
+      AutoPlay: false
+  - Entity: 7876395072971670532
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 2, 10]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 12
+      OrthographicNear: -1
+      OrthographicFar: 20
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1
+  - Entity: 14681106975492260811
+    TagComponent:
+      Tag: Coin
+    TransformComponent:
+      Translation: [1.5448914, 3.4900362, -0.2039795]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: platformer_2d/textures/coin.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: platformer_2d/scripts/collectible.lua
+    Rigidbody2DComponent:
+      BodyType: 0
+      FixedRotation: false
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: true
+    AnimationComponent:
+      CurrentClip: spin
+      IsPlaying: true
+      PickerCellWidth: 10
+      PickerCellHeight: 10
+      Clips:
+        - Name: spin
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0, 0.25, 1]
+            - [0.25, 0, 0.5, 1]
+            - [0.5, 0, 0.75, 1]
+            - [0.75, 0, 1, 1]
+  - Entity: 16483153619508947214
+    TagComponent:
+      Tag: Score
+    TransformComponent:
+      Translation: [-10, 7, 3]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    TextComponent:
+      FontPath: common/fonts/inter_regular.ttf
+      Text: "Score: 0"
+      Color: [1, 1, 1, 1]
+      FontSize: 0.6
+      Kerning: 0
+      LineSpacing: 0
+  - Entity: 17122778530385940142
+    TagComponent:
+      Tag: Level
+    TransformComponent:
+      Translation: [0, 2, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    TilemapComponent:
+      SpritesheetPath: platformer_2d/textures/tileset.png
+      Columns: 24
+      Rows: 14
+      TileWidth: 1
+      TileHeight: 1
+      SheetColumns: 10
+      SheetRows: 6
+      Tiles: [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 31, 33, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 30, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 31, 32, 32, 32, 33, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 31, 32, 33, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 20, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22]
+      Solid: [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  - Entity: 17665144189262339029
+    TagComponent:
+      Tag: Player
+    TransformComponent:
+      Translation: [-6, 4, 1]
+      Rotation: [0, -0, 0]
+      Scale: [3, 3, 1]
+    SpriteRendererComponent:
+      Color: [1, 1, 1, 1]
+      Texture: platformer_2d/textures/player_sheet.png
+      TilingFactor: 1
+      FilterMode: 0
+      WrapMode: 0
+      GenerateMips: true
+    LuaScriptComponent:
+      ScriptPath: platformer_2d/scripts/player.lua
+    Rigidbody2DComponent:
+      BodyType: 1
+      FixedRotation: true
+    BoxCollider2DComponent:
+      Offset: [0, 0]
+      Size: [0.2, 0.24]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      RestitutionThreshold: 0.5
+      IsSensor: false
+    AnimationComponent:
+      CurrentClip: idle
+      IsPlaying: true
+      PickerCellWidth: 80
+      PickerCellHeight: 64
+      Clips:
+        - Name: idle
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0.4285714, 0.083333336, 0.57142854]
+            - [0.083333336, 0.4285714, 0.16666667, 0.57142854]
+            - [0.16666667, 0.4285714, 0.25, 0.57142854]
+            - [0.25, 0.4285714, 0.33333334, 0.57142854]
+            - [0.33333334, 0.4285714, 0.4166667, 0.57142854]
+            - [0.4166667, 0.4285714, 0.5, 0.57142854]
+            - [0.5, 0.4285714, 0.5833334, 0.57142854]
+            - [0.5833334, 0.4285714, 0.6666667, 0.57142854]
+        - Name: run
+          FrameDuration: 0.1
+          Loop: true
+          Frames:
+            - [0, 0.28571427, 0.083333336, 0.4285714]
+            - [0.083333336, 0.28571427, 0.16666667, 0.4285714]
+            - [0.16666667, 0.28571427, 0.25, 0.4285714]
+            - [0.25, 0.28571427, 0.33333334, 0.4285714]
+            - [0.33333334, 0.28571427, 0.4166667, 0.4285714]
+            - [0.4166667, 0.28571427, 0.5, 0.4285714]
+            - [0.5, 0.28571427, 0.5833334, 0.4285714]
+            - [0.5833334, 0.28571427, 0.6666667, 0.4285714]
+        - Name: jump
+          FrameDuration: 0.1
+          Loop: false
+          Frames:
+            - [0, 0.14285707, 0.083333336, 0.28571427]
+            - [0.083333336, 0.14285707, 0.16666667, 0.28571427]
+            - [0.16666667, 0.14285707, 0.25, 0.28571427]
+    AudioSourceComponent:
+      AssetPath: platformer_2d/sounds/jump.wav
+      Volume: 0.601
+      Pitch: 1
+      Pan: 0
+      Loop: false
+      AutoPlay: false
