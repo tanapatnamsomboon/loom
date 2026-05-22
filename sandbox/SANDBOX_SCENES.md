@@ -583,6 +583,6 @@ which scene to extend.
 - [x] `platformer_2d.loom`
 - [x] `material_gallery.loom`
 - [x] `physics_playground.loom`
-- [ ] `character_controller.loom`
-- [ ] `next_area.loom`
+- [x] `character_controller.loom`
+- [x] `next_area.loom`
 - [ ] `particle_lab.loom`
