@@ -765,8 +765,16 @@ namespace Loom {
                 mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex, kMeshAlbedoTextureSpec);
         }
 
+        // Lazy-load metallic-roughness texture (same spec as albedo — Linear + mips).
+        if (!mrc.MetallicRoughnessTexturePath.empty()) {
+            std::string abs_mr = Project::GetAssetFileSystemPath(mrc.MetallicRoughnessTexturePath).generic_string();
+            if (!mrc.MetallicRoughnessTexture || mrc.MetallicRoughnessTexture->GetPath() != abs_mr)
+                mrc.MetallicRoughnessTexture = AssetManager::GetTexture(abs_mr, kMeshAlbedoTextureSpec);
+        }
+
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
-        Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture, world,
+        Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture,
+                           mrc.MetallicRoughnessTexture, world,
                            mrc.Roughness, mrc.Metallic, (int)(uint32_t)e);
     }
 

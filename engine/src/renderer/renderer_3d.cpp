@@ -213,16 +213,18 @@ namespace Loom {
         }
 
         // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount,
-        // IBL irradiance on 5, prefilter cubemap on 6, BRDF LUT on 7.
+        // IBL irradiance on 5, prefilter cubemap on 6, BRDF LUT on 7,
+        // metallic-roughness map on 8.
         sData.MeshShader->Bind();
-        sData.MeshShader->UploadUniformInt("uAlbedoTexture",  0);
-        sData.MeshShader->UploadUniformInt("uShadowMap0",     1);
-        sData.MeshShader->UploadUniformInt("uShadowMap1",     2);
-        sData.MeshShader->UploadUniformInt("uShadowMap2",     3);
-        sData.MeshShader->UploadUniformInt("uShadowMap3",     4);
-        sData.MeshShader->UploadUniformInt("uIrradianceMap",  5);
-        sData.MeshShader->UploadUniformInt("uPrefilterMap",   6);
-        sData.MeshShader->UploadUniformInt("uBRDFLUT",        7);
+        sData.MeshShader->UploadUniformInt("uAlbedoTexture",            0);
+        sData.MeshShader->UploadUniformInt("uShadowMap0",               1);
+        sData.MeshShader->UploadUniformInt("uShadowMap1",               2);
+        sData.MeshShader->UploadUniformInt("uShadowMap2",               3);
+        sData.MeshShader->UploadUniformInt("uShadowMap3",               4);
+        sData.MeshShader->UploadUniformInt("uIrradianceMap",            5);
+        sData.MeshShader->UploadUniformInt("uPrefilterMap",             6);
+        sData.MeshShader->UploadUniformInt("uBRDFLUT",                  7);
+        sData.MeshShader->UploadUniformInt("uMetallicRoughnessTexture", 8);
 
         // BRDF LUT — environment-independent, generated once at engine init.
         sData.BRDFLUT = GenerateBRDFLUT(512);
@@ -404,6 +406,7 @@ namespace Loom {
     void Renderer3D::Submit(const std::shared_ptr<MeshAsset>& mesh,
                             const glm::vec4& albedo_color,
                             const std::shared_ptr<Texture2D>& albedo_texture,
+                            const std::shared_ptr<Texture2D>& metallic_roughness_texture,
                             const glm::mat4& transform,
                             float roughness,
                             float metallic,
@@ -471,6 +474,12 @@ namespace Loom {
 
         const auto& tex = albedo_texture ? albedo_texture : sData.WhiteTexture;
         tex->Bind(0);
+
+        // Metallic-roughness map on unit 8. White fallback => factors pass
+        // through unchanged (white G/B == 1.0); the shader always samples it.
+        const auto& mr_tex = metallic_roughness_texture ? metallic_roughness_texture
+                                                        : sData.WhiteTexture;
+        mr_tex->Bind(8);
 
         const auto& vao = mesh->GetVertexArray();
         vao->Bind();

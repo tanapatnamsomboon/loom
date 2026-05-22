@@ -155,6 +155,19 @@ namespace Loom {
                                "import will bring factors only; extract the texture and "
                                "assign it manually for textured albedo.", path);
             }
+
+            const cgltf_texture* mr_tex  = pbr.metallic_roughness_texture.texture;
+            const char*          mr_uri  = (mr_tex && mr_tex->image) ? mr_tex->image->uri : nullptr;
+            if (mr_uri && mr_uri[0] != '\0' && std::strncmp(mr_uri, "data:", 5) != 0) {
+                std::string decoded(mr_uri);
+                cgltf_decode_uri(&decoded[0]);
+                decoded.resize(std::strlen(decoded.c_str()));
+                material.MetallicRoughnessTexture = decoded;
+            } else if (mr_tex && mr_tex->image) {
+                LOOM_CORE_WARN("MeshAsset: '{}' has an embedded metallic-roughness texture — "
+                               "import will bring factors only; extract the texture and "
+                               "assign it manually.", path);
+            }
         }
 
         cgltf_free(data);

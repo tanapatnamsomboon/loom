@@ -256,11 +256,15 @@ namespace Loom {
             auto& mrc = entity.GetComponent<MeshRendererComponent>();
             std::string mesh_path    = mrc.Mesh          ? ToRelativeAssetPath(mrc.Mesh->GetPath())          : mrc.MeshPath;
             std::string albedo_path  = mrc.AlbedoTexture ? ToRelativeAssetPath(mrc.AlbedoTexture->GetPath()) : mrc.AlbedoTexturePath;
-            out << YAML::Key << "MeshPath"          << YAML::Value << mesh_path;
-            out << YAML::Key << "AlbedoColor"       << YAML::Value << mrc.AlbedoColor;
-            out << YAML::Key << "AlbedoTexturePath" << YAML::Value << albedo_path;
-            out << YAML::Key << "Roughness"         << YAML::Value << mrc.Roughness;
-            out << YAML::Key << "Metallic"          << YAML::Value << mrc.Metallic;
+            std::string mr_path      = mrc.MetallicRoughnessTexture
+                                           ? ToRelativeAssetPath(mrc.MetallicRoughnessTexture->GetPath())
+                                           : mrc.MetallicRoughnessTexturePath;
+            out << YAML::Key << "MeshPath"                     << YAML::Value << mesh_path;
+            out << YAML::Key << "AlbedoColor"                  << YAML::Value << mrc.AlbedoColor;
+            out << YAML::Key << "AlbedoTexturePath"            << YAML::Value << albedo_path;
+            out << YAML::Key << "Roughness"                    << YAML::Value << mrc.Roughness;
+            out << YAML::Key << "Metallic"                     << YAML::Value << mrc.Metallic;
+            out << YAML::Key << "MetallicRoughnessTexturePath" << YAML::Value << mr_path;
             out << YAML::EndMap;
         }
 
@@ -675,6 +679,7 @@ namespace Loom {
                 mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
                 mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
                 mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
+                mrc.MetallicRoughnessTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
 
                 if (!mrc.MeshPath.empty()) {
                     std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
@@ -683,6 +688,10 @@ namespace Loom {
                 if (!mrc.AlbedoTexturePath.empty()) {
                     std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
                     mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
+                }
+                if (!mrc.MetallicRoughnessTexturePath.empty()) {
+                    std::filesystem::path mr_phys = Project::GetAssetFileSystemPath(mrc.MetallicRoughnessTexturePath);
+                    mrc.MetallicRoughnessTexture = AssetManager::GetTexture(mr_phys.string(), kMeshAlbedoTextureSpec);
                 }
             }
 
@@ -1009,6 +1018,7 @@ namespace Loom {
             mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
             mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
             mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
+            mrc.MetallicRoughnessTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
             if (!mrc.MeshPath.empty()) {
                 std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
                 mrc.Mesh = AssetManager::GetMesh(mesh_phys.string());
@@ -1016,6 +1026,10 @@ namespace Loom {
             if (!mrc.AlbedoTexturePath.empty()) {
                 std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
                 mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
+            }
+            if (!mrc.MetallicRoughnessTexturePath.empty()) {
+                std::filesystem::path mr_phys = Project::GetAssetFileSystemPath(mrc.MetallicRoughnessTexturePath);
+                mrc.MetallicRoughnessTexture = AssetManager::GetTexture(mr_phys.string(), kMeshAlbedoTextureSpec);
             }
         }
 

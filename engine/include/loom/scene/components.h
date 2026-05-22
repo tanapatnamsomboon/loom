@@ -329,9 +329,13 @@ namespace Loom {
         std::string                AlbedoTexturePath; // relative to asset directory
         std::shared_ptr<Texture2D> AlbedoTexture;     // runtime handle — not serialized
 
-        // Material — surface
-        float Roughness = 0.5f;
-        float Metallic  = 0.0f;
+        // Material — surface. The metallic-roughness texture is the glTF-standard
+        // packed map: roughness in G, metallic in B. Sampled values are multiplied
+        // by the Roughness / Metallic factors below (white texture => factor only).
+        float                      Roughness = 0.5f;
+        float                      Metallic  = 0.0f;
+        std::string                MetallicRoughnessTexturePath; // relative to asset directory
+        std::shared_ptr<Texture2D> MetallicRoughnessTexture;     // runtime handle — not serialized
 
         MeshRendererComponent()                             = default;
         MeshRendererComponent(const MeshRendererComponent&) = default;

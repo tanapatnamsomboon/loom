@@ -1743,24 +1743,36 @@ namespace Weaver {
                         mrc.AlbedoColor = gm.BaseColorFactor;
                         mrc.Roughness   = gm.RoughnessFactor;
                         mrc.Metallic    = gm.MetallicFactor;
-                        if (!gm.BaseColorTexture.empty()) {
-                            // glTF texture URI is relative to the model file's directory.
-                            std::filesystem::path model_dir =
-                                std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
-                            std::filesystem::path abs_tex = model_dir / gm.BaseColorTexture;
+
+                        // glTF texture URIs are relative to the model file's directory.
+                        std::filesystem::path model_dir =
+                            std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
+
+                        // Resolves a glTF-relative texture URI to a loaded Texture2D +
+                        // project-relative path, warning (and skipping) when the file
+                        // is missing next to the model. label is for the log message.
+                        auto import_tex = [&](const std::string& uri, const char* label,
+                                              std::shared_ptr<Loom::Texture2D>& out_tex,
+                                              std::string& out_path) {
+                            if (uri.empty()) return;
+                            std::filesystem::path abs_tex = model_dir / uri;
                             if (std::filesystem::exists(abs_tex)) {
                                 if (auto new_tex = Loom::AssetManager::GetTexture(
                                         abs_tex.generic_string(), Loom::kMeshAlbedoTextureSpec)) {
-                                    mrc.AlbedoTexture     = new_tex;
-                                    mrc.AlbedoTexturePath = std::filesystem::relative(
+                                    out_tex  = new_tex;
+                                    out_path = std::filesystem::relative(
                                         abs_tex, Loom::Project::GetAssetDirectory()).generic_string();
                                 }
                             } else {
-                                LOOM_CORE_WARN("Import Material: base-color texture '{}' not found "
+                                LOOM_CORE_WARN("Import Material: {} texture '{}' not found "
                                                "next to the model — factors imported, texture skipped.",
-                                               abs_tex.generic_string());
+                                               label, abs_tex.generic_string());
                             }
-                        }
+                        };
+                        import_tex(gm.BaseColorTexture, "base-color",
+                                   mrc.AlbedoTexture, mrc.AlbedoTexturePath);
+                        import_tex(gm.MetallicRoughnessTexture, "metallic-roughness",
+                                   mrc.MetallicRoughnessTexture, mrc.MetallicRoughnessTexturePath);
                         is_modified = true;
                     }
                     ImGui::EndDisabled();
@@ -1840,6 +1852,72 @@ namespace Weaver {
                 // ---- Material: surface ------------------------------------------
                 is_modified |= ImGui::SliderFloat("Roughness", &mrc.Roughness, 0.0f, 1.0f);
                 is_modified |= ImGui::SliderFloat("Metallic",  &mrc.Metallic,  0.0f, 1.0f);
+
+                // ---- Material: metallic-roughness map ---------------------------
+                // glTF-packed texture (roughness in G, metallic in B). Multiplies
+                // the sliders above — assign one and the sliders act as scale factors.
+                {
+                    ImTextureID mr_id = (ImTextureID)(uintptr_t)(mrc.MetallicRoughnessTexture
+                        ? mrc.MetallicRoughnessTexture->GetRendererID()
+                        : mCheckerboard->GetRendererID());
+                    std::string mr_label = mrc.MetallicRoughnessTexture
+                        ? std::filesystem::path(mrc.MetallicRoughnessTexture->GetPath()).filename().string()
+                        : "None (Select...)";
+
+                    ImGui::PushID("MetalRoughTexSlot");
+                    ImGui::Image(mr_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
+                                 ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Metallic-Roughness map (glTF packing:\nroughness in G, metallic in B).");
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                            std::filesystem::path dropped((const char*)payload->Data);
+                            auto ext = dropped.extension();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
+                                auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                                auto new_tex = Loom::AssetManager::GetTexture(
+                                    full.generic_string(), Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    mrc.MetallicRoughnessTexture     = new_tex;
+                                    mrc.MetallicRoughnessTexturePath = dropped.generic_string();
+                                    is_modified = true;
+                                }
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(mr_label.c_str(), ImVec2(150, 0))) {
+                        auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                        auto scene    = mContext;
+                        auto modified = mSceneModifiedCallback;
+                        FileDialog::Open("BrowseMetalRoughTex", "Choose Metallic-Roughness Texture",
+                            ".png,.jpg,.jpeg,.bmp,.tga",
+                            [uuid, scene, modified](const std::string& abs_path) {
+                                Loom::Entity e = scene->GetEntityByUUID(uuid);
+                                if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
+                                auto new_tex = Loom::AssetManager::GetTexture(abs_path, Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    auto& m = e.GetComponent<Loom::MeshRendererComponent>();
+                                    m.MetallicRoughnessTexture     = new_tex;
+                                    m.MetallicRoughnessTexturePath = std::filesystem::relative(abs_path,
+                                                            Loom::Project::GetAssetDirectory()).generic_string();
+                                    if (modified) modified();
+                                }
+                            });
+                    }
+                    if (mrc.MetallicRoughnessTexture) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("X##metalroughtex")) {
+                            mrc.MetallicRoughnessTexture.reset();
+                            mrc.MetallicRoughnessTexturePath.clear();
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("Metal/Rough");
+                    ImGui::PopID();
+                }
 
                 if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
 

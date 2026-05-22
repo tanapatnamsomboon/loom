@@ -16,6 +16,7 @@ in vec4 vLightSpacePos3;
 #define CASCADE_COUNT    4
 
 uniform sampler2D   uAlbedoTexture;
+uniform sampler2D   uMetallicRoughnessTexture; // glTF packing: roughness=G, metallic=B
 uniform sampler2D   uShadowMap0;
 uniform sampler2D   uShadowMap1;
 uniform sampler2D   uShadowMap2;
@@ -245,8 +246,12 @@ void main() {
         return;
     }
 
-    float roughness = clamp(uRoughness, 0.04, 1.0); // floor avoids NaN at perfect mirror
-    float metallic  = clamp(uMetallic,  0.0,  1.0);
+    // Metallic-roughness map — glTF packs roughness in G, metallic in B. The
+    // sample multiplies the factors (a 1x1 white fallback leaves them as-is).
+    // The roughness floor avoids NaN at perfect-mirror values.
+    vec3  mrSample  = texture(uMetallicRoughnessTexture, vTexCoord).rgb;
+    float roughness = clamp(uRoughness * mrSample.g, 0.04, 1.0);
+    float metallic  = clamp(uMetallic  * mrSample.b, 0.0,  1.0);
 
     // F0 = reflectance at normal incidence. Dielectrics share ~0.04; metals use albedo
     // as their tint (the metallic flow's whole point).

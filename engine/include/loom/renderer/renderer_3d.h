@@ -70,12 +70,16 @@ namespace Loom {
         //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
         static void SetDebugViz(int mode);
 
-        // One draw call per submission (no batching). albedo_texture may be null
-        // (a 1x1 white texture is bound in its place). entity_id < 0 leaves the
-        // picking attachment untouched for this draw.
+        // One draw call per submission (no batching). albedo_texture and
+        // metallic_roughness_texture may each be null (a 1x1 white texture is
+        // bound in their place — white leaves the albedo / surface factors
+        // untouched). The metallic-roughness map follows the glTF packing
+        // (roughness in G, metallic in B). entity_id < 0 leaves the picking
+        // attachment untouched for this draw.
         static void Submit(const std::shared_ptr<MeshAsset>& mesh,
                            const glm::vec4& albedo_color,
                            const std::shared_ptr<Texture2D>& albedo_texture,
+                           const std::shared_ptr<Texture2D>& metallic_roughness_texture,
                            const glm::mat4& transform,
                            float roughness = 0.5f,
                            float metallic  = 0.0f,

@@ -28,6 +28,9 @@ namespace Loom {
         // base-color texture, or when the texture is embedded (.glb buffer
         // view / data-URI) — embedded textures can't resolve to an asset path.
         std::string BaseColorTexture;
+        // Metallic-roughness texture URI (glTF packs roughness in G, metallic
+        // in B). Same relative-path / embedded-skip semantics as BaseColorTexture.
+        std::string MetallicRoughnessTexture;
     };
 
     class LOOM_API MeshAsset {
