@@ -13,11 +13,21 @@ namespace Weaver::FileDialog {
     //   ".png,.jpg,.jpeg,.bmp"     — comma-separated
     //   "Images (*.png *.jpg){.png,.jpg}"   — labeled
     // Pass nullptr filters to PickFolder for directory mode.
+    //
+    // start_dir: directory the dialog opens in. Leave empty to use the default —
+    // the active project's asset directory (or the process CWD if no project).
 
-    void Open(const std::string& key, const std::string& title, const char* filters, Callback on_pick);
+    // Registers per-file-type colors and Fork Awesome icons. Call once at editor
+    // startup, after the ImGui font atlas has been built.
+    void Init();
+
+    void Open(const std::string& key, const std::string& title, const char* filters,
+              Callback on_pick, const std::string& start_dir = "");
     void Save(const std::string& key, const std::string& title, const char* filters,
-              const std::string& default_filename, Callback on_pick);
-    void PickFolder(const std::string& key, const std::string& title, Callback on_pick);
+              const std::string& default_filename, Callback on_pick,
+              const std::string& start_dir = "");
+    void PickFolder(const std::string& key, const std::string& title, Callback on_pick,
+                    const std::string& start_dir = "");
 
     // Call once per frame after panels render, while inside the ImGui frame.
     void Render();

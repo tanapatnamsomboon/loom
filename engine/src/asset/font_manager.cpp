@@ -28,6 +28,7 @@ namespace Loom {
         std::string mono_path = EngineFont("roboto_mono/roboto_mono_regular.ttf");
         sFonts[FontType::Monospace] =
             io.Fonts->AddFontFromFileTTF(mono_path.c_str(), 12.0f * dpi_scale, &mono_config);
+        MergeIconFont(12.0f * dpi_scale);
 
         io.FontDefault = sFonts[FontType::Medium];
 
@@ -83,7 +84,33 @@ namespace Loom {
             thai_ranges
         );
 
+        MergeIconFont(size);
+
         sFonts[type] = font;
+    }
+
+    void FontManager::MergeIconFont(float size) {
+        ImGuiIO& io = ImGui::GetIO();
+
+        ImFontConfig icon_config;
+        icon_config.MergeMode        = true;          // fold glyphs into the previous font
+        icon_config.PixelSnapH       = true;
+        icon_config.GlyphMinAdvanceX = size;          // render icons monospaced
+        icon_config.GlyphOffset      = ImVec2(0.0f, 1.0f); // nudge onto the text baseline
+
+        // Fork Awesome packs its glyphs into the Unicode Private Use Area.
+        static constexpr ImWchar icon_ranges[] = {
+            0xF000, 0xF2FF,
+            0
+        };
+
+        std::string icon_path = EngineFont("fork_awesome/fork_awesome.ttf");
+        io.Fonts->AddFontFromFileTTF(
+            icon_path.c_str(),
+            size,
+            &icon_config,
+            icon_ranges
+        );
     }
 
 } // namespace Loom

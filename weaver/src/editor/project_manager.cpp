@@ -30,8 +30,15 @@ namespace Weaver {
     // -------------------------------------------------------------------------
 
     void ProjectManager::OpenProject() {
+        // Prefer the folder above the current project (sibling projects visible);
+        // with no project loaded yet, fall back to the most recent project's folder.
+        std::string start;
+        if (auto active = Loom::Project::GetActive())
+            start = active->GetProjectDirectory().parent_path().generic_string();
+        else if (!mPrefs.RecentProjects.empty())
+            start = std::filesystem::path(mPrefs.RecentProjects.front()).parent_path().generic_string();
         FileDialog::Open("OpenProject", "Open Project", ".loomproj",
-            [this](const std::string& path) { OpenProject(path); });
+            [this](const std::string& path) { OpenProject(path); }, start);
     }
 
     void ProjectManager::OpenProject(const std::string& filepath) {
@@ -75,6 +82,7 @@ namespace Weaver {
     void ProjectManager::SaveProjectAs() {
         if (!Loom::Project::GetActive()) return;
 
+        std::string start = Loom::Project::GetActive()->GetProjectDirectory().parent_path().generic_string();
         FileDialog::Save("SaveProjectAs", "Save Project As", ".loomproj", "MyProject.loomproj",
             [](const std::string& picked) {
                 if (!Loom::Project::GetActive()) return;
@@ -86,7 +94,7 @@ namespace Weaver {
 
                 Loom::ProjectSerializer serializer(Loom::Project::GetActive());
                 serializer.Serialize(path.string());
-            });
+            }, start);
     }
 
     // -------------------------------------------------------------------------
@@ -218,8 +226,14 @@ namespace Weaver {
         ImGui::Text("Location: %s", mProjectPath.empty() ? "Not Selected" : mProjectPath.c_str());
         ImGui::SameLine();
         if (ImGui::Button("Browse...")) {
+            // New projects belong next to existing ones, not inside the current project's assets.
+            std::string start;
+            if (auto active = Loom::Project::GetActive())
+                start = active->GetProjectDirectory().parent_path().generic_string();
+            else if (!mPrefs.RecentProjects.empty())
+                start = std::filesystem::path(mPrefs.RecentProjects.front()).parent_path().generic_string();
             FileDialog::PickFolder("WizardProjectLocation", "Choose Project Location",
-                [this](const std::string& folder) { mProjectPath = folder; });
+                [this](const std::string& folder) { mProjectPath = folder; }, start);
         }
 
         ImGui::Spacing();

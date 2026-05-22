@@ -55,6 +55,8 @@ namespace Weaver {
         // gizmo draws correctly but never reacts to hover/click.
         ImGuizmo::SetImGuiContext(context);
 
+        FileDialog::Init();   // register per-file-type colors + Fork Awesome icons
+
         mViewportPanel.Init();
         mToolbarPanel.Init();
 

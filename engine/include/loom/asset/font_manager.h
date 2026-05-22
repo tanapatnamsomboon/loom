@@ -33,6 +33,10 @@ namespace Loom {
             bool bold = false
         );
 
+        // Merges the Fork Awesome icon glyphs into the most recently added font.
+        // Call immediately after an AddFontFromFileTTF so the icons land in that font.
+        static void MergeIconFont(float size);
+
     private:
         static std::unordered_map<FontType, ImFont*> sFonts;
     };
