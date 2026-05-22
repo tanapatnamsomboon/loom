@@ -14,11 +14,11 @@ namespace Loom {
 
         io.Fonts->Clear();
 
-        LoadUIFont(FontType::Small,      "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 11.0f * dpi_scale);
-        LoadUIFont(FontType::Medium,     "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 12.0f * dpi_scale);
-        LoadUIFont(FontType::MediumBold, "inter/inter_bold.ttf",      "noto_sans_thai/noto_sans_thai_bold.ttf",    12.0f * dpi_scale);
-        LoadUIFont(FontType::Large,      "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 16.0f * dpi_scale);
-        LoadUIFont(FontType::LargeBold,  "inter/inter_bold.ttf",      "noto_sans_thai/noto_sans_thai_bold.ttf",    16.0f * dpi_scale);
+        LoadUIFont(FontType::Small,      "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 13.0f * dpi_scale);
+        LoadUIFont(FontType::Medium,     "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 14.0f * dpi_scale);
+        LoadUIFont(FontType::MediumBold, "inter/inter_bold.ttf",      "noto_sans_thai/noto_sans_thai_bold.ttf",    14.0f * dpi_scale);
+        LoadUIFont(FontType::Large,      "inter/inter_regular.ttf",   "noto_sans_thai/noto_sans_thai_regular.ttf", 18.0f * dpi_scale);
+        LoadUIFont(FontType::LargeBold,  "inter/inter_bold.ttf",      "noto_sans_thai/noto_sans_thai_bold.ttf",    18.0f * dpi_scale);
 
         ImFontConfig mono_config;
         mono_config.PixelSnapH  = true;
@@ -27,8 +27,8 @@ namespace Loom {
 
         std::string mono_path = EngineFont("roboto_mono/roboto_mono_regular.ttf");
         sFonts[FontType::Monospace] =
-            io.Fonts->AddFontFromFileTTF(mono_path.c_str(), 12.0f * dpi_scale, &mono_config);
-        MergeIconFont(12.0f * dpi_scale);
+            io.Fonts->AddFontFromFileTTF(mono_path.c_str(), 14.0f * dpi_scale, &mono_config);
+        MergeIconFont(14.0f * dpi_scale);
 
         io.FontDefault = sFonts[FontType::Medium];
 

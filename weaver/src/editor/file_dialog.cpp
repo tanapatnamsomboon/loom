@@ -3,6 +3,8 @@
 #include <ImGuiFileDialog.h>
 #include <imgui.h>
 #include <loom/project/project.h>
+#include <cstdlib>
+#include <system_error>
 #include <unordered_map>
 
 namespace Weaver::FileDialog {
@@ -10,7 +12,7 @@ namespace Weaver::FileDialog {
     namespace {
         std::unordered_map<std::string, Callback> sActive;
 
-        constexpr ImVec2 kMinSize = { 700, 450 };
+        constexpr ImVec2 kMinSize = { 920, 540 };
 
         // Resolves the directory a dialog should open in. An explicit start_dir
         // always wins; otherwise we default to the project's asset directory so
@@ -21,6 +23,68 @@ namespace Weaver::FileDialog {
             if (Loom::Project::GetActive())
                 return Loom::Project::GetAssetDirectory().generic_string();
             return ".";
+        }
+
+        // Soft neutral text color for places-pane entries; the icon carries meaning.
+        IGFD::FileStyle PlaceStyle(const char* icon) {
+            return IGFD::FileStyle(ImVec4(0.82f, 0.84f, 0.88f, 1.0f), icon);
+        }
+
+        // (Re)builds the "Project" places group from the active project's asset
+        // directory. Called on every dialog open so the group always tracks the
+        // currently loaded project, however it became active.
+        void RefreshProjectPlaces() {
+            auto* dlg = ImGuiFileDialog::Instance();
+            dlg->RemovePlacesGroup("Project");
+
+            if (!Loom::Project::GetActive())
+                return;
+
+            dlg->AddPlacesGroup("Project", 1, false, true);
+            auto* group = dlg->GetPlacesGroupPtr("Project");
+            if (!group)
+                return;
+
+            std::filesystem::path assets = Loom::Project::GetAssetDirectory();
+            group->AddPlace("Assets", assets.generic_string(), false, PlaceStyle(ICON_FK_FOLDER_OPEN));
+
+            // Standard asset subfolders — listed only when they actually exist.
+            for (const char* sub : { "scenes", "textures", "scripts", "models",
+                                     "meshes", "audio", "fonts", "prefabs", "materials" }) {
+                std::filesystem::path p = assets / sub;
+                std::error_code ec;
+                if (std::filesystem::is_directory(p, ec))
+                    group->AddPlace(sub, p.generic_string(), false, PlaceStyle(ICON_FK_FOLDER));
+            }
+        }
+
+        // Seeds the "System" places group with the user's standard folders. This
+        // set is static for the session, so it runs once from Init().
+        void SetupSystemPlaces() {
+            const char* home = std::getenv("USERPROFILE");
+            if (!home)
+                return;
+
+            auto* dlg = ImGuiFileDialog::Instance();
+            dlg->RemovePlacesGroup("System");
+            dlg->AddPlacesGroup("System", 2, false, true);
+            auto* group = dlg->GetPlacesGroupPtr("System");
+            if (!group)
+                return;
+
+            std::filesystem::path user = home;
+            auto add = [&](const char* name, const std::filesystem::path& p, const char* icon) {
+                std::error_code ec;
+                if (std::filesystem::is_directory(p, ec))
+                    group->AddPlace(name, p.generic_string(), false, PlaceStyle(icon));
+            };
+            add("Home",      user,               ICON_FK_HOME);
+            add("Desktop",   user / "Desktop",   ICON_FK_DESKTOP);
+            add("Documents", user / "Documents", ICON_FK_FILE_TEXT_O);
+            add("Downloads", user / "Downloads", ICON_FK_DOWNLOAD);
+            add("Pictures",  user / "Pictures",  ICON_FK_PICTURE_O);
+            add("Music",     user / "Music",     ICON_FK_MUSIC);
+            add("Videos",    user / "Videos",    ICON_FK_FILM);
         }
     }
 
@@ -61,10 +125,14 @@ namespace Weaver::FileDialog {
             ext(e, kFont, ICON_FK_FONT);
 
         ext(".hdr", kHdr, ICON_FK_PICTURE_O);
+
+        // Seed the session-static System group in the places pane.
+        SetupSystemPlaces();
     }
 
     void Open(const std::string& key, const std::string& title, const char* filters,
               Callback on_pick, const std::string& start_dir) {
+        RefreshProjectPlaces();
         IGFD::FileDialogConfig config;
         config.path  = ResolveStartDir(start_dir);
         config.flags = ImGuiFileDialogFlags_Modal;
@@ -75,6 +143,7 @@ namespace Weaver::FileDialog {
     void Save(const std::string& key, const std::string& title, const char* filters,
               const std::string& default_filename, Callback on_pick,
               const std::string& start_dir) {
+        RefreshProjectPlaces();
         IGFD::FileDialogConfig config;
         config.path     = ResolveStartDir(start_dir);
         config.fileName = default_filename;
@@ -85,6 +154,7 @@ namespace Weaver::FileDialog {
 
     void PickFolder(const std::string& key, const std::string& title, Callback on_pick,
                     const std::string& start_dir) {
+        RefreshProjectPlaces();
         IGFD::FileDialogConfig config;
         config.path  = ResolveStartDir(start_dir);
         config.flags = ImGuiFileDialogFlags_Modal;
@@ -94,6 +164,19 @@ namespace Weaver::FileDialog {
     }
 
     void Render() {
+        if (sActive.empty())
+            return;
+
+        // Rounded corners on the dialog window + its inner widgets. Pushed around
+        // Display() so the dialog's internal Begin/End picks the values up, then
+        // popped so the rest of the editor keeps its own style.
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,    8.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,     8.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,     6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,     4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding,      3.0f);
+
         for (auto it = sActive.begin(); it != sActive.end(); ) {
             const std::string& key = it->first;
             if (ImGuiFileDialog::Instance()->Display(key, ImGuiWindowFlags_NoCollapse, kMinSize)) {
@@ -111,6 +194,8 @@ namespace Weaver::FileDialog {
                 ++it;
             }
         }
+
+        ImGui::PopStyleVar(6);
     }
 
     std::string MakeAssetRelative(const std::filesystem::path& absolute) {

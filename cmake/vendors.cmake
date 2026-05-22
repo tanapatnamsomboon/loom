@@ -75,6 +75,14 @@ add_library(imguifiledialog STATIC
 )
 target_include_directories(imguifiledialog PUBLIC ${IMGUIFILEDIALOG_DIR})
 target_link_libraries(imguifiledialog PUBLIC imgui)
+# Enable the Places pane (Blender-style quick-access sidebar: bookmarks,
+# devices, plus the editor's own Project / System groups). PUBLIC so the
+# places C++ API is visible to Weaver, which is gated behind these defines.
+target_compile_definitions(imguifiledialog PUBLIC
+    USE_PLACES_FEATURE
+    USE_PLACES_BOOKMARKS
+    USE_PLACES_DEVICES
+)
 
 # -----------------------------------------------------------------------------
 # ImGuizmo (transform gizmo widget for Dear ImGui)
