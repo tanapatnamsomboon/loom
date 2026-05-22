@@ -62,8 +62,13 @@ namespace Loom {
         // primitive into a single VAO, so the mesh carries one material.
         const cgltf_material* material_src = nullptr;
 
-        for (cgltf_size mi = 0; mi < data->meshes_count; ++mi) {
-            const cgltf_mesh& mesh = data->meshes[mi];
+        // Bakes one cgltf_mesh's primitives into the shared vertex / index
+        // buffers, transforming positions by `world` and normals by the
+        // inverse-transpose of its upper 3x3 (so non-uniform scale doesn't
+        // skew them). Hoisted out of the scene-graph walk below so a node
+        // and a no-scene-graph fallback can share the same code path.
+        auto emit_mesh = [&](const cgltf_mesh& mesh, const glm::mat4& world,
+                             const glm::mat3& normal_matrix) {
             for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi) {
                 const cgltf_primitive& prim = mesh.primitives[pi];
                 if (prim.type != cgltf_primitive_type_triangles) {
@@ -99,9 +104,20 @@ namespace Loom {
 
                 for (cgltf_size i = 0; i < vcount; ++i) {
                     MeshVertex& v = vertices[vstart + i];
-                    cgltf_accessor_read_float(pos_acc, i, &v.Position.x, 3);
-                    if (nrm_acc) cgltf_accessor_read_float(nrm_acc, i, &v.Normal.x, 3);
-                    else         v.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
+
+                    glm::vec3 pos_local;
+                    cgltf_accessor_read_float(pos_acc, i, &pos_local.x, 3);
+                    v.Position = glm::vec3(world * glm::vec4(pos_local, 1.0f));
+
+                    glm::vec3 nrm_local = glm::vec3(0.0f, 0.0f, 1.0f);
+                    if (nrm_acc) cgltf_accessor_read_float(nrm_acc, i, &nrm_local.x, 3);
+                    // Renormalize after transform — non-uniform scale stretches
+                    // the normal even with the inverse-transpose remap.
+                    glm::vec3 nrm_world = normal_matrix * nrm_local;
+                    float     len2      = glm::dot(nrm_world, nrm_world);
+                    v.Normal = (len2 > 1e-8f) ? nrm_world * glm::inversesqrt(len2)
+                                              : glm::vec3(0.0f, 0.0f, 1.0f);
+
                     if (uv_acc) {
                         cgltf_accessor_read_float(uv_acc, i, &v.TexCoord.x, 2);
                         // glTF UV origin is top-left (+V down). The engine loads
@@ -129,6 +145,46 @@ namespace Loom {
                         indices.push_back((uint32_t)(vstart + i));
                 }
             }
+        };
+
+        // Walk the glTF scene graph, baking each node's world transform into
+        // its referenced mesh. Without this, models that ship with a non-
+        // identity root node (e.g. DamagedHelmet, or anything exported from
+        // Blender's "+Y up" preset which inserts a root axis-conversion
+        // rotation) come in mis-oriented because cgltf stores mesh vertices
+        // in node-local space.
+        auto walk_node = [&](auto& self, const cgltf_node* node) -> void {
+            cgltf_float wm_raw[16];
+            cgltf_node_transform_world(node, wm_raw);
+            glm::mat4 world(wm_raw[0],  wm_raw[1],  wm_raw[2],  wm_raw[3],
+                            wm_raw[4],  wm_raw[5],  wm_raw[6],  wm_raw[7],
+                            wm_raw[8],  wm_raw[9],  wm_raw[10], wm_raw[11],
+                            wm_raw[12], wm_raw[13], wm_raw[14], wm_raw[15]);
+            glm::mat3 nm = glm::transpose(glm::inverse(glm::mat3(world)));
+            if (node->mesh) emit_mesh(*node->mesh, world, nm);
+            for (cgltf_size ci = 0; ci < node->children_count; ++ci)
+                self(self, node->children[ci]);
+        };
+
+        bool walked_any = false;
+        auto walk_scene = [&](const cgltf_scene* scene) {
+            for (cgltf_size ni = 0; ni < scene->nodes_count; ++ni) {
+                walk_node(walk_node, scene->nodes[ni]);
+                walked_any = true;
+            }
+        };
+        if (data->scene) {
+            walk_scene(data->scene);
+        } else {
+            for (cgltf_size si = 0; si < data->scenes_count; ++si)
+                walk_scene(&data->scenes[si]);
+        }
+        if (!walked_any) {
+            // Defensive fallback: file has no scene graph (rare, but legal).
+            // Walk all meshes with identity transform — preserves the
+            // pre-fix behavior so we don't regress anything that loaded before.
+            for (cgltf_size mi = 0; mi < data->meshes_count; ++mi)
+                emit_mesh(data->meshes[mi], glm::mat4(1.0f), glm::mat3(1.0f));
         }
 
         // ── Material (pbrMetallicRoughness) ──────────────────────────────
