@@ -12,7 +12,7 @@ The project ships three distinct targets: the **Loom** engine library, the **Wea
 
 ### Weaver Editor
 
-- **Scene Hierarchy** — entity tree with drag-and-drop reparenting; parent-child world transform composition; right-click context actions (create child, detach, save as prefab, delete)
+- **Scene Hierarchy** — entity tree with drag-and-drop reparenting; parent-child world transform composition; right-click context actions (create child, duplicate, detach, save as prefab, delete); `Ctrl+D` duplicates the selected entity and its whole subtree
 - **Viewport** — framebuffer-rendered scene with `EditorCamera`; translate / rotate / scale gizmos via ImGuizmo; world / local space toggle; click-to-select mouse picking
 - **Tile paint tool** — visual sheet palette inspector + in-viewport cell painter with hover highlight, LMB-drag stroke painting, shift-click to mark a sheet tile as solid for runtime collision
 - **Infinite dynamic grid** — perspective-aware fade, configurable snap
@@ -22,7 +22,7 @@ The project ships three distinct targets: the **Loom** engine library, the **Wea
 - **Project & Scene I/O** — New / Open / Save / Save As for both projects and scenes; "unsaved changes" guard modal; recently opened projects list
 - **Project Settings** — configure window title, resolution, and start scene from a dedicated modal; settings round-trip through the `.loomproj` file and are consumed by WeaverRuntime at launch
 - **Scene Properties panel** — Unreal-style "World Settings" window for scene-level data that gets serialized into the `.loom` (currently the skybox HDR path; designed to grow as ambient color / fog / default gravity / etc. land)
-- **Undo / Redo** — 50-step command history (`Ctrl+Z` / `Ctrl+Shift+Z`); covers entity creation and deletion, component add/remove, gizmo transforms, and every inspector property edit; title-bar dirty indicator is driven by history depth rather than a manual flag
+- **Undo / Redo** — 50-step command history (`Ctrl+Z` / `Ctrl+Shift+Z`); covers entity creation, duplication, and deletion, component add/remove, gizmo transforms, and every inspector property edit; title-bar dirty indicator is driven by history depth rather than a manual flag
 - **Editor camera persistence** — camera position, pitch, and yaw saved per scene and restored exactly on re-open
 
 ### Script Property Exposure
@@ -84,7 +84,7 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 - Per-entity isolated `sol::environment`s — scripts never share global state
 - **Hot-reload** — file watcher detects `.lua` changes on disk and reloads the script instantly while in Play mode
 - **Script property overrides** — declare a `Properties` table; Weaver discovers fields, presents inspector widgets, saves overrides to the scene file, and injects values before `OnCreate()` runs
-- Complete entity API: transform, tag, scene management, audio control, 2D and 3D physics body manipulation, animation playback
+- Complete entity API: transform, tag, scene management, audio control, text, 2D and 3D physics body manipulation, animation playback
 - Collision, sensor, and per-frame animation callbacks delivered directly to the owning script environment
 - `Physics.Raycast`, `Physics.OverlapCircle`, `Physics.OverlapBox` world queries from Lua
 - `Scene.Load` / `Scene.Reload` for Lua-driven level transitions
@@ -315,6 +315,13 @@ entity:StopAudio()
 entity:IsAudioPlaying()          -- bool
 entity:SetVolume(v)              -- 0.0 – 1.0
 entity:SetPitch(p)               -- 0.1 – 4.0
+```
+
+### Entity API — Text *(requires TextComponent)*
+
+```lua
+entity:GetText()                 -- string
+entity:SetText(str)              -- replace the rendered text
 ```
 
 ### Entity API — 2D Physics body *(requires Rigidbody2DComponent)*
