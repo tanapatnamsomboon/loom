@@ -1,0 +1,128 @@
+Scene: next_area
+EditorCamera:
+  Position: [12.123142, 8.911045, 8.144815]
+  Pitch: 0.54899997
+  Yaw: -0.9870013
+SkyboxPath: common/environments/kloppenheim_puresky.hdr
+Entities:
+  - Entity: 542883706066439692
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 8, 8]
+      Rotation: [-0.43633232, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 1
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 0
+  - Entity: 2715070821964731173
+    TagComponent:
+      Tag: Banner
+    TransformComponent:
+      Translation: [-2, 3, -4]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    TextComponent:
+      FontPath: common/fonts/inter_regular.ttf
+      Text: You made it!
+      Color: [1, 1, 1, 1]
+      FontSize: 1
+      Kerning: 0
+      LineSpacing: 0
+  - Entity: 7463468312033085047
+    TagComponent:
+      Tag: Return
+    TransformComponent:
+      Translation: [5, 1.5, 4]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [0.5, 0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: true
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.78431374, 0.11764706, 0.19607843, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: next_area/scripts/return_zone.lua
+  - Entity: 8350959315462197942
+    TagComponent:
+      Tag: Floor
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [8, 0.5, 8]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 10240208451973656563
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [-0.87266463, -0.5235988, 0]
+      Scale: [1, 1, 1]
+    DirectionalLightComponent:
+      Color: [1, 0.97, 0.92]
+      Intensity: 1
+  - Entity: 12514838915677840991
+    TagComponent:
+      Tag: Player
+    TransformComponent:
+      Translation: [0, 4, 2]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: true
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    CapsuleCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      HalfHeight: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/capsule.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/character.lua

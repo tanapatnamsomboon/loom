@@ -1,0 +1,27 @@
+Entity: 4188953732484869101
+TagComponent:
+  Tag: Pickup
+TransformComponent:
+  Translation: [0, 0.9237423, 0]
+  Rotation: [0, -0, 0]
+  Scale: [0.4, 0.4, 0.4]
+Rigidbody3DComponent:
+  Type: 0
+  FixedRotation: false
+  LinearDamping: 0.05
+  AngularDamping: 0.05
+BoxCollider3DComponent:
+  Offset: [0, 0, 0]
+  HalfExtents: [1, 1, 1]
+  Density: 1
+  Friction: 0.5
+  Restitution: 0
+  IsSensor: false
+MeshRendererComponent:
+  MeshPath: common/models/sphere.glb
+  AlbedoColor: [0.78431374, 0.78431374, 0.4, 1]
+  AlbedoTexturePath: ""
+  Roughness: 0.5
+  Metallic: 0
+LuaScriptComponent:
+  ScriptPath: character_controller/scripts/pickup.lua

@@ -1,0 +1,295 @@
+Scene: character_controller
+EditorCamera:
+  Position: [13.175085, 9.856907, 1.5754523]
+  Pitch: 0.6840001
+  Yaw: -1.4460027
+SkyboxPath: common/environments/kloppenheim_puresky.hdr
+Entities:
+  - Entity: 1655810049446116947
+    TagComponent:
+      Tag: Wall
+    TransformComponent:
+      Translation: [-10, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [0.5, 2, 10]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.29803923, 0.3019608, 0.29803923, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 2992844743268093748
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 8, 8]
+      Rotation: [-0.43633232, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 1
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 0
+  - Entity: 3760516997404827828
+    TagComponent:
+      Tag: Sun
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [-0.87266463, -0.5235988, 0]
+      Scale: [1, 1, 1]
+    DirectionalLightComponent:
+      Color: [1, 0.97, 0.92]
+      Intensity: 2
+  - Entity: 4188953732484869101
+    TagComponent:
+      Tag: Pickup_1
+    TransformComponent:
+      Translation: [7, 1, 4.5]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 0.4]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: true
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [0.78431374, 0.78431374, 0.4, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/pickup.lua
+  - Entity: 5079874670124449504
+    TagComponent:
+      Tag: Pickup_2
+    TransformComponent:
+      Translation: [2, 1, -6]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 0.4]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: true
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [0.78431374, 0.78431374, 0.4, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/pickup.lua
+  - Entity: 7426778516113716994
+    TagComponent:
+      Tag: Floor
+    TransformComponent:
+      Translation: [0, -3.1650066e-05, 0]
+      Rotation: [0, -0, 0]
+      Scale: [10, 0.5, 10]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.29803923, 0.3019608, 0.29803923, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 11312426206745061563
+    TagComponent:
+      Tag: Player
+    TransformComponent:
+      Translation: [0, 4, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 1
+      FixedRotation: true
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    CapsuleCollider3DComponent:
+      Offset: [0, 0, 0]
+      Radius: 1
+      HalfHeight: 1
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/capsule.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/character.lua
+  - Entity: 11598501408252712375
+    TagComponent:
+      Tag: Exit
+    TransformComponent:
+      Translation: [7.50045, 1.5, -6.5]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [0.5, 0.5, 0.5]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: true
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.19607843, 0.78431374, 0.25490198, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/level_exit.lua
+  - Entity: 13481052616132893512
+    TagComponent:
+      Tag: Pickup_3
+    TransformComponent:
+      Translation: [-7, 1, 3]
+      Rotation: [0, -0, 0]
+      Scale: [0.4, 0.4, 0.4]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: true
+    MeshRendererComponent:
+      MeshPath: common/models/sphere.glb
+      AlbedoColor: [0.78431374, 0.78431374, 0.4, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+    LuaScriptComponent:
+      ScriptPath: character_controller/scripts/pickup.lua
+  - Entity: 14562104399534295894
+    TagComponent:
+      Tag: Wall
+    TransformComponent:
+      Translation: [10, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [0.5, 2, 10]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.29803923, 0.3019608, 0.29803923, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 15053788801425659990
+    TagComponent:
+      Tag: Wall
+    TransformComponent:
+      Translation: [0, 0, -10]
+      Rotation: [0, 0, 0]
+      Scale: [10, 2, 0.5]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.29803923, 0.3019608, 0.29803923, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
+  - Entity: 16539886060216891659
+    TagComponent:
+      Tag: Wall
+    TransformComponent:
+      Translation: [0, 0, 10]
+      Rotation: [0, 0, 0]
+      Scale: [10, 2, 0.5]
+    Rigidbody3DComponent:
+      Type: 0
+      FixedRotation: false
+      LinearDamping: 0.05
+      AngularDamping: 0.05
+    BoxCollider3DComponent:
+      Offset: [0, 0, 0]
+      HalfExtents: [1, 1, 1]
+      Density: 1
+      Friction: 0.5
+      Restitution: 0
+      IsSensor: false
+    MeshRendererComponent:
+      MeshPath: common/models/cube.glb
+      AlbedoColor: [0.29803923, 0.3019608, 0.29803923, 1]
+      AlbedoTexturePath: ""
+      Roughness: 0.5
+      Metallic: 0
