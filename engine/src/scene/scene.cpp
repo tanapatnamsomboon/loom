@@ -251,6 +251,18 @@ namespace Loom {
         return entity;
     }
 
+    // Physics3D contact-event plumbing — the Pimpl payload declared in scene.h.
+    // Defined here, near the top, so Scene members above (DestroyEntity) can
+    // touch its fields; LoomContactListener3D further down also uses it.
+    struct Physics3DEventState {
+        enum class Kind : uint8_t { Begin, End };
+        struct Event { Kind kind; uint32_t body_a; uint32_t body_b; };
+
+        std::vector<Event>                         events;       // drained on main thread after Update()
+        std::mutex                                 events_mutex; // events[] is written from Jolt worker threads
+        std::unordered_map<uint32_t, entt::entity> body_to_entity;
+    };
+
     void Scene::DestroyEntity(Entity entity) {
         // Recursively destroy children first (copy list — destroying modifies it)
         if (entity.HasComponent<RelationshipComponent>()) {
@@ -290,6 +302,17 @@ namespace Loom {
             if (b2Body_IsValid(tc.RuntimeBody)) {
                 b2DestroyBody(tc.RuntimeBody);
                 tc.RuntimeBody = b2_nullBodyId;
+            }
+        }
+        if (entity.HasComponent<Rigidbody3DComponent>()) {
+            auto& rb = entity.GetComponent<Rigidbody3DComponent>();
+            if (mPhysicsSystem3D && rb.RuntimeBodyID != 0xffffffffu) {
+                JPH::BodyID         id(rb.RuntimeBodyID);
+                JPH::BodyInterface& bi = mPhysicsSystem3D->GetBodyInterface();
+                bi.RemoveBody(id);
+                bi.DestroyBody(id);
+                mPhysics3DEvents->body_to_entity.erase(rb.RuntimeBodyID);
+                rb.RuntimeBodyID = 0xffffffffu;
             }
         }
 
@@ -849,15 +872,8 @@ namespace Loom {
     }
 
     // ---- Physics3D contact event plumbing ---------------------------------
-
-    struct Physics3DEventState {
-        enum class Kind : uint8_t { Begin, End };
-        struct Event { Kind kind; uint32_t body_a; uint32_t body_b; };
-
-        std::vector<Event>                         events;       // drained on main thread after Update()
-        std::mutex                                 events_mutex; // events[] is written from Jolt worker threads
-        std::unordered_map<uint32_t, entt::entity> body_to_entity;
-    };
+    // Physics3DEventState is defined near the top of this file (DestroyEntity
+    // needs it complete).
 
     namespace {
         // Jolt fires these from job threads; we only enqueue. Dispatch happens
@@ -1893,6 +1909,7 @@ namespace Loom {
         auto resolve = [this](uint32_t body_id) -> Entity {
             auto it = mPhysics3DEvents->body_to_entity.find(body_id);
             if (it == mPhysics3DEvents->body_to_entity.end()) return {};
+            if (!mRegistry.valid(it->second)) return {}; // entity destroyed mid-dispatch
             return Entity{ it->second, this };
         };
 
