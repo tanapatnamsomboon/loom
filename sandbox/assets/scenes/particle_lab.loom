@@ -1,0 +1,127 @@
+Scene: particle_lab
+EditorCamera:
+  Position: [1.0402844, 1.4347173, 13.353788]
+  Pitch: 0.17099968
+  Yaw: -0.09900104
+Entities:
+  - Entity: 1332332814423046985
+    TagComponent:
+      Tag: Fountain
+    TransformComponent:
+      Translation: [-7, -4, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    ParticleComponent:
+      Shape: 0
+      ShapeSize: [1, 1]
+      Space: 0
+      Emitting: true
+      SpawnRate: 50
+      LifetimeMin: 1.2
+      LifetimeMax: 1.8
+      VelocityMin: [-1.5, 7]
+      VelocityMax: [1.5, 10]
+      Gravity: [0, -9.8]
+      GravityScale: 1
+      RotationSpeed: 0
+      ColorBegin: [0.6039216, 0.84313726, 1, 1]
+      ColorEnd: [0.19607843, 0.39215687, 1, 0]
+      SizeBegin: 0.3
+      SizeEnd: 0.1
+      MaxParticles: 256
+      TexturePath: ""
+  - Entity: 6858415582328260266
+    TagComponent:
+      Tag: MainCamera
+    TransformComponent:
+      Translation: [0, 0, 10]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    CameraComponent:
+      Primary: true
+      FixedAspectRatio: false
+      OrthographicSize: 18
+      OrthographicNear: -1
+      OrthographicFar: 100
+      PerspectiveFOV: 0.785398
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      ProjectionType: 1
+  - Entity: 8047236912109549315
+    TagComponent:
+      Tag: SparkleRing
+    TransformComponent:
+      Translation: [7, 0, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    ParticleComponent:
+      Shape: 2
+      ShapeSize: [1.5, 1]
+      Space: 1
+      Emitting: true
+      SpawnRate: 40
+      LifetimeMin: 1
+      LifetimeMax: 1.5
+      VelocityMin: [-0.2, -0.2]
+      VelocityMax: [0.2, 0.2]
+      Gravity: [0, -9.8]
+      GravityScale: 0
+      RotationSpeed: 3
+      ColorBegin: [1, 1, 0.6, 1]
+      ColorEnd: [1, 0.5019608, 1, 0]
+      SizeBegin: 0.2
+      SizeEnd: 0
+      MaxParticles: 256
+      TexturePath: ""
+  - Entity: 13278238440314061478
+    TagComponent:
+      Tag: SmokePlume
+    TransformComponent:
+      Translation: [2.5, -3, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    ParticleComponent:
+      Shape: 1
+      ShapeSize: [0.6, 0.2]
+      Space: 0
+      Emitting: true
+      SpawnRate: 25
+      LifetimeMin: 2
+      LifetimeMax: 3
+      VelocityMin: [-0.3, 0.8]
+      VelocityMax: [0.3, 1.6]
+      Gravity: [0, -9.8]
+      GravityScale: 0
+      RotationSpeed: 0
+      ColorBegin: [0.5019608, 0.5019608, 0.5019608, 1]
+      ColorEnd: [0.2, 0.2, 0.2, 0]
+      SizeBegin: 0.3
+      SizeEnd: 1.2
+      MaxParticles: 256
+      TexturePath: ""
+  - Entity: 17349154408065358359
+    TagComponent:
+      Tag: Explosion
+    TransformComponent:
+      Translation: [-2.5, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    ParticleComponent:
+      Shape: 2
+      ShapeSize: [0.5, 1]
+      Space: 0
+      Emitting: true
+      SpawnRate: 60
+      LifetimeMin: 0.5
+      LifetimeMax: 1
+      VelocityMin: [-7, -7]
+      VelocityMax: [7, 7]
+      Gravity: [0, -9.8]
+      GravityScale: 0
+      RotationSpeed: 0
+      ColorBegin: [1, 0.8, 0.2, 1]
+      ColorEnd: [1, 0.101960786, 0, 0]
+      SizeBegin: 0.35
+      SizeEnd: 0
+      MaxParticles: 256
+      TexturePath: ""

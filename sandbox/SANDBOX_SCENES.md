@@ -523,29 +523,45 @@ Circle) and both simulation spaces (World / Local). Pure visual; no scripts.
 
 ### Build steps
 
+All four emitters loop continuously — this scene has no scripts, and `Emitting`
+is the only on/off. Velocity is a random box-range `[VelocityMin, VelocityMax]`;
+the emitter **Shape** sets only the spawn *position*, so an outward "burst" is
+approximated with a wide symmetric velocity range. `GravityScale` defaults to 0
+— set it to 1 for particles that fall.
+
 1. **New scene** → save as `assets/scenes/particle_lab.loom`.
-2. **MainCamera** — Tag `MainCamera`, `CameraComponent` **Orthographic**,
-   **Primary = true**. Set the Size large enough to frame all four emitters.
-3. **Fountain** — Create Entity. Add `ParticleComponent`:
-   Shape = **Point**, Space = **World**, upward `VelocityMin/Max`,
-   `GravityScale` ≈ `1`, `Emitting = true` (loops).
-4. **Explosion** — Create Entity. `ParticleComponent`: Shape = **Circle**,
-   Space = **World**, radial velocity. For a one-shot burst, set a low
-   `SpawnRate` or toggle `Emitting` off after the initial burst.
-5. **SmokePlume** — Create Entity. `ParticleComponent`: Shape = **Box**,
-   Space = **World**, slow upward velocity, `ColorBegin → ColorEnd` fading to
-   transparent, large `SizeEnd`.
-6. **SparkleRing** — Create Entity. `ParticleComponent`: Shape = **Circle**,
-   Space = **Local**, `RotationSpeed > 0` so the ring spins with the entity.
-7. Space the four emitters apart along X so they read as distinct presets.
-8. **Save** (`Ctrl+S`).
+2. **MainCamera** — Tag `MainCamera`. `Camera`: **Orthographic**,
+   **Primary = true**, Size ≈ `18`. Position `(0, 0, 10)`.
+3. **Fountain** (Point, World, gravity) — Create Entity, position `(-7,-4,0)`.
+   `Particle`: Shape = **Point**, Space = **World**, SpawnRate `50`, Lifetime
+   `1.2`–`1.8`, VelocityMin `(-1.5, 7)`, VelocityMax `(1.5, 10)`, Gravity
+   `(0,-9.8)`, **GravityScale `1`**, ColorBegin `(0.6,0.85,1,1)`, ColorEnd
+   `(0.2,0.4,1,0)`, SizeBegin `0.3`, SizeEnd `0.1`.
+4. **Explosion** (Circle, World, outward) — Create Entity, position `(-2.5,0,0)`.
+   `Particle`: Shape = **Circle**, ShapeSize `(0.5,0)`, Space = **World**,
+   SpawnRate `60`, Lifetime `0.5`–`1.0`, VelocityMin `(-7,-7)`, VelocityMax
+   `(7,7)`, ColorBegin `(1,0.8,0.2,1)`, ColorEnd `(1,0.1,0,0)`, SizeBegin
+   `0.35`, SizeEnd `0`. (A true one-shot burst would need a script to flip
+   `Emitting`; here it loops.)
+5. **SmokePlume** (Box, World, rising + growing) — Create Entity, position
+   `(2.5,-3,0)`. `Particle`: Shape = **Box**, ShapeSize `(0.6,0.2)`, Space =
+   **World**, SpawnRate `25`, Lifetime `2.0`–`3.0`, VelocityMin `(-0.3,0.8)`,
+   VelocityMax `(0.3,1.6)`, ColorBegin `(0.5,0.5,0.5,0.8)`, ColorEnd
+   `(0.2,0.2,0.2,0)`, SizeBegin `0.3`, **SizeEnd `1.2`**.
+6. **SparkleRing** (Circle, Local, spinning) — Create Entity, position `(7,0,0)`.
+   `Particle`: Shape = **Circle**, ShapeSize `(1.5,0)`, Space = **Local**,
+   SpawnRate `40`, Lifetime `1.0`–`1.5`, VelocityMin `(-0.2,-0.2)`, VelocityMax
+   `(0.2,0.2)`, **RotationSpeed `3`**, ColorBegin `(1,1,0.6,1)`, ColorEnd
+   `(1,0.5,1,0)`, SizeBegin `0.2`, SizeEnd `0`.
+7. **Save** (`Ctrl+S`).
 
 ### Validation checklist
 
-- [ ] Each emitter shape spawns particles in the expected region
-- [ ] World-space particles stay put when the emitter entity moves; Local-space particles move with it
-- [ ] Color / size animate over particle lifetime
-- [ ] The one-shot explosion fires a single burst, the others loop
+- [ ] Point / Box / Circle emitters each spawn in the expected region (a point, a flat box, a filled disc)
+- [ ] Fountain particles arc up and fall back (GravityScale 1); the others ignore gravity
+- [ ] Color and size animate over each particle's lifetime — Smoke visibly grows + fades to transparent
+- [ ] Move the **SparkleRing** entity in the viewport: its Local-space particles travel with it; a World-space emitter's already-spawned particles stay put
+- [ ] All four emitters loop continuously
 
 ---
 
@@ -585,4 +601,4 @@ which scene to extend.
 - [x] `physics_playground.loom`
 - [x] `character_controller.loom`
 - [x] `next_area.loom`
-- [ ] `particle_lab.loom`
+- [x] `particle_lab.loom`
