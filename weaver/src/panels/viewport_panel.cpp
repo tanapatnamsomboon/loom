@@ -104,8 +104,27 @@ namespace Weaver {
             Loom::Renderer3D::DrawSkybox(mContext.EditorCamera.GetViewMatrix(),
                                           mContext.EditorCamera.GetProjectionMatrix(),
                                           debug_cubemap);
+        }
 
-            // Grid
+        switch (mContext.SceneState) {
+            case SceneState::Edit:
+                mContext.ActiveScene->OnUpdateEditor(ts, mContext.EditorCamera,
+                                                     mContext.HierarchyPanel->GetSelectedEntity(),
+                                                     mContext.FallbackEnvironment.Irradiance,
+                                                     mContext.FallbackEnvironment.Prefilter);
+                break;
+            case SceneState::Play:
+                mContext.ActiveScene->OnUpdateRuntime(ts);
+                break;
+        }
+
+        if (mContext.SceneState == SceneState::Edit) {
+            // Grid is drawn *after* the meshes so its alpha blend uses whatever
+            // is in the framebuffer at that pixel — sky where no mesh covered
+            // it, or mesh color where a mesh sits behind the y=0 plane. Drawing
+            // it before the meshes (as we used to) made every grid line a
+            // sky-tinted island punched through dark geometry, which read as a
+            // bright halo around each line.
             const auto& gs       = mContext.Grid;
             glm::vec3   cam_pos  = mContext.EditorCamera.GetPosition();
             glm::mat4   grid_transform = glm::translate(glm::mat4(1.0f), { cam_pos.x, 0.0f, cam_pos.z })
@@ -122,18 +141,6 @@ namespace Weaver {
             mGridShader->UploadUniformFloat4("uMinorColor",    gs.MinorColor);
             mGridShader->UploadUniformFloat4("uMajorColor",    gs.MajorColor);
             Loom::RenderCommand::DrawIndexed(mGridVAO.get(), 6);
-        }
-
-        switch (mContext.SceneState) {
-            case SceneState::Edit:
-                mContext.ActiveScene->OnUpdateEditor(ts, mContext.EditorCamera,
-                                                     mContext.HierarchyPanel->GetSelectedEntity(),
-                                                     mContext.FallbackEnvironment.Irradiance,
-                                                     mContext.FallbackEnvironment.Prefilter);
-                break;
-            case SceneState::Play:
-                mContext.ActiveScene->OnUpdateRuntime(ts);
-                break;
         }
     }
 
