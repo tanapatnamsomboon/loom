@@ -28,9 +28,20 @@ namespace Loom {
         // base-color texture, or when the texture is embedded (.glb buffer
         // view / data-URI) — embedded textures can't resolve to an asset path.
         std::string BaseColorTexture;
-        // Metallic-roughness texture URI (glTF packs roughness in G, metallic
-        // in B). Same relative-path / embedded-skip semantics as BaseColorTexture.
-        std::string MetallicRoughnessTexture;
+        // ORM-packed texture URI (R = ambient occlusion, G = roughness,
+        // B = metallic — the industry-standard channel layout, emitted by
+        // Substance, Unreal, and Blender's glTF exporter when properly wired).
+        // Sourced from the glTF's metallicRoughnessTexture; if the file also
+        // sets occlusionTexture to a different URI, we keep the MR one and log
+        // a warning (nudges authors toward ORM packing). Same relative-path /
+        // embedded-skip semantics as BaseColorTexture.
+        std::string ORMTexture;
+        // Emissive texture URI + factor. The factor already folds the
+        // KHR_materials_emissive_strength multiplier when the extension is
+        // present, so consumers can apply it verbatim. Default (0,0,0) means
+        // the material is not emissive.
+        std::string EmissiveTexture;
+        glm::vec3   EmissiveFactor = { 0.0f, 0.0f, 0.0f };
     };
 
     class LOOM_API MeshAsset {
@@ -47,6 +58,13 @@ namespace Loom {
         const std::string& GetPath() const { return mPath; }
         // pbrMetallicRoughness material of the first primitive that carries one.
         const MeshMaterial& GetMaterial() const { return mMaterial; }
+
+        // Re-parses the source file at mPath and atomically swaps in the new
+        // geometry + material. Existing shared_ptr holders see the refreshed
+        // data on their next access. On failure (file missing / parse error)
+        // the existing data is preserved and an error is logged. Driven by the
+        // FileWatcher when an artist re-exports the glTF on disk.
+        void Reload();
 
     private:
         std::shared_ptr<VertexArray> mVertexArray;

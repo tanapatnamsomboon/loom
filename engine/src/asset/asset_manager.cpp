@@ -83,8 +83,10 @@ namespace Loom {
 
         LOOM_CORE_TRACE("AssetManager: loading mesh '{}'", path);
         auto asset = MeshAsset::Create(path);
-        if (asset)
+        if (asset) {
             sMeshCache[path] = asset;
+            GetWatcher().Watch(path);
+        }
         return asset;
     }
 
@@ -120,6 +122,7 @@ namespace Loom {
         // Collect live asset pointers under the lock, reload GL resources outside it.
         std::vector<std::shared_ptr<Texture2D>> textures_to_reload;
         std::vector<std::shared_ptr<Shader>>    shaders_to_reload;
+        std::vector<std::shared_ptr<MeshAsset>> meshes_to_reload;
         {
             std::lock_guard<std::mutex> lock(sMutex);
             for (const auto& path : changed) {
@@ -131,6 +134,12 @@ namespace Loom {
                     if (it != sShaderCache.end()) {
                         if (auto shader = it->second.lock())
                             shaders_to_reload.push_back(std::move(shader));
+                    }
+                } else if (ext == ".glb" || ext == ".gltf") {
+                    auto it = sMeshCache.find(path);
+                    if (it != sMeshCache.end()) {
+                        if (auto mesh = it->second.lock())
+                            meshes_to_reload.push_back(std::move(mesh));
                     }
                 } else {
                     // Texture: match all cache entries whose key starts with "path:".
@@ -152,6 +161,9 @@ namespace Loom {
         for (auto& shader : shaders_to_reload) {
             LOOM_CORE_INFO("AssetManager: hot-reloading shader");
             shader->Reload();
+        }
+        for (auto& mesh : meshes_to_reload) {
+            mesh->Reload();
         }
     }
 

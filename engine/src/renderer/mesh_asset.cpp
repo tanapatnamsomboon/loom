@@ -187,43 +187,78 @@ namespace Loom {
                 emit_mesh(data->meshes[mi], glm::mat4(1.0f), glm::mat3(1.0f));
         }
 
-        // ── Material (pbrMetallicRoughness) ──────────────────────────────
+        // ── Material (pbrMetallicRoughness + occlusion + emissive) ───────
         // Extracted before cgltf_free since material_src points into `data`.
         MeshMaterial material;
-        if (material_src && material_src->has_pbr_metallic_roughness) {
-            const cgltf_pbr_metallic_roughness& pbr = material_src->pbr_metallic_roughness;
-            material.HasMaterial     = true;
-            material.BaseColorFactor = glm::vec4(pbr.base_color_factor[0], pbr.base_color_factor[1],
-                                                 pbr.base_color_factor[2], pbr.base_color_factor[3]);
-            material.MetallicFactor  = pbr.metallic_factor;
-            material.RoughnessFactor = pbr.roughness_factor;
+        if (material_src) {
+            material.HasMaterial = true;
 
-            const cgltf_texture* base_tex = pbr.base_color_texture.texture;
-            const char*          uri      = (base_tex && base_tex->image) ? base_tex->image->uri : nullptr;
-            if (uri && uri[0] != '\0' && std::strncmp(uri, "data:", 5) != 0) {
-                // glTF URIs may be percent-encoded; decode in a mutable copy.
-                std::string decoded(uri);
-                cgltf_decode_uri(&decoded[0]);
-                decoded.resize(std::strlen(decoded.c_str()));
-                material.BaseColorTexture = decoded;
-            } else if (base_tex && base_tex->image) {
-                LOOM_CORE_WARN("MeshAsset: '{}' has an embedded base-color texture — "
-                               "import will bring factors only; extract the texture and "
-                               "assign it manually for textured albedo.", path);
+            // Resolves a glTF texture-view's external URI into `out`, or warns
+            // (and leaves `out` empty) when the texture is embedded (.glb
+            // buffer-view / data-URI) — those would need stb-from-memory decode,
+            // tracked separately on the roadmap.
+            auto extract_uri = [&](const cgltf_texture* tex, const char* label,
+                                   std::string& out) {
+                const char* uri = (tex && tex->image) ? tex->image->uri : nullptr;
+                if (uri && uri[0] != '\0' && std::strncmp(uri, "data:", 5) != 0) {
+                    std::string decoded(uri);
+                    cgltf_decode_uri(&decoded[0]);
+                    decoded.resize(std::strlen(decoded.c_str()));
+                    out = decoded;
+                } else if (tex && tex->image) {
+                    LOOM_CORE_WARN("MeshAsset: '{}' has an embedded {} texture — "
+                                   "import will bring factors only; extract the texture "
+                                   "and assign it manually.", path, label);
+                }
+            };
+
+            if (material_src->has_pbr_metallic_roughness) {
+                const cgltf_pbr_metallic_roughness& pbr = material_src->pbr_metallic_roughness;
+                material.BaseColorFactor = glm::vec4(pbr.base_color_factor[0], pbr.base_color_factor[1],
+                                                     pbr.base_color_factor[2], pbr.base_color_factor[3]);
+                material.MetallicFactor  = pbr.metallic_factor;
+                material.RoughnessFactor = pbr.roughness_factor;
+                extract_uri(pbr.base_color_texture.texture,         "base-color",
+                            material.BaseColorTexture);
+                // The metallic-roughness texture *is* the ORM texture in our
+                // model. R is also used as AO; G/B are roughness/metallic.
+                extract_uri(pbr.metallic_roughness_texture.texture, "ORM",
+                            material.ORMTexture);
             }
 
-            const cgltf_texture* mr_tex  = pbr.metallic_roughness_texture.texture;
-            const char*          mr_uri  = (mr_tex && mr_tex->image) ? mr_tex->image->uri : nullptr;
-            if (mr_uri && mr_uri[0] != '\0' && std::strncmp(mr_uri, "data:", 5) != 0) {
-                std::string decoded(mr_uri);
-                cgltf_decode_uri(&decoded[0]);
-                decoded.resize(std::strlen(decoded.c_str()));
-                material.MetallicRoughnessTexture = decoded;
-            } else if (mr_tex && mr_tex->image) {
-                LOOM_CORE_WARN("MeshAsset: '{}' has an embedded metallic-roughness texture — "
-                               "import will bring factors only; extract the texture and "
-                               "assign it manually.", path);
+            // glTF also exposes occlusionTexture as a separate slot. The ORM
+            // convention reuses the metallic-roughness texture for AO (R), so
+            // when both slots reference the same image we silently treat it
+            // as the ORM map. When they point to *different* images, the
+            // author hasn't followed the convention — log a warning and stick
+            // with the MR texture (which we already imported above).
+            const cgltf_texture* occ_tex = material_src->occlusion_texture.texture;
+            const cgltf_texture* mr_tex  = material_src->has_pbr_metallic_roughness
+                ? material_src->pbr_metallic_roughness.metallic_roughness_texture.texture
+                : nullptr;
+            if (occ_tex && occ_tex != mr_tex) {
+                LOOM_CORE_WARN("MeshAsset: '{}' provides a separate occlusionTexture "
+                               "distinct from metallicRoughnessTexture. The engine uses "
+                               "ORM-packed textures (R=AO, G=rough, B=metal) — re-pack "
+                               "AO into the R channel of the MR texture, or re-wire the "
+                               "Blender 'glTF Settings' node to point at the same image.",
+                               path);
             }
+
+            // Emissive lives on cgltf_material directly, not nested inside
+            // pbrMetallicRoughness, so it applies to any material.
+            extract_uri(material_src->emissive_texture.texture,  "emissive",
+                        material.EmissiveTexture);
+
+            glm::vec3 e_factor(material_src->emissive_factor[0],
+                               material_src->emissive_factor[1],
+                               material_src->emissive_factor[2]);
+            // KHR_materials_emissive_strength multiplies the factor to push it
+            // into HDR territory. We fold it into the factor at import time so
+            // consumers can apply it verbatim.
+            if (material_src->has_emissive_strength)
+                e_factor *= material_src->emissive_strength.emissive_strength;
+            material.EmissiveFactor = e_factor;
         }
 
         cgltf_free(data);
@@ -262,6 +297,22 @@ namespace Loom {
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "
                            "Re-export the model with UVs (Blender: 'UV -> Smart UV Project' or 'Cube Projection' before glTF export).", path);
         return asset;
+    }
+
+    void MeshAsset::Reload() {
+        // Re-run the importer through Create() so we share one code path for
+        // parsing + scene-graph baking + material extraction. On success, swap
+        // internals so existing shared_ptr holders pick up the refreshed data.
+        auto fresh = MeshAsset::Create(mPath);
+        if (!fresh) {
+            LOOM_CORE_ERROR("MeshAsset: reload failed for '{}', keeping previous data", mPath);
+            return;
+        }
+        mVertexArray = std::move(fresh->mVertexArray);
+        mVertexCount = fresh->mVertexCount;
+        mIndexCount  = fresh->mIndexCount;
+        mMaterial    = std::move(fresh->mMaterial);
+        LOOM_CORE_INFO("MeshAsset: hot-reloaded '{}'", mPath);
     }
 
 } // namespace Loom
