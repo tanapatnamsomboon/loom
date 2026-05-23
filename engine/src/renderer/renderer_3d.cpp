@@ -214,7 +214,7 @@ namespace Loom {
 
         // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount,
         // IBL irradiance on 5, prefilter cubemap on 6, BRDF LUT on 7,
-        // metallic-roughness map on 8.
+        // ORM map on 8 (R=AO, G=rough, B=metal), emissive on 9.
         sData.MeshShader->Bind();
         sData.MeshShader->UploadUniformInt("uAlbedoTexture",            0);
         sData.MeshShader->UploadUniformInt("uShadowMap0",               1);
@@ -224,7 +224,8 @@ namespace Loom {
         sData.MeshShader->UploadUniformInt("uIrradianceMap",            5);
         sData.MeshShader->UploadUniformInt("uPrefilterMap",             6);
         sData.MeshShader->UploadUniformInt("uBRDFLUT",                  7);
-        sData.MeshShader->UploadUniformInt("uMetallicRoughnessTexture", 8);
+        sData.MeshShader->UploadUniformInt("uORMTexture",               8);
+        sData.MeshShader->UploadUniformInt("uEmissiveTexture",          9);
 
         // BRDF LUT — environment-independent, generated once at engine init.
         sData.BRDFLUT = GenerateBRDFLUT(512);
@@ -406,7 +407,9 @@ namespace Loom {
     void Renderer3D::Submit(const std::shared_ptr<MeshAsset>& mesh,
                             const glm::vec4& albedo_color,
                             const std::shared_ptr<Texture2D>& albedo_texture,
-                            const std::shared_ptr<Texture2D>& metallic_roughness_texture,
+                            const std::shared_ptr<Texture2D>& orm_texture,
+                            const std::shared_ptr<Texture2D>& emissive_texture,
+                            const glm::vec3& emissive_factor,
                             const glm::mat4& transform,
                             float roughness,
                             float metallic,
@@ -418,9 +421,10 @@ namespace Loom {
         // Per-draw uniforms
         sData.MeshShader->UploadUniformMat4  ("uModel",        transform);
         sData.MeshShader->UploadUniformFloat4("uAlbedoColor",  albedo_color);
-        sData.MeshShader->UploadUniformFloat ("uRoughness",    roughness);
-        sData.MeshShader->UploadUniformFloat ("uMetallic",     metallic);
-        sData.MeshShader->UploadUniformInt   ("uEntityID",     entity_id);
+        sData.MeshShader->UploadUniformFloat ("uRoughness",     roughness);
+        sData.MeshShader->UploadUniformFloat ("uMetallic",      metallic);
+        sData.MeshShader->UploadUniformFloat3("uEmissiveFactor", emissive_factor);
+        sData.MeshShader->UploadUniformInt   ("uEntityID",      entity_id);
 
         // Per-frame uniforms (cheap to re-upload; keeps Submit self-sufficient
         // even if SetLights / camera state changes mid-frame).
@@ -475,11 +479,16 @@ namespace Loom {
         const auto& tex = albedo_texture ? albedo_texture : sData.WhiteTexture;
         tex->Bind(0);
 
-        // Metallic-roughness map on unit 8. White fallback => factors pass
-        // through unchanged (white G/B == 1.0); the shader always samples it.
-        const auto& mr_tex = metallic_roughness_texture ? metallic_roughness_texture
-                                                        : sData.WhiteTexture;
-        mr_tex->Bind(8);
+        // ORM map on unit 8 (R=AO, G=roughness, B=metallic). White fallback
+        // => no occlusion + factors pass through unchanged (G/B == 1.0). The
+        // shader always samples it, no per-draw "has map" branch.
+        const auto& orm_tex = orm_texture ? orm_texture : sData.WhiteTexture;
+        orm_tex->Bind(8);
+
+        // Emissive on unit 9. White fallback × zero EmissiveFactor still mutes
+        // the term, so the common no-emissive case has no extra cost.
+        const auto& em_tex = emissive_texture ? emissive_texture : sData.WhiteTexture;
+        em_tex->Bind(9);
 
         const auto& vao = mesh->GetVertexArray();
         vao->Bind();

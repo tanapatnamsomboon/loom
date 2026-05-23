@@ -1739,10 +1739,11 @@ namespace Weaver {
                     const bool has_gltf_mat = mrc.Mesh && mrc.Mesh->GetMaterial().HasMaterial;
                     ImGui::BeginDisabled(!has_gltf_mat);
                     if (ImGui::Button("Import Material from glTF")) {
-                        const auto& gm  = mrc.Mesh->GetMaterial();
-                        mrc.AlbedoColor = gm.BaseColorFactor;
-                        mrc.Roughness   = gm.RoughnessFactor;
-                        mrc.Metallic    = gm.MetallicFactor;
+                        const auto& gm    = mrc.Mesh->GetMaterial();
+                        mrc.AlbedoColor   = gm.BaseColorFactor;
+                        mrc.Roughness     = gm.RoughnessFactor;
+                        mrc.Metallic      = gm.MetallicFactor;
+                        mrc.EmissiveFactor = gm.EmissiveFactor; // already folds KHR emissive_strength
 
                         // glTF texture URIs are relative to the model file's directory.
                         std::filesystem::path model_dir =
@@ -1771,8 +1772,10 @@ namespace Weaver {
                         };
                         import_tex(gm.BaseColorTexture, "base-color",
                                    mrc.AlbedoTexture, mrc.AlbedoTexturePath);
-                        import_tex(gm.MetallicRoughnessTexture, "metallic-roughness",
-                                   mrc.MetallicRoughnessTexture, mrc.MetallicRoughnessTexturePath);
+                        import_tex(gm.ORMTexture, "ORM",
+                                   mrc.ORMTexture, mrc.ORMTexturePath);
+                        import_tex(gm.EmissiveTexture, "emissive",
+                                   mrc.EmissiveTexture, mrc.EmissiveTexturePath);
                         is_modified = true;
                     }
                     ImGui::EndDisabled();
@@ -1853,22 +1856,26 @@ namespace Weaver {
                 is_modified |= ImGui::SliderFloat("Roughness", &mrc.Roughness, 0.0f, 1.0f);
                 is_modified |= ImGui::SliderFloat("Metallic",  &mrc.Metallic,  0.0f, 1.0f);
 
-                // ---- Material: metallic-roughness map ---------------------------
-                // glTF-packed texture (roughness in G, metallic in B). Multiplies
-                // the sliders above — assign one and the sliders act as scale factors.
+                // ---- Material: ORM map ------------------------------------------
+                // Industry-standard packed texture: R=AmbientOcclusion,
+                // G=Roughness, B=Metallic. Substance Painter, Unreal, and
+                // Blender's glTF exporter (with the glTF Settings node wired
+                // to the AO texture) all emit this layout by default. The
+                // Roughness / Metallic sliders multiply the sampled G/B —
+                // assign a texture and the sliders act as scale factors.
                 {
-                    ImTextureID mr_id = (ImTextureID)(uintptr_t)(mrc.MetallicRoughnessTexture
-                        ? mrc.MetallicRoughnessTexture->GetRendererID()
+                    ImTextureID orm_id = (ImTextureID)(uintptr_t)(mrc.ORMTexture
+                        ? mrc.ORMTexture->GetRendererID()
                         : mCheckerboard->GetRendererID());
-                    std::string mr_label = mrc.MetallicRoughnessTexture
-                        ? std::filesystem::path(mrc.MetallicRoughnessTexture->GetPath()).filename().string()
+                    std::string orm_label = mrc.ORMTexture
+                        ? std::filesystem::path(mrc.ORMTexture->GetPath()).filename().string()
                         : "None (Select...)";
 
-                    ImGui::PushID("MetalRoughTexSlot");
-                    ImGui::Image(mr_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
+                    ImGui::PushID("ORMTexSlot");
+                    ImGui::Image(orm_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
                                  ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Metallic-Roughness map (glTF packing:\nroughness in G, metallic in B).");
+                        ImGui::SetTooltip("ORM-packed texture:\nR = Ambient Occlusion (modulates IBL ambient)\nG = Roughness (multiplied by slider)\nB = Metallic  (multiplied by slider)");
                     if (ImGui::BeginDragDropTarget()) {
                         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
                             std::filesystem::path dropped((const char*)payload->Data);
@@ -1878,8 +1885,8 @@ namespace Weaver {
                                 auto new_tex = Loom::AssetManager::GetTexture(
                                     full.generic_string(), Loom::kMeshAlbedoTextureSpec);
                                 if (new_tex) {
-                                    mrc.MetallicRoughnessTexture     = new_tex;
-                                    mrc.MetallicRoughnessTexturePath = dropped.generic_string();
+                                    mrc.ORMTexture     = new_tex;
+                                    mrc.ORMTexturePath = dropped.generic_string();
                                     is_modified = true;
                                 }
                             }
@@ -1887,11 +1894,11 @@ namespace Weaver {
                         ImGui::EndDragDropTarget();
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button(mr_label.c_str(), ImVec2(150, 0))) {
+                    if (ImGui::Button(orm_label.c_str(), ImVec2(150, 0))) {
                         auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
                         auto scene    = mContext;
                         auto modified = mSceneModifiedCallback;
-                        FileDialog::Open("BrowseMetalRoughTex", "Choose Metallic-Roughness Texture",
+                        FileDialog::Open("BrowseORMTex", "Choose ORM Texture (R=AO, G=Rough, B=Metal)",
                             ".png,.jpg,.jpeg,.bmp,.tga",
                             [uuid, scene, modified](const std::string& abs_path) {
                                 Loom::Entity e = scene->GetEntityByUUID(uuid);
@@ -1899,23 +1906,93 @@ namespace Weaver {
                                 auto new_tex = Loom::AssetManager::GetTexture(abs_path, Loom::kMeshAlbedoTextureSpec);
                                 if (new_tex) {
                                     auto& m = e.GetComponent<Loom::MeshRendererComponent>();
-                                    m.MetallicRoughnessTexture     = new_tex;
-                                    m.MetallicRoughnessTexturePath = std::filesystem::relative(abs_path,
+                                    m.ORMTexture     = new_tex;
+                                    m.ORMTexturePath = std::filesystem::relative(abs_path,
                                                             Loom::Project::GetAssetDirectory()).generic_string();
                                     if (modified) modified();
                                 }
                             });
                     }
-                    if (mrc.MetallicRoughnessTexture) {
+                    if (mrc.ORMTexture) {
                         ImGui::SameLine();
-                        if (ImGui::Button("X##metalroughtex")) {
-                            mrc.MetallicRoughnessTexture.reset();
-                            mrc.MetallicRoughnessTexturePath.clear();
+                        if (ImGui::Button("X##ormtex")) {
+                            mrc.ORMTexture.reset();
+                            mrc.ORMTexturePath.clear();
                             is_modified = true;
                         }
                     }
                     ImGui::SameLine();
-                    ImGui::TextDisabled("Metal/Rough");
+                    ImGui::TextDisabled("ORM (R=AO, G=Rough, B=Metal)");
+                    ImGui::PopID();
+                }
+
+                // ---- Material: emissive -----------------------------------------
+                // HDR-allowed factor (multiplies the emissive texture). Default
+                // (0,0,0) means the material is not emissive even when a texture
+                // is assigned — common for non-emissive materials whose authored
+                // emissive slot is just left at zero in the glTF.
+                is_modified |= ImGui::ColorEdit3("Emissive", glm::value_ptr(mrc.EmissiveFactor),
+                                                 ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+                {
+                    ImTextureID em_id = (ImTextureID)(uintptr_t)(mrc.EmissiveTexture
+                        ? mrc.EmissiveTexture->GetRendererID()
+                        : mCheckerboard->GetRendererID());
+                    std::string em_label = mrc.EmissiveTexture
+                        ? std::filesystem::path(mrc.EmissiveTexture->GetPath()).filename().string()
+                        : "None (Select...)";
+
+                    ImGui::PushID("EmissiveTexSlot");
+                    ImGui::Image(em_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
+                                 ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Emissive map (glTF: sRGB).\nMultiplied by the Emissive factor above —\nset the factor above 0 to see the texture.");
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                            std::filesystem::path dropped((const char*)payload->Data);
+                            auto ext = dropped.extension();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
+                                auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                                auto new_tex = Loom::AssetManager::GetTexture(
+                                    full.generic_string(), Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    mrc.EmissiveTexture     = new_tex;
+                                    mrc.EmissiveTexturePath = dropped.generic_string();
+                                    is_modified = true;
+                                }
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(em_label.c_str(), ImVec2(150, 0))) {
+                        auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                        auto scene    = mContext;
+                        auto modified = mSceneModifiedCallback;
+                        FileDialog::Open("BrowseEmissiveTex", "Choose Emissive Texture",
+                            ".png,.jpg,.jpeg,.bmp,.tga",
+                            [uuid, scene, modified](const std::string& abs_path) {
+                                Loom::Entity e = scene->GetEntityByUUID(uuid);
+                                if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
+                                auto new_tex = Loom::AssetManager::GetTexture(abs_path, Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    auto& m = e.GetComponent<Loom::MeshRendererComponent>();
+                                    m.EmissiveTexture     = new_tex;
+                                    m.EmissiveTexturePath = std::filesystem::relative(abs_path,
+                                                            Loom::Project::GetAssetDirectory()).generic_string();
+                                    if (modified) modified();
+                                }
+                            });
+                    }
+                    if (mrc.EmissiveTexture) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("X##emissivetex")) {
+                            mrc.EmissiveTexture.reset();
+                            mrc.EmissiveTexturePath.clear();
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("Emissive");
                     ImGui::PopID();
                 }
 

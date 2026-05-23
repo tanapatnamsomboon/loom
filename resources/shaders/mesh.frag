@@ -16,7 +16,8 @@ in vec4 vLightSpacePos3;
 #define CASCADE_COUNT    4
 
 uniform sampler2D   uAlbedoTexture;
-uniform sampler2D   uMetallicRoughnessTexture; // glTF packing: roughness=G, metallic=B
+uniform sampler2D   uORMTexture;       // ORM packing: R=AO, G=roughness, B=metallic. White fallback = no occlusion, factors only.
+uniform sampler2D   uEmissiveTexture;  // glTF: sRGB, multiplied by uEmissiveFactor
 uniform sampler2D   uShadowMap0;
 uniform sampler2D   uShadowMap1;
 uniform sampler2D   uShadowMap2;
@@ -48,6 +49,7 @@ uniform float     uCascadeSplits[CASCADE_COUNT]; // world-space far distance per
 uniform vec4      uAlbedoColor;
 uniform float     uRoughness;
 uniform float     uMetallic;
+uniform vec3      uEmissiveFactor;   // linear-space, HDR-allowed
 uniform int       uEntityID;
 uniform vec3      uViewPos;
 uniform int       uShadowsEnabled;
@@ -246,12 +248,15 @@ void main() {
         return;
     }
 
-    // Metallic-roughness map — glTF packs roughness in G, metallic in B. The
-    // sample multiplies the factors (a 1x1 white fallback leaves them as-is).
-    // The roughness floor avoids NaN at perfect-mirror values.
-    vec3  mrSample  = texture(uMetallicRoughnessTexture, vTexCoord).rgb;
-    float roughness = clamp(uRoughness * mrSample.g, 0.04, 1.0);
-    float metallic  = clamp(uMetallic  * mrSample.b, 0.0,  1.0);
+    // ORM-packed map — R=AO, G=roughness, B=metallic. One fetch feeds all
+    // three terms. The Roughness/Metallic factors multiply the sampled
+    // channels (a 1x1 white fallback leaves them as-is). The roughness floor
+    // avoids NaN at perfect-mirror values. AO (the .r component) is applied
+    // below, gated on the IBL path.
+    vec3  ormSample = texture(uORMTexture, vTexCoord).rgb;
+    float ao        = ormSample.r;
+    float roughness = clamp(uRoughness * ormSample.g, 0.04, 1.0);
+    float metallic  = clamp(uMetallic  * ormSample.b, 0.0,  1.0);
 
     // F0 = reflectance at normal incidence. Dielectrics share ~0.04; metals use albedo
     // as their tint (the metallic flow's whole point).
@@ -300,7 +305,7 @@ void main() {
             specularIBL       = prefiltered * (F_at_N * envBRDF.x + envBRDF.y);
         }
 
-        lit = diffuseIBL + specularIBL;
+        lit = (diffuseIBL + specularIBL) * ao;
     }
 
     for (int i = 0; i < uDirLightCount; ++i) {
@@ -327,6 +332,14 @@ void main() {
         vec3 radiance = uPointLightColor[i] * atten;
         lit += EvaluatePBRLight(N, V, L, radiance, albedo, roughness, metallic, F0);
     }
+
+    // Emissive — glTF stores the texture in sRGB and the factor in linear
+    // space; linearize the texture and multiply. White fallback texture is
+    // (1,1,1) post-gamma, so a zero factor still mutes the material (the
+    // common no-emissive case). HDR factors are allowed and pass through
+    // the ACES tonemap below.
+    vec3 emissive_sample = pow(texture(uEmissiveTexture, vTexCoord).rgb, vec3(kGamma));
+    lit += emissive_sample * uEmissiveFactor;
 
     // HDR -> LDR via ACES tonemapping, then linear -> sRGB for the framebuffer
     // (which is RGBA8 displayed verbatim — no GPU sRGB conversion in the chain).

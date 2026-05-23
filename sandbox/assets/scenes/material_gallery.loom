@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-4.602918, 2.9912434, 7.3844967]
-  Pitch: 0.37799942
-  Yaw: -0.17899774
+  Position: [-13.925229, 3.672653, 13.861735]
+  Pitch: 0.6989995
+  Yaw: 6.1369004
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -18,7 +18,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.25
       Metallic: 1
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 2780783996705205205
     TagComponent:
       Tag: Metal_2
@@ -32,7 +34,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 1
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 2971075157732129014
     TagComponent:
       Tag: Sun
@@ -56,7 +60,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 1
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 4818736125015145374
     TagComponent:
       Tag: Metal_0
@@ -70,7 +76,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0
       Metallic: 1
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 5488135763092330549
     TagComponent:
       Tag: Dielectric_3
@@ -84,7 +92,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.75
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 6236095639206947116
     TagComponent:
       Tag: Dielectric_2
@@ -98,7 +108,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 6540460916186502903
     TagComponent:
       Tag: MainCamera
@@ -129,7 +141,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.601
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 9326249257803031972
     TagComponent:
       Tag: Hero
@@ -143,7 +157,9 @@ Entities:
       AlbedoTexturePath: common/models/damaged_helmet/damaged_helmet_albedo.jpg
       Roughness: 1
       Metallic: 1
-      MetallicRoughnessTexturePath: common/models/damaged_helmet/damaged_helmet_metal_roughness.jpg
+      ORMTexturePath: common/models/damaged_helmet/damaged_helmet_orm.png
+      EmissiveFactor: [1, 1, 1]
+      EmissiveTexturePath: common/models/damaged_helmet/damaged_helmet_emissive.jpg
   - Entity: 9874988102437962133
     TagComponent:
       Tag: Metal_3
@@ -157,7 +173,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.75
       Metallic: 1
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 15268786537609647005
     TagComponent:
       Tag: Metal_4
@@ -171,7 +189,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 1
       Metallic: 1
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 15898810103089173338
     TagComponent:
       Tag: Dielectric_0
@@ -185,7 +205,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 15911410593602493634
     TagComponent:
       Tag: Ground
@@ -199,7 +221,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.899
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
   - Entity: 17118524503370242126
     TagComponent:
       Tag: Dielectric_1
@@ -213,4 +237,6 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.25
       Metallic: 0
-      MetallicRoughnessTexturePath: ""
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""

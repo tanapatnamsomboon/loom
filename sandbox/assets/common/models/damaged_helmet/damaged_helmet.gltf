@@ -88,22 +88,22 @@
 	"images":[
 		{
 			"mimeType":"image/jpeg",
-			"name":"damaged_helmet_emissive.jpg",
+			"name":"damaged_helmet_emissive",
 			"uri":"damaged_helmet_emissive.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
-			"name":"damaged_helmet_normal.jpg",
+			"name":"damaged_helmet_normal",
 			"uri":"damaged_helmet_normal.jpg"
 		},
 		{
-			"mimeType":"image/jpeg",
-			"name":"damaged_helmet_metal_roughness.jpg",
-			"uri":"damaged_helmet_metal_roughness.jpg"
+			"mimeType":"image/png",
+			"name":"damaged_helmet_orm",
+			"uri":"damaged_helmet_orm.png"
 		},
 		{
 			"mimeType":"image/jpeg",
-			"name":"damaged_helmet_albedo.jpg",
+			"name":"damaged_helmet_albedo",
 			"uri":"damaged_helmet_albedo.jpg"
 		}
 	],

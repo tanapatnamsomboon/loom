@@ -254,17 +254,18 @@ namespace Loom {
             out << YAML::Key << "MeshRendererComponent";
             out << YAML::BeginMap;
             auto& mrc = entity.GetComponent<MeshRendererComponent>();
-            std::string mesh_path    = mrc.Mesh          ? ToRelativeAssetPath(mrc.Mesh->GetPath())          : mrc.MeshPath;
-            std::string albedo_path  = mrc.AlbedoTexture ? ToRelativeAssetPath(mrc.AlbedoTexture->GetPath()) : mrc.AlbedoTexturePath;
-            std::string mr_path      = mrc.MetallicRoughnessTexture
-                                           ? ToRelativeAssetPath(mrc.MetallicRoughnessTexture->GetPath())
-                                           : mrc.MetallicRoughnessTexturePath;
-            out << YAML::Key << "MeshPath"                     << YAML::Value << mesh_path;
-            out << YAML::Key << "AlbedoColor"                  << YAML::Value << mrc.AlbedoColor;
-            out << YAML::Key << "AlbedoTexturePath"            << YAML::Value << albedo_path;
-            out << YAML::Key << "Roughness"                    << YAML::Value << mrc.Roughness;
-            out << YAML::Key << "Metallic"                     << YAML::Value << mrc.Metallic;
-            out << YAML::Key << "MetallicRoughnessTexturePath" << YAML::Value << mr_path;
+            std::string mesh_path   = mrc.Mesh           ? ToRelativeAssetPath(mrc.Mesh->GetPath())           : mrc.MeshPath;
+            std::string albedo_path = mrc.AlbedoTexture  ? ToRelativeAssetPath(mrc.AlbedoTexture->GetPath())  : mrc.AlbedoTexturePath;
+            std::string orm_path    = mrc.ORMTexture     ? ToRelativeAssetPath(mrc.ORMTexture->GetPath())     : mrc.ORMTexturePath;
+            std::string em_path     = mrc.EmissiveTexture ? ToRelativeAssetPath(mrc.EmissiveTexture->GetPath()) : mrc.EmissiveTexturePath;
+            out << YAML::Key << "MeshPath"            << YAML::Value << mesh_path;
+            out << YAML::Key << "AlbedoColor"         << YAML::Value << mrc.AlbedoColor;
+            out << YAML::Key << "AlbedoTexturePath"   << YAML::Value << albedo_path;
+            out << YAML::Key << "Roughness"           << YAML::Value << mrc.Roughness;
+            out << YAML::Key << "Metallic"            << YAML::Value << mrc.Metallic;
+            out << YAML::Key << "ORMTexturePath"      << YAML::Value << orm_path;
+            out << YAML::Key << "EmissiveFactor"      << YAML::Value << mrc.EmissiveFactor;
+            out << YAML::Key << "EmissiveTexturePath" << YAML::Value << em_path;
             out << YAML::EndMap;
         }
 
@@ -679,7 +680,15 @@ namespace Loom {
                 mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
                 mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
                 mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
-                mrc.MetallicRoughnessTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
+                // ORMTexturePath is the canonical key; fall back to the
+                // legacy "MetallicRoughnessTexturePath" (shipped briefly in
+                // Slice 2 before the AO+ORM unification) so any scene saved
+                // between those two commits still loads.
+                mrc.ORMTexturePath  = YAML_GET(mrc_node["ORMTexturePath"], std::string, "");
+                if (mrc.ORMTexturePath.empty())
+                    mrc.ORMTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
+                mrc.EmissiveFactor      = YAML_GET(mrc_node["EmissiveFactor"],      glm::vec3,   glm::vec3(0.0f));
+                mrc.EmissiveTexturePath = YAML_GET(mrc_node["EmissiveTexturePath"], std::string, "");
 
                 if (!mrc.MeshPath.empty()) {
                     std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
@@ -689,9 +698,13 @@ namespace Loom {
                     std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
                     mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
                 }
-                if (!mrc.MetallicRoughnessTexturePath.empty()) {
-                    std::filesystem::path mr_phys = Project::GetAssetFileSystemPath(mrc.MetallicRoughnessTexturePath);
-                    mrc.MetallicRoughnessTexture = AssetManager::GetTexture(mr_phys.string(), kMeshAlbedoTextureSpec);
+                if (!mrc.ORMTexturePath.empty()) {
+                    std::filesystem::path orm_phys = Project::GetAssetFileSystemPath(mrc.ORMTexturePath);
+                    mrc.ORMTexture = AssetManager::GetTexture(orm_phys.string(), kMeshAlbedoTextureSpec);
+                }
+                if (!mrc.EmissiveTexturePath.empty()) {
+                    std::filesystem::path em_phys = Project::GetAssetFileSystemPath(mrc.EmissiveTexturePath);
+                    mrc.EmissiveTexture = AssetManager::GetTexture(em_phys.string(), kMeshAlbedoTextureSpec);
                 }
             }
 
@@ -1018,7 +1031,13 @@ namespace Loom {
             mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
             mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
             mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
-            mrc.MetallicRoughnessTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
+            // Prefer the canonical ORMTexturePath; fall back to the legacy
+            // Slice 2 MetallicRoughnessTexturePath for one-version compat.
+            mrc.ORMTexturePath = YAML_GET(mrc_node["ORMTexturePath"], std::string, "");
+            if (mrc.ORMTexturePath.empty())
+                mrc.ORMTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
+            mrc.EmissiveFactor      = YAML_GET(mrc_node["EmissiveFactor"],      glm::vec3,   glm::vec3(0.0f));
+            mrc.EmissiveTexturePath = YAML_GET(mrc_node["EmissiveTexturePath"], std::string, "");
             if (!mrc.MeshPath.empty()) {
                 std::filesystem::path mesh_phys = Project::GetAssetFileSystemPath(mrc.MeshPath);
                 mrc.Mesh = AssetManager::GetMesh(mesh_phys.string());
@@ -1027,9 +1046,13 @@ namespace Loom {
                 std::filesystem::path tex_phys = Project::GetAssetFileSystemPath(mrc.AlbedoTexturePath);
                 mrc.AlbedoTexture = AssetManager::GetTexture(tex_phys.string(), kMeshAlbedoTextureSpec);
             }
-            if (!mrc.MetallicRoughnessTexturePath.empty()) {
-                std::filesystem::path mr_phys = Project::GetAssetFileSystemPath(mrc.MetallicRoughnessTexturePath);
-                mrc.MetallicRoughnessTexture = AssetManager::GetTexture(mr_phys.string(), kMeshAlbedoTextureSpec);
+            if (!mrc.ORMTexturePath.empty()) {
+                std::filesystem::path orm_phys = Project::GetAssetFileSystemPath(mrc.ORMTexturePath);
+                mrc.ORMTexture = AssetManager::GetTexture(orm_phys.string(), kMeshAlbedoTextureSpec);
+            }
+            if (!mrc.EmissiveTexturePath.empty()) {
+                std::filesystem::path em_phys = Project::GetAssetFileSystemPath(mrc.EmissiveTexturePath);
+                mrc.EmissiveTexture = AssetManager::GetTexture(em_phys.string(), kMeshAlbedoTextureSpec);
             }
         }
 

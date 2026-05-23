@@ -329,13 +329,23 @@ namespace Loom {
         std::string                AlbedoTexturePath; // relative to asset directory
         std::shared_ptr<Texture2D> AlbedoTexture;     // runtime handle — not serialized
 
-        // Material — surface. The metallic-roughness texture is the glTF-standard
-        // packed map: roughness in G, metallic in B. Sampled values are multiplied
-        // by the Roughness / Metallic factors below (white texture => factor only).
+        // Material — surface. ORMTexture is the industry-standard packed map:
+        // R = ambient occlusion, G = roughness, B = metallic. The shader samples
+        // all three channels from the single texture; the Roughness/Metallic
+        // sliders below act as multipliers (white texture => factor only). AO
+        // modulates IBL ambient only — direct lighting stays untouched.
         float                      Roughness = 0.5f;
         float                      Metallic  = 0.0f;
-        std::string                MetallicRoughnessTexturePath; // relative to asset directory
-        std::shared_ptr<Texture2D> MetallicRoughnessTexture;     // runtime handle — not serialized
+        std::string                ORMTexturePath; // relative to asset directory
+        std::shared_ptr<Texture2D> ORMTexture;     // runtime handle — not serialized
+
+        // Material — emissive. EmissiveFactor is linear-space RGB (HDR — values
+        // above 1 are allowed); EmissiveTexture is sampled in sRGB and multiplied
+        // by the factor. Default factor 0 means no emission (the texture, if any,
+        // is effectively muted by the zero multiplier).
+        glm::vec3                  EmissiveFactor = { 0.0f, 0.0f, 0.0f };
+        std::string                EmissiveTexturePath;
+        std::shared_ptr<Texture2D> EmissiveTexture;
 
         MeshRendererComponent()                             = default;
         MeshRendererComponent(const MeshRendererComponent&) = default;
