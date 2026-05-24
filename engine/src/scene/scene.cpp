@@ -35,7 +35,17 @@
 namespace Loom {
     Scene::Scene() {
         std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/camera_icon.png").generic_string();
-        mCameraIcon = AssetManager::GetTexture(camera_icon_path);
+        // Editor icons skip mipmap generation. Mip box-averaging mixes the
+        // opaque icon RGB with the PNG's transparent pixels' RGB (typically
+        // white in unauthored PNGs), producing a low-alpha white halo that
+        // bleeds through alpha blending at distance. Nearest + clamp + no mips
+        // pairs with the quad shader's alpha-discard to give perfectly crisp
+        // icon edges at any zoom.
+        TextureSpecification icon_spec;
+        icon_spec.Filter       = FilterMode::Nearest;
+        icon_spec.Wrap         = WrapMode::Clamp;
+        icon_spec.GenerateMips = false;
+        mCameraIcon = AssetManager::GetTexture(camera_icon_path, icon_spec);
         mPhysics3DEvents = std::make_unique<Physics3DEventState>();
     }
 
