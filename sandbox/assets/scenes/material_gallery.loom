@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-4.168909, 3.0326195, 8.173409]
-  Pitch: 0.33299977
-  Yaw: -0.10006366
+  Position: [-5.0256476, 5.2084436, 13.262428]
+  Pitch: 0.16500449
+  Yaw: 0.0019338652
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -70,7 +70,7 @@ Entities:
     TagComponent:
       Tag: Metal_0
     TransformComponent:
-      Translation: [-5, 3, 0]
+      Translation: [-5, 3, 5.9604645e-08]
       Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
@@ -206,7 +206,7 @@ Entities:
     TagComponent:
       Tag: Dielectric_0
     TransformComponent:
-      Translation: [-5, 0.5, 0]
+      Translation: [-5, 0.5, 3.7252903e-09]
       Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:

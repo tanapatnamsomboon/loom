@@ -70,6 +70,9 @@ void main() {
     alpha *= fade;
     if (alpha <= 0.01) discard;
 
-    oColor    = vec4(rgb, alpha);
+    // Linearize sRGB-authored colors (uMinor/uMajorColor + axis tints) so the
+    // unified tonemap pass produces the intended display look instead of
+    // double-gamma-encoding the grid to pale washed-out lines.
+    oColor    = vec4(pow(rgb, vec3(2.2)), alpha);
     oEntityID = -1;
 }

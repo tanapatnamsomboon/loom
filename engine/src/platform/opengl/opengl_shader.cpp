@@ -54,6 +54,11 @@ namespace Loom {
         glUniform4f(location, values.x, values.y, values.z, values.w);
     }
 
+    void OpenGLShader::UploadUniformFloat2(const std::string& name, const glm::vec2& values) {
+        GLint location = glGetUniformLocation(mRendererID, name.c_str());
+        glUniform2f(location, values.x, values.y);
+    }
+
     void OpenGLShader::UploadUniformFloat3(const std::string& name, const glm::vec3& values) {
         GLint location = glGetUniformLocation(mRendererID, name.c_str());
         glUniform3f(location, values.x, values.y, values.z);

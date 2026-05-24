@@ -73,9 +73,24 @@ namespace Loom {
         // Post-process tonemap pass — samples the linear HDR color texture
         // (typically the RGBA16F scene framebuffer's Color 0 attachment),
         // applies ACES filmic tonemap + sRGB encode, and writes the result
-        // into the currently-bound framebuffer. The caller is responsible for
-        // binding the LDR target framebuffer + clearing it before this call.
+        // into the currently-bound framebuffer. If BloomPass was called this
+        // frame, the bloom result is composited additively before tonemapping.
+        // The caller is responsible for binding the LDR target framebuffer
+        // + clearing it before this call.
         static void Tonemap(uint32_t hdr_color_texture_id);
+
+        // Bloom pass — runs a Jimenez 2014 dual-filter chain (downsample +
+        // upsample) on the HDR scene texture, extracting brights above
+        // threshold and spreading them into a wide soft glow. The result is
+        // cached internally and consumed by the next Tonemap() call. Lazy-
+        // allocates / resizes the bloom mip chain when the scene size changes.
+        // Pass scene_width / scene_height in pixels.
+        static void BloomPass(uint32_t hdr_color_texture_id,
+                              uint32_t scene_width, uint32_t scene_height);
+        // Bloom controls (driven by Scene Properties UI; defaults applied at Init).
+        static void SetBloomEnabled(bool enabled);
+        static void SetBloomThreshold(float threshold);
+        static void SetBloomIntensity(float intensity);
 
         // One draw call per submission (no batching). Any of the four texture
         // slots (albedo / ORM / emissive / normal) may be null — a 1×1 white

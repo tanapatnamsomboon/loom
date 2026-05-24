@@ -2,7 +2,10 @@
 
 out vec4 oColor;
 
-uniform sampler2D uHDRScene; // linear HDR scene color (unit 0)
+uniform sampler2D uHDRScene;       // linear HDR scene color (unit 0)
+uniform sampler2D uBloom;          // bloom result (unit 1, sampled with linear filter for free upscale)
+uniform int       uHasBloom;       // 0 disables the bloom composite branch
+uniform float     uBloomIntensity;
 
 const float kGamma = 2.2;
 
@@ -16,6 +19,12 @@ vec3 ACESFilm(vec3 x) {
 void main() {
     vec2 uv  = gl_FragCoord.xy / vec2(textureSize(uHDRScene, 0));
     vec3 hdr = texture(uHDRScene, uv).rgb;
+
+    if (uHasBloom == 1) {
+        // Bloom mip 0 is at scene/2 resolution — bilinear sampling upscales it
+        // smoothly. Additive composite, scaled by intensity.
+        hdr += texture(uBloom, uv).rgb * uBloomIntensity;
+    }
 
     // ACES tonemap then linear → sRGB encode for the display framebuffer.
     vec3 ldr = pow(ACESFilm(hdr), vec3(1.0 / kGamma));

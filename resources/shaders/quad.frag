@@ -18,5 +18,9 @@ void main() {
     // and so mip-averaged transparent halos around alpha-cutout icons drop out
     // instead of bleeding as a white ring at distance.
     if (oColor.a < 0.05) discard;
+    // Linearize sRGB-authored RGB (sprite textures + inspector color picker)
+    // so the unified tonemap pass produces the intended display brightness
+    // instead of double-gamma-encoding to a washed-out look.
+    oColor.rgb = pow(oColor.rgb, vec3(2.2));
     oEntityID = vEntityID;
 }

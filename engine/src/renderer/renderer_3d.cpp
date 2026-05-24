@@ -75,6 +75,21 @@ namespace Loom {
         std::shared_ptr<Shader>      TonemapShader;
         std::shared_ptr<VertexArray> TonemapVAO;
 
+        // ── Bloom state ──
+        // Mip chain (each half the resolution of the previous), rebuilt when
+        // the scene resolution changes. RGBA16F to keep HDR brights intact.
+        std::vector<std::shared_ptr<Framebuffer>> BloomMips;
+        uint32_t                BloomSceneWidth   = 0;
+        uint32_t                BloomSceneHeight  = 0;
+        std::shared_ptr<Shader> BloomDownsampleShader;
+        std::shared_ptr<Shader> BloomUpsampleShader;
+        // Texture handle of the final bloom result (mip 0 after the upsample
+        // chain). 0 when bloom is disabled or no pass ran this frame.
+        uint32_t                BloomFinalTexture = 0;
+        bool                    BloomEnabled      = true;
+        float                   BloomThreshold    = 1.0f;
+        float                   BloomIntensity    = 0.04f;
+
         // ── Shadow state (cascaded) ──
         // One framebuffer per cascade. Sized to a square depth texture each;
         // mesh.frag has kCascadeCount sampler2D uniforms bound at units 1..N.
@@ -282,7 +297,19 @@ namespace Loom {
         sData.TonemapShader = AssetManager::GetShader(tonemap_shader_path);
         sData.TonemapShader->Bind();
         sData.TonemapShader->UploadUniformInt("uHDRScene", 0);
+        sData.TonemapShader->UploadUniformInt("uBloom",    1);
         sData.TonemapVAO = VertexArray::Create();
+
+        // Bloom shaders — downsample (with optional bright-pass) + upsample (tent).
+        std::string bloom_ds_path = Project::GetEngineAssetFileSystemPath("shaders/bloom_downsample").generic_string();
+        sData.BloomDownsampleShader = AssetManager::GetShader(bloom_ds_path);
+        sData.BloomDownsampleShader->Bind();
+        sData.BloomDownsampleShader->UploadUniformInt("uSource", 0);
+
+        std::string bloom_us_path = Project::GetEngineAssetFileSystemPath("shaders/bloom_upsample").generic_string();
+        sData.BloomUpsampleShader = AssetManager::GetShader(bloom_us_path);
+        sData.BloomUpsampleShader->Bind();
+        sData.BloomUpsampleShader->UploadUniformInt("uSource", 0);
     }
 
     void Renderer3D::Shutdown() {
@@ -296,6 +323,10 @@ namespace Loom {
         sData.SkyboxVBO.reset();
         sData.TonemapShader.reset();
         sData.TonemapVAO.reset();
+        sData.BloomDownsampleShader.reset();
+        sData.BloomUpsampleShader.reset();
+        sData.BloomMips.clear();
+        sData.BloomFinalTexture = 0;
         sData.IrradianceMap.reset();
         sData.PrefilterMap.reset();
         if (sData.BRDFLUT) {
@@ -535,8 +566,119 @@ namespace Loom {
     void Renderer3D::Tonemap(uint32_t hdr_color_texture_id) {
         sData.TonemapShader->Bind();
         glBindTextureUnit(0, hdr_color_texture_id);
+
+        const int has_bloom = (sData.BloomEnabled && sData.BloomFinalTexture != 0) ? 1 : 0;
+        if (has_bloom) glBindTextureUnit(1, sData.BloomFinalTexture);
+        sData.TonemapShader->UploadUniformInt  ("uHasBloom",       has_bloom);
+        sData.TonemapShader->UploadUniformFloat("uBloomIntensity", sData.BloomIntensity);
+
         sData.TonemapVAO->Bind();
         glDrawArrays(GL_TRIANGLES, 0, 3);
+    }
+
+    void Renderer3D::SetBloomEnabled(bool enabled)     { sData.BloomEnabled   = enabled; }
+    void Renderer3D::SetBloomThreshold(float v)        { sData.BloomThreshold = v; }
+    void Renderer3D::SetBloomIntensity(float v)        { sData.BloomIntensity = v; }
+
+    void Renderer3D::BloomPass(uint32_t hdr_color_texture_id,
+                               uint32_t scene_width, uint32_t scene_height) {
+        if (!sData.BloomEnabled || scene_width < 4 || scene_height < 4) {
+            sData.BloomFinalTexture = 0;
+            return;
+        }
+
+        // Rebuild the mip chain when the scene resolution changes. Each mip
+        // is half the previous; stop adding mips once dimensions drop below 4.
+        if (scene_width != sData.BloomSceneWidth || scene_height != sData.BloomSceneHeight) {
+            sData.BloomMips.clear();
+            constexpr int kMaxMips = 6;
+            uint32_t w = scene_width  / 2;
+            uint32_t h = scene_height / 2;
+            for (int i = 0; i < kMaxMips; ++i) {
+                if (w < 4 || h < 4) break;
+                FramebufferSpecification spec;
+                spec.Attachments = { FramebufferTextureFormat::RGBA16F };
+                spec.Width  = w;
+                spec.Height = h;
+                sData.BloomMips.push_back(Framebuffer::Create(spec));
+                w /= 2; h /= 2;
+            }
+            sData.BloomSceneWidth  = scene_width;
+            sData.BloomSceneHeight = scene_height;
+        }
+
+        if (sData.BloomMips.empty()) {
+            sData.BloomFinalTexture = 0;
+            return;
+        }
+
+        // Save GL state that the bloom passes change.
+        GLboolean prev_blend     = glIsEnabled(GL_BLEND);
+        GLboolean prev_depth     = glIsEnabled(GL_DEPTH_TEST);
+        GLint     prev_blend_src = 0, prev_blend_dst = 0;
+        glGetIntegerv(GL_BLEND_SRC, &prev_blend_src);
+        glGetIntegerv(GL_BLEND_DST, &prev_blend_dst);
+        GLint prev_fbo = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+        GLint prev_viewport[4];
+        glGetIntegerv(GL_VIEWPORT, prev_viewport);
+
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+
+        // ── Downsample chain ──
+        sData.BloomDownsampleShader->Bind();
+        sData.BloomDownsampleShader->UploadUniformFloat("uThreshold", sData.BloomThreshold);
+        sData.TonemapVAO->Bind();
+
+        uint32_t src_tex    = hdr_color_texture_id;
+        uint32_t src_width  = scene_width;
+        uint32_t src_height = scene_height;
+        for (size_t i = 0; i < sData.BloomMips.size(); ++i) {
+            sData.BloomMips[i]->Bind(); // also sets viewport to this mip's size
+            sData.BloomDownsampleShader->UploadUniformInt   ("uPrefilter",
+                                                             (i == 0) ? 1 : 0);
+            sData.BloomDownsampleShader->UploadUniformFloat2("uSrcTexelSize",
+                glm::vec2(1.0f / float(src_width), 1.0f / float(src_height)));
+            glBindTextureUnit(0, src_tex);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            const auto& spec = sData.BloomMips[i]->GetSpecification();
+            src_tex    = sData.BloomMips[i]->GetColorAttachmentRendererID(0);
+            src_width  = spec.Width;
+            src_height = spec.Height;
+        }
+
+        // ── Upsample chain (additive) ──
+        // Walk from the smallest mip toward mip 0; each step samples the
+        // smaller mip with a 3x3 tent and additively blends on top of the
+        // current mip's downsample content.
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+
+        sData.BloomUpsampleShader->Bind();
+        sData.TonemapVAO->Bind();
+        for (int i = (int)sData.BloomMips.size() - 2; i >= 0; --i) {
+            auto& current_mip = sData.BloomMips[i];
+            auto& smaller_mip = sData.BloomMips[i + 1];
+
+            current_mip->Bind(); // sets viewport to current mip
+            const auto& smaller_spec = smaller_mip->GetSpecification();
+            sData.BloomUpsampleShader->UploadUniformFloat2("uSrcTexelSize",
+                glm::vec2(1.0f / float(smaller_spec.Width),
+                          1.0f / float(smaller_spec.Height)));
+            glBindTextureUnit(0, smaller_mip->GetColorAttachmentRendererID(0));
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+
+        sData.BloomFinalTexture = sData.BloomMips[0]->GetColorAttachmentRendererID(0);
+
+        // Restore caller state.
+        if (prev_blend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+        if (prev_depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+        glBlendFunc((GLenum)prev_blend_src, (GLenum)prev_blend_dst);
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+        glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
     }
 
 } // namespace Loom

@@ -179,7 +179,14 @@ namespace Weaver {
     void ViewportPanel::EndFrame() {
         mFramebuffer->Unbind();
 
-        // Tonemap pass — ACES + sRGB from the linear HDR scene into the LDR display buffer.
+        // Bloom pass — runs the downsample + upsample chain on the HDR scene
+        // and caches the result for the tonemap pass to composite.
+        const auto& spec = mFramebuffer->GetSpecification();
+        Loom::Renderer3D::BloomPass(mFramebuffer->GetColorAttachmentRendererID(0),
+                                    spec.Width, spec.Height);
+
+        // Tonemap pass — ACES + sRGB from the linear HDR scene (with bloom
+        // composited internally) into the LDR display buffer.
         mLDRFramebuffer->Bind();
         Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         Loom::RenderCommand::Clear();
