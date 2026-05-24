@@ -80,12 +80,14 @@ namespace Loom {
                 const cgltf_accessor* pos_acc = nullptr;
                 const cgltf_accessor* nrm_acc = nullptr;
                 const cgltf_accessor* uv_acc  = nullptr;
+                const cgltf_accessor* tan_acc = nullptr;
                 for (cgltf_size ai = 0; ai < prim.attributes_count; ++ai) {
                     const cgltf_attribute& attr = prim.attributes[ai];
                     switch (attr.type) {
                         case cgltf_attribute_type_position: pos_acc = attr.data; break;
                         case cgltf_attribute_type_normal:   nrm_acc = attr.data; break;
                         case cgltf_attribute_type_texcoord: if (attr.index == 0) uv_acc = attr.data; break;
+                        case cgltf_attribute_type_tangent:  tan_acc = attr.data; break;
                         default: break;
                     }
                 }
@@ -101,6 +103,8 @@ namespace Loom {
 
                 if (nrm_acc) any_normals = true;
                 if (uv_acc)  any_uvs     = true;
+
+                const glm::mat3 model3 = glm::mat3(world); // for tangent transform (not inverse-transpose)
 
                 for (cgltf_size i = 0; i < vcount; ++i) {
                     MeshVertex& v = vertices[vstart + i];
@@ -129,8 +133,23 @@ namespace Loom {
                     } else {
                         v.TexCoord = glm::vec2(0.0f);
                     }
+
+                    if (tan_acc) {
+                        glm::vec4 tan_local;
+                        cgltf_accessor_read_float(tan_acc, i, &tan_local.x, 4);
+                        // glTF spec: tangent xyz transforms by the model's upper 3x3
+                        // (not the inverse-transpose — w carries handedness, not direction).
+                        glm::vec3 t_world = model3 * glm::vec3(tan_local);
+                        float     tlen2   = glm::dot(t_world, t_world);
+                        t_world = (tlen2 > 1e-8f) ? t_world * glm::inversesqrt(tlen2)
+                                                   : glm::vec3(1.0f, 0.0f, 0.0f);
+                        v.Tangent = glm::vec4(t_world, tan_local.w);
+                    } else {
+                        v.Tangent = glm::vec4(0.0f); // sentinel — triggers Lengyel pass below
+                    }
                 }
 
+                const cgltf_size istart_this_prim = indices.size();
                 if (prim.indices) {
                     const cgltf_size  icount = prim.indices->count;
                     const cgltf_size  istart = indices.size();
@@ -143,6 +162,41 @@ namespace Loom {
                     indices.reserve(indices.size() + vcount);
                     for (cgltf_size i = 0; i < vcount; ++i)
                         indices.push_back((uint32_t)(vstart + i));
+                }
+
+                // Lengyel per-triangle tangent accumulation when the glTF had no TANGENT attribute.
+                if (!tan_acc) {
+                    const cgltf_size icount_this = indices.size() - istart_this_prim;
+                    // Accumulate tangent/bitangent sums into Tangent.xyz / Normal.xyz reuse via temp vecs.
+                    std::vector<glm::vec3> tan_sum(vcount, glm::vec3(0.0f));
+                    std::vector<glm::vec3> btn_sum(vcount, glm::vec3(0.0f));
+                    for (cgltf_size t = 0; t < icount_this; t += 3) {
+                        uint32_t i0 = indices[istart_this_prim + t    ] - (uint32_t)vstart;
+                        uint32_t i1 = indices[istart_this_prim + t + 1] - (uint32_t)vstart;
+                        uint32_t i2 = indices[istart_this_prim + t + 2] - (uint32_t)vstart;
+                        const glm::vec3& p0 = vertices[vstart + i0].Position;
+                        const glm::vec3& p1 = vertices[vstart + i1].Position;
+                        const glm::vec3& p2 = vertices[vstart + i2].Position;
+                        const glm::vec2& u0 = vertices[vstart + i0].TexCoord;
+                        const glm::vec2& u1 = vertices[vstart + i1].TexCoord;
+                        const glm::vec2& u2 = vertices[vstart + i2].TexCoord;
+                        glm::vec3 e1 = p1 - p0, e2 = p2 - p0;
+                        glm::vec2 d1 = u1 - u0, d2 = u2 - u0;
+                        float denom = d1.x * d2.y - d2.x * d1.y;
+                        float r = (glm::abs(denom) > 1e-8f) ? 1.0f / denom : 0.0f;
+                        glm::vec3 T = (e1 * d2.y - e2 * d1.y) * r;
+                        glm::vec3 B = (e2 * d1.x - e1 * d2.x) * r;
+                        tan_sum[i0] += T; tan_sum[i1] += T; tan_sum[i2] += T;
+                        btn_sum[i0] += B; btn_sum[i1] += B; btn_sum[i2] += B;
+                    }
+                    for (cgltf_size i = 0; i < vcount; ++i) {
+                        const glm::vec3& N = vertices[vstart + i].Normal;
+                        glm::vec3 T = tan_sum[i] - N * glm::dot(N, tan_sum[i]); // Gram-Schmidt
+                        float tlen2 = glm::dot(T, T);
+                        T = (tlen2 > 1e-8f) ? T * glm::inversesqrt(tlen2) : glm::vec3(1.0f, 0.0f, 0.0f);
+                        float sign = (glm::dot(glm::cross(N, T), btn_sum[i]) < 0.0f) ? -1.0f : 1.0f;
+                        vertices[vstart + i].Tangent = glm::vec4(T, sign);
+                    }
                 }
             }
         };
@@ -245,6 +299,10 @@ namespace Loom {
                                path);
             }
 
+            // Normal map is also on cgltf_material directly.
+            extract_uri(material_src->normal_texture.texture, "normal",
+                        material.NormalTexture);
+
             // Emissive lives on cgltf_material directly, not nested inside
             // pbrMetallicRoughness, so it applies to any material.
             extract_uri(material_src->emissive_texture.texture,  "emissive",
@@ -273,6 +331,7 @@ namespace Loom {
             { ShaderDataType::Float3, "a_Position" },
             { ShaderDataType::Float3, "a_Normal"   },
             { ShaderDataType::Float2, "a_TexCoord" },
+            { ShaderDataType::Float4, "a_Tangent"  },
         });
 
         auto ibo = IndexBuffer::Create(indices.data(), (uint32_t)indices.size());
@@ -291,7 +350,7 @@ namespace Loom {
         LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={})",
                         path, asset->mVertexCount, asset->mIndexCount,
                         any_normals ? "yes" : "NO (defaulted to +Z)",
-                        any_uvs     ? "yes" : "NO (defaulted to (0,0) - albedo texture will show as flat color)",
+                        any_uvs     ? "yes" : "NO (tangents generated from geometry only; normal map will be flat)",
                         material.HasMaterial ? "yes" : "none");
         if (!any_uvs)
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "

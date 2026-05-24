@@ -16,6 +16,9 @@ namespace Loom {
         std::shared_ptr<Shader>    MeshShader;
         std::shared_ptr<Shader>    ShadowShader;
         std::shared_ptr<Texture2D> WhiteTexture;
+        // 1×1 RGBA=(128,128,255,255) — decodes to tangent-space (0,0,1) so the
+        // TBN transform yields the original geometry normal (no perturbation).
+        std::shared_ptr<Texture2D> FlatNormalTexture;
 
         // View-projection bound at UBO slot 0 (shared with Renderer2D — both write
         // it at BeginScene; last-write-wins is fine since they are called in
@@ -201,6 +204,13 @@ namespace Loom {
         uint32_t white     = 0xFFFFFFFF;
         sData.WhiteTexture->SetData(&white, sizeof(uint32_t));
 
+        sData.FlatNormalTexture = Texture2D::Create(1, 1);
+        // GL_RGBA + GL_UNSIGNED_BYTE reads bytes in memory order.
+        // On little-endian: 0xFFFF8080 -> bytes [80,80,FF,FF] -> R=128, G=128, B=255, A=255
+        // which decodes in the shader as tangent-space (0,0,1) = no perturbation.
+        uint32_t flat_normal    = 0xFFFF8080;
+        sData.FlatNormalTexture->SetData(&flat_normal, sizeof(uint32_t));
+
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
 
         // One depth-only shadow framebuffer per cascade. DEPTH32F, no color attachments.
@@ -226,6 +236,7 @@ namespace Loom {
         sData.MeshShader->UploadUniformInt("uBRDFLUT",                  7);
         sData.MeshShader->UploadUniformInt("uORMTexture",               8);
         sData.MeshShader->UploadUniformInt("uEmissiveTexture",          9);
+        sData.MeshShader->UploadUniformInt("uNormalMapTexture",        10);
 
         // BRDF LUT — environment-independent, generated once at engine init.
         sData.BRDFLUT = GenerateBRDFLUT(512);
@@ -262,6 +273,7 @@ namespace Loom {
         sData.MeshShader.reset();
         sData.ShadowShader.reset();
         sData.WhiteTexture.reset();
+        sData.FlatNormalTexture.reset();
         sData.CameraUniformBuffer.reset();
         sData.SkyboxShader.reset();
         sData.SkyboxVAO.reset();
@@ -410,6 +422,7 @@ namespace Loom {
                             const std::shared_ptr<Texture2D>& orm_texture,
                             const std::shared_ptr<Texture2D>& emissive_texture,
                             const glm::vec3& emissive_factor,
+                            const std::shared_ptr<Texture2D>& normal_texture,
                             const glm::mat4& transform,
                             float roughness,
                             float metallic,
@@ -489,6 +502,12 @@ namespace Loom {
         // the term, so the common no-emissive case has no extra cost.
         const auto& em_tex = emissive_texture ? emissive_texture : sData.WhiteTexture;
         em_tex->Bind(9);
+
+        // Normal map on unit 10. Flat-normal fallback decodes to (0,0,1) in
+        // tangent space, which TBN transforms back to the geometry normal — no
+        // perturbation, so existing meshes without a normal map are unaffected.
+        const auto& nrm_tex = normal_texture ? normal_texture : sData.FlatNormalTexture;
+        nrm_tex->Bind(10);
 
         const auto& vao = mesh->GetVertexArray();
         vao->Bind();

@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-13.925229, 3.672653, 13.861735]
-  Pitch: 0.6989995
-  Yaw: 6.1369004
+  Position: [-0.82558537, 5.4452477, 17.36572]
+  Pitch: 0.21899931
+  Yaw: 6.292929
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -21,6 +21,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 2780783996705205205
     TagComponent:
       Tag: Metal_2
@@ -37,6 +38,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 2971075157732129014
     TagComponent:
       Tag: Sun
@@ -63,6 +65,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 4818736125015145374
     TagComponent:
       Tag: Metal_0
@@ -79,6 +82,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 5488135763092330549
     TagComponent:
       Tag: Dielectric_3
@@ -95,6 +99,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 6236095639206947116
     TagComponent:
       Tag: Dielectric_2
@@ -111,6 +116,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 6540460916186502903
     TagComponent:
       Tag: MainCamera
@@ -132,7 +138,7 @@ Entities:
     TagComponent:
       Tag: HeroPlinth
     TransformComponent:
-      Translation: [-6.5, -1, 3]
+      Translation: [-7.5, -1, 3]
       Rotation: [0, -0, 0]
       Scale: [1.5, 0.5, 1.5]
     MeshRendererComponent:
@@ -144,11 +150,12 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 9326249257803031972
     TagComponent:
       Tag: Hero
     TransformComponent:
-      Translation: [-6.5, 0.5, 3]
+      Translation: [-7.5, 0.5, 3]
       Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
@@ -160,6 +167,7 @@ Entities:
       ORMTexturePath: common/models/damaged_helmet/damaged_helmet_orm.png
       EmissiveFactor: [1, 1, 1]
       EmissiveTexturePath: common/models/damaged_helmet/damaged_helmet_emissive.jpg
+      NormalTexturePath: common/models/damaged_helmet/damaged_helmet_normal.jpg
   - Entity: 9874988102437962133
     TagComponent:
       Tag: Metal_3
@@ -176,6 +184,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 15268786537609647005
     TagComponent:
       Tag: Metal_4
@@ -192,6 +201,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 15898810103089173338
     TagComponent:
       Tag: Dielectric_0
@@ -208,6 +218,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 15911410593602493634
     TagComponent:
       Tag: Ground
@@ -224,6 +235,7 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 17118524503370242126
     TagComponent:
       Tag: Dielectric_1
@@ -240,3 +252,4 @@ Entities:
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
+      NormalTexturePath: ""

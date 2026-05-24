@@ -347,6 +347,11 @@ namespace Loom {
         std::string                EmissiveTexturePath;
         std::shared_ptr<Texture2D> EmissiveTexture;
 
+        // Material — normal map. Tangent-space normal map. Engine uses a
+        // 1×1 flat-normal fallback when this is empty so no shader branch is needed.
+        std::string                NormalTexturePath;
+        std::shared_ptr<Texture2D> NormalTexture;
+
         MeshRendererComponent()                             = default;
         MeshRendererComponent(const MeshRendererComponent&) = default;
     };

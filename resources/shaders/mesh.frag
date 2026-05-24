@@ -6,6 +6,8 @@ layout(location = 1) out int  oEntityID;
 in vec3 vWorldPos;
 in vec3 vWorldNormal;
 in vec2 vTexCoord;
+in vec3 vWorldTangent;
+in vec3 vWorldBitangent;
 in vec4 vLightSpacePos0;
 in vec4 vLightSpacePos1;
 in vec4 vLightSpacePos2;
@@ -18,6 +20,7 @@ in vec4 vLightSpacePos3;
 uniform sampler2D   uAlbedoTexture;
 uniform sampler2D   uORMTexture;       // ORM packing: R=AO, G=roughness, B=metallic. White fallback = no occlusion, factors only.
 uniform sampler2D   uEmissiveTexture;  // glTF: sRGB, multiplied by uEmissiveFactor
+uniform sampler2D   uNormalMapTexture; // tangent-space normal map (unit 10). Flat fallback = (128,128,255) -> (0,0,1) -> passes through geometry normal.
 uniform sampler2D   uShadowMap0;
 uniform sampler2D   uShadowMap1;
 uniform sampler2D   uShadowMap2;
@@ -199,8 +202,23 @@ void main() {
     // sRGB -> linear: color textures + inspector color picker values are stored
     // in display (sRGB) space; PBR math must run in linear space. Alpha is
     // unitless and passes through unchanged.
-    vec3 albedo        = pow(albedo_sample.rgb, vec3(kGamma));
-    vec3 N             = normalize(vWorldNormal);
+    vec3 albedo = pow(albedo_sample.rgb, vec3(kGamma));
+
+    // Build the per-fragment normal from the tangent-space normal map.
+    // Re-normalize the interpolated TBN basis (interpolation un-normalizes it),
+    // then decode the map sample from [0,1] -> [-1,1] and transform to world space.
+    vec3 T = normalize(vWorldTangent);
+    vec3 B = normalize(vWorldBitangent);
+    vec3 Ng = normalize(vWorldNormal);
+    // Gram-Schmidt re-orthogonalize T against Ng in the fragment shader to
+    // handle the rare case where vertex-shader Gram-Schmidt + interpolation still
+    // drifts (e.g., sharp creases with very different normals per vertex).
+    T = normalize(T - Ng * dot(Ng, T));
+    B = cross(Ng, T);
+    mat3 TBN          = mat3(T, B, Ng);
+    vec3 normal_ts    = texture(uNormalMapTexture, vTexCoord).rgb * 2.0 - 1.0;
+    vec3 N            = normalize(TBN * normal_ts);
+
     vec3 V             = normalize(uViewPos - vWorldPos);
 
     // ── Debug visualizations ──────────────────────────────────────────────

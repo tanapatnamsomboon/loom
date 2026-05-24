@@ -1776,6 +1776,8 @@ namespace Weaver {
                                    mrc.ORMTexture, mrc.ORMTexturePath);
                         import_tex(gm.EmissiveTexture, "emissive",
                                    mrc.EmissiveTexture, mrc.EmissiveTexturePath);
+                        import_tex(gm.NormalTexture, "normal",
+                                   mrc.NormalTexture, mrc.NormalTexturePath);
                         is_modified = true;
                     }
                     ImGui::EndDisabled();
@@ -1993,6 +1995,73 @@ namespace Weaver {
                     }
                     ImGui::SameLine();
                     ImGui::TextDisabled("Emissive");
+                    ImGui::PopID();
+                }
+
+                // ---- Material: normal map ----------------------------------------
+                // Tangent-space normal map. A 1×1 flat-normal fallback is used when
+                // empty so no shader branch is needed. Import from glTF via the
+                // "Import Material" button above.
+                {
+                    ImTextureID nrm_id = (ImTextureID)(uintptr_t)(mrc.NormalTexture
+                        ? mrc.NormalTexture->GetRendererID()
+                        : mCheckerboard->GetRendererID());
+                    std::string nrm_label = mrc.NormalTexture
+                        ? std::filesystem::path(mrc.NormalTexture->GetPath()).filename().string()
+                        : "None (Select...)";
+
+                    ImGui::PushID("NormalTexSlot");
+                    ImGui::Image(nrm_id, ImVec2(32, 32), ImVec2(0, 1), ImVec2(1, 0),
+                                 ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 0.5f));
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Tangent-space normal map.\nRGB encodes the surface normal perturbation;\nblue-dominant = pointing forward = no perturbation.");
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {
+                            std::filesystem::path dropped((const char*)payload->Data);
+                            auto ext = dropped.extension();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") {
+                                auto full = Loom::Project::GetAssetFileSystemPath(dropped);
+                                auto new_tex = Loom::AssetManager::GetTexture(
+                                    full.generic_string(), Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    mrc.NormalTexture     = new_tex;
+                                    mrc.NormalTexturePath = dropped.generic_string();
+                                    is_modified = true;
+                                }
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(nrm_label.c_str(), ImVec2(150, 0))) {
+                        auto uuid     = entity.GetComponent<Loom::IDComponent>().ID;
+                        auto scene    = mContext;
+                        auto modified = mSceneModifiedCallback;
+                        FileDialog::Open("BrowseNormalTex", "Choose Normal Map Texture",
+                            ".png,.jpg,.jpeg,.bmp,.tga",
+                            [uuid, scene, modified](const std::string& abs_path) {
+                                Loom::Entity e = scene->GetEntityByUUID(uuid);
+                                if (!e || !e.HasComponent<Loom::MeshRendererComponent>()) return;
+                                auto new_tex = Loom::AssetManager::GetTexture(abs_path, Loom::kMeshAlbedoTextureSpec);
+                                if (new_tex) {
+                                    auto& m = e.GetComponent<Loom::MeshRendererComponent>();
+                                    m.NormalTexture     = new_tex;
+                                    m.NormalTexturePath = std::filesystem::relative(abs_path,
+                                                            Loom::Project::GetAssetDirectory()).generic_string();
+                                    if (modified) modified();
+                                }
+                            });
+                    }
+                    if (mrc.NormalTexture) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("X##normaltex")) {
+                            mrc.NormalTexture.reset();
+                            mrc.NormalTexturePath.clear();
+                            is_modified = true;
+                        }
+                    }
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("Normal Map");
                     ImGui::PopID();
                 }
 

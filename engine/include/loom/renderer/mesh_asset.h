@@ -12,6 +12,7 @@ namespace Loom {
         glm::vec3 Position;
         glm::vec3 Normal;
         glm::vec2 TexCoord;
+        glm::vec4 Tangent; // xyz = tangent direction (world), w = bitangent handedness sign (+1/-1)
     };
 
     // glTF pbrMetallicRoughness material data, extracted at import time. A
@@ -42,6 +43,9 @@ namespace Loom {
         // the material is not emissive.
         std::string EmissiveTexture;
         glm::vec3   EmissiveFactor = { 0.0f, 0.0f, 0.0f };
+        // Tangent-space normal map URI, sourced from glTF's normalTexture.
+        // Empty when absent or embedded. Same relative-path semantics as BaseColorTexture.
+        std::string NormalTexture;
     };
 
     class LOOM_API MeshAsset {

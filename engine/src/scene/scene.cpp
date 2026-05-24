@@ -765,8 +765,8 @@ namespace Loom {
                 mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex, kMeshAlbedoTextureSpec);
         }
 
-        // Lazy-load ORM + emissive textures. Both use the mesh-albedo texture
-        // spec (Linear + mips); the shader interprets channels by convention.
+        // Lazy-load ORM + emissive + normal textures. All use the mesh-albedo
+        // texture spec (Linear + mips); the shader interprets channels by convention.
         if (!mrc.ORMTexturePath.empty()) {
             std::string abs_orm = Project::GetAssetFileSystemPath(mrc.ORMTexturePath).generic_string();
             if (!mrc.ORMTexture || mrc.ORMTexture->GetPath() != abs_orm)
@@ -777,11 +777,16 @@ namespace Loom {
             if (!mrc.EmissiveTexture || mrc.EmissiveTexture->GetPath() != abs_em)
                 mrc.EmissiveTexture = AssetManager::GetTexture(abs_em, kMeshAlbedoTextureSpec);
         }
+        if (!mrc.NormalTexturePath.empty()) {
+            std::string abs_nrm = Project::GetAssetFileSystemPath(mrc.NormalTexturePath).generic_string();
+            if (!mrc.NormalTexture || mrc.NormalTexture->GetPath() != abs_nrm)
+                mrc.NormalTexture = AssetManager::GetTexture(abs_nrm, kMeshAlbedoTextureSpec);
+        }
 
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
         Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture,
                            mrc.ORMTexture, mrc.EmissiveTexture,
-                           mrc.EmissiveFactor, world,
+                           mrc.EmissiveFactor, mrc.NormalTexture, world,
                            mrc.Roughness, mrc.Metallic, (int)(uint32_t)e);
     }
 

@@ -70,12 +70,12 @@ namespace Loom {
         //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
         static void SetDebugViz(int mode);
 
-        // One draw call per submission (no batching). Any of the three texture
-        // slots (albedo / ORM / emissive) may be null — a 1x1 white texture is
-        // bound in its place. ORM packs R=ambient occlusion, G=roughness,
-        // B=metallic into a single map (industry-standard glTF convention).
-        // Emissive samples sRGB and is multiplied by emissive_factor (linear,
-        // HDR-allowed; default (0,0,0) mutes any emissive texture).
+        // One draw call per submission (no batching). Any of the four texture
+        // slots (albedo / ORM / emissive / normal) may be null — a 1×1 white
+        // texture is used for albedo/ORM/emissive, and a 1×1 flat-normal texture
+        // (128,128,255) is used for the normal map so no shader branch is needed.
+        // ORM packs R=ambient occlusion, G=roughness, B=metallic (industry-standard
+        // glTF convention). Emissive samples sRGB × emissive_factor (linear, HDR).
         // entity_id < 0 leaves the picking attachment untouched for this draw.
         static void Submit(const std::shared_ptr<MeshAsset>& mesh,
                            const glm::vec4& albedo_color,
@@ -83,6 +83,7 @@ namespace Loom {
                            const std::shared_ptr<Texture2D>& orm_texture,
                            const std::shared_ptr<Texture2D>& emissive_texture,
                            const glm::vec3& emissive_factor,
+                           const std::shared_ptr<Texture2D>& normal_texture,
                            const glm::mat4& transform,
                            float roughness = 0.5f,
                            float metallic  = 0.0f,
