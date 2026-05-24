@@ -70,6 +70,13 @@ namespace Loom {
         //   0=PBR (default), 1=irradiance, 2=normal, 3=NdotL, 4=NdotV, 5=albedo.
         static void SetDebugViz(int mode);
 
+        // Post-process tonemap pass — samples the linear HDR color texture
+        // (typically the RGBA16F scene framebuffer's Color 0 attachment),
+        // applies ACES filmic tonemap + sRGB encode, and writes the result
+        // into the currently-bound framebuffer. The caller is responsible for
+        // binding the LDR target framebuffer + clearing it before this call.
+        static void Tonemap(uint32_t hdr_color_texture_id);
+
         // One draw call per submission (no batching). Any of the four texture
         // slots (albedo / ORM / emissive / normal) may be null — a 1×1 white
         // texture is used for albedo/ORM/emissive, and a 1×1 flat-normal texture

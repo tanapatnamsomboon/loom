@@ -61,7 +61,12 @@ namespace Weaver {
         std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
         std::function<void(const std::filesystem::path&)> mPrefabInstantiateCallback;
 
+        // HDR scene framebuffer: RGBA16F + RED_INTEGER (picking) + DEPTH
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
+        // LDR display framebuffer: RGBA8 only — receives the tonemapped output
+        // that is shown in the ImGui::Image. Kept separate so the HDR buffer's
+        // RED_INTEGER attachment stays readable for entity picking.
+        std::shared_ptr<Loom::Framebuffer>  mLDRFramebuffer;
 
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;

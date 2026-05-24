@@ -9,6 +9,9 @@ namespace Loom {
     enum class FramebufferTextureFormat {
         None = 0,
         RGBA8,
+        // 16-bit float per channel. Used as the HDR scene framebuffer so values
+        // above 1.0 survive until the post-process tonemap pass.
+        RGBA16F,
         RED_INTEGER,
         DEPTH24STENCIL8,
         // 32-bit float depth, no stencil. Used by shadow maps — higher precision

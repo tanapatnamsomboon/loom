@@ -24,15 +24,25 @@ namespace Weaver {
     // ────────────────────────────────────────────────────────────────────────
     ViewportPanel::ViewportPanel(EditorContext& ctx)
         : mContext(ctx) {
-        Loom::FramebufferSpecification spec;
-        spec.Attachments = {
-            Loom::FramebufferTextureFormat::RGBA8,
+        // HDR scene framebuffer — Color 0 is RGBA16F so linear radiance values
+        // above 1.0 survive until the tonemap pass. RED_INTEGER stays for entity
+        // picking (values are indices, unaffected by the float format change).
+        Loom::FramebufferSpecification hdr_spec;
+        hdr_spec.Attachments = {
+            Loom::FramebufferTextureFormat::RGBA16F,
             Loom::FramebufferTextureFormat::RED_INTEGER,
             Loom::FramebufferTextureFormat::DEPTH24STENCIL8
         };
-        spec.Width   = 1280;
-        spec.Height  = 720;
-        mFramebuffer = Loom::Framebuffer::Create(spec);
+        hdr_spec.Width  = 1280;
+        hdr_spec.Height = 720;
+        mFramebuffer = Loom::Framebuffer::Create(hdr_spec);
+
+        // LDR display framebuffer — plain RGBA8, receives the tonemapped output.
+        Loom::FramebufferSpecification ldr_spec;
+        ldr_spec.Attachments = { Loom::FramebufferTextureFormat::RGBA8 };
+        ldr_spec.Width  = 1280;
+        ldr_spec.Height = 720;
+        mLDRFramebuffer = Loom::Framebuffer::Create(ldr_spec);
     }
 
     void ViewportPanel::Init() {
@@ -72,6 +82,7 @@ namespace Weaver {
         if (mContext.ViewportSize.x > 0.0f && mContext.ViewportSize.y > 0.0f &&
             (spec.Width != mContext.ViewportSize.x || spec.Height != mContext.ViewportSize.y)) {
             mFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
+            mLDRFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
             mContext.EditorCamera.SetViewportSize(mContext.ViewportSize.x, mContext.ViewportSize.y);
         }
     }
@@ -167,6 +178,13 @@ namespace Weaver {
 
     void ViewportPanel::EndFrame() {
         mFramebuffer->Unbind();
+
+        // Tonemap pass — ACES + sRGB from the linear HDR scene into the LDR display buffer.
+        mLDRFramebuffer->Bind();
+        Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        Loom::RenderCommand::Clear();
+        Loom::Renderer3D::Tonemap(mFramebuffer->GetColorAttachmentRendererID(0));
+        mLDRFramebuffer->Unbind();
     }
 
     void ViewportPanel::OnImGuiRender() {
@@ -198,7 +216,9 @@ namespace Weaver {
         UpdateViewportBounds();
         UpdateViewportSize();
 
-        uint32_t tex_id = mFramebuffer->GetColorAttachmentRendererID(0);
+        // Show the tonemapped LDR output. Entity picking still reads from
+        // mFramebuffer (HDR) Color 1 (RED_INTEGER) — unchanged.
+        uint32_t tex_id = mLDRFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::Image((void*)(intptr_t)tex_id, ImVec2{ mContext.ViewportSize.x, mContext.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
         if (ImGui::BeginDragDropTarget()) {

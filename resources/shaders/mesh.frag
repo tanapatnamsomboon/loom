@@ -66,20 +66,8 @@ uniform vec3  uPointLightPos[MAX_POINT_LIGHTS];
 uniform vec3  uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
-const float kPI              = 3.14159265359;
-const float kGamma           = 2.2;
-
-// ACES filmic tonemap — Krzysztof Narkowicz's curve-fit approximation. Maps
-// open-ended HDR radiance to [0, 1] LDR with film-like roll-off in highlights
-// and bottom-end contrast; matches what Unity HDRP / Unreal use by default.
-vec3 ACESFilm(vec3 x) {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
+const float kPI    = 3.14159265359;
+const float kGamma = 2.2; // used only for sRGB → linear conversion of input textures
 
 // ── Cook-Torrance microfacet BRDF ─────────────────────────────────────────
 // Standard metallic-roughness model. References:
@@ -225,37 +213,25 @@ void main() {
     // These short-circuit before any PBR math so they output the raw quantity.
     if (uDebugViz != 0) {
         vec3 dbg = vec3(0.0);
+        // All debug modes output linear values — the tonemap pass applies
+        // ACES + sRGB so HDR modes (1, 6) roll off correctly and LDR modes
+        // (2–5, 7) pass through nearly unchanged.
         if (uDebugViz == 1) {
-            // Raw irradiance at this fragment's normal. Same explicit-mip-0
-            // sample path as the PBR mode so this view honestly reflects
-            // what the PBR shader receives.
             dbg = textureLod(uIrradianceMap, N, 0.0).rgb;
-            dbg = pow(ACESFilm(dbg), vec3(1.0 / kGamma));
         } else if (uDebugViz == 2) {
-            // World-space normal as color. Continuous gradient = mesh normals
-            // are smooth; discontinuities = mesh has flat / broken normals.
             dbg = N * 0.5 + 0.5;
         } else if (uDebugViz == 3) {
-            // NdotL on first directional light. Bright = light hits front,
-            // black = light hits back. Verifies light direction sanity.
             vec3 L = (uDirLightCount > 0) ? normalize(-uDirLightDir[0]) : vec3(0.0, 1.0, 0.0);
             dbg = vec3(max(dot(N, L), 0.0));
         } else if (uDebugViz == 4) {
-            // NdotV — should be 1 at the silhouette center, 0 at the rim.
             dbg = vec3(max(dot(N, V), 0.0));
         } else if (uDebugViz == 5) {
-            // Albedo only (linear → sRGB).
-            dbg = pow(albedo, vec3(1.0 / kGamma));
+            dbg = albedo; // linear-space albedo; tonemap pass converts to display
         } else if (uDebugViz == 6) {
-            // Prefilter sample along the reflection vector at the surface's
-            // actual roughness. Mirror surfaces (roughness ≈ 0) should look
-            // like the env cubemap; rough surfaces should look blurry.
             float r_dbg = clamp(uRoughness, 0.04, 1.0);
             vec3  R     = reflect(-V, N);
             dbg         = textureLod(uPrefilterMap, R, r_dbg * uMaxReflectionLOD).rgb;
-            dbg         = pow(ACESFilm(dbg), vec3(1.0 / kGamma));
         } else if (uDebugViz == 7) {
-            // BRDF LUT lookup. Use NdotV from the actual fragment to be useful.
             float r_dbg = clamp(uRoughness, 0.04, 1.0);
             float cosNV = max(dot(N, V), 0.0);
             vec2  lut   = texture(uBRDFLUT, vec2(cosNV, r_dbg)).rg;
@@ -359,11 +335,8 @@ void main() {
     vec3 emissive_sample = pow(texture(uEmissiveTexture, vTexCoord).rgb, vec3(kGamma));
     lit += emissive_sample * uEmissiveFactor;
 
-    // HDR -> LDR via ACES tonemapping, then linear -> sRGB for the framebuffer
-    // (which is RGBA8 displayed verbatim — no GPU sRGB conversion in the chain).
-    vec3 tonemapped = ACESFilm(lit);
-    vec3 display    = pow(tonemapped, vec3(1.0 / kGamma));
-
-    oColor    = vec4(display, albedo_sample.a);
+    // Output linear HDR — the post-process tonemap pass (tonemap.frag) applies
+    // ACES + sRGB encode to the whole scene in one unified step.
+    oColor    = vec4(lit, albedo_sample.a);
     oEntityID = uEntityID;
 }

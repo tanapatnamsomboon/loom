@@ -69,6 +69,12 @@ namespace Loom {
         std::shared_ptr<VertexArray>  SkyboxVAO;
         std::shared_ptr<VertexBuffer> SkyboxVBO;
 
+        // ── Tonemap state ──
+        // Empty VAO + fullscreen-triangle shader for the post-process tonemap
+        // pass that consumes the HDR scene framebuffer.
+        std::shared_ptr<Shader>      TonemapShader;
+        std::shared_ptr<VertexArray> TonemapVAO;
+
         // ── Shadow state (cascaded) ──
         // One framebuffer per cascade. Sized to a square depth texture each;
         // mesh.frag has kCascadeCount sampler2D uniforms bound at units 1..N.
@@ -267,6 +273,16 @@ namespace Loom {
 
         std::string skybox_shader_path = Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
         sData.SkyboxShader             = AssetManager::GetShader(skybox_shader_path);
+
+        // Tonemap shader + empty VAO. The vertex shader uses gl_VertexID to
+        // emit a fullscreen triangle, so no vertex buffer is needed — but a
+        // VAO must still be bound in OpenGL 4.6 core profile for the draw to
+        // be valid.
+        std::string tonemap_shader_path = Project::GetEngineAssetFileSystemPath("shaders/tonemap").generic_string();
+        sData.TonemapShader = AssetManager::GetShader(tonemap_shader_path);
+        sData.TonemapShader->Bind();
+        sData.TonemapShader->UploadUniformInt("uHDRScene", 0);
+        sData.TonemapVAO = VertexArray::Create();
     }
 
     void Renderer3D::Shutdown() {
@@ -278,6 +294,8 @@ namespace Loom {
         sData.SkyboxShader.reset();
         sData.SkyboxVAO.reset();
         sData.SkyboxVBO.reset();
+        sData.TonemapShader.reset();
+        sData.TonemapVAO.reset();
         sData.IrradianceMap.reset();
         sData.PrefilterMap.reset();
         if (sData.BRDFLUT) {
@@ -512,6 +530,13 @@ namespace Loom {
         const auto& vao = mesh->GetVertexArray();
         vao->Bind();
         RenderCommand::DrawIndexed(vao.get(), mesh->GetIndexCount());
+    }
+
+    void Renderer3D::Tonemap(uint32_t hdr_color_texture_id) {
+        sData.TonemapShader->Bind();
+        glBindTextureUnit(0, hdr_color_texture_id);
+        sData.TonemapVAO->Bind();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
 } // namespace Loom

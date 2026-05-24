@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-0.82558537, 5.4452477, 17.36572]
-  Pitch: 0.21899931
-  Yaw: 6.292929
+  Position: [-4.168909, 3.0326195, 8.173409]
+  Pitch: 0.33299977
+  Yaw: -0.10006366
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -71,7 +71,7 @@ Entities:
       Tag: Metal_0
     TransformComponent:
       Translation: [-5, 3, 0]
-      Rotation: [0, 0, 0]
+      Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: common/models/sphere.glb

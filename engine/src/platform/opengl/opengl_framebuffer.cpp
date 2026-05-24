@@ -44,6 +44,9 @@ namespace Loom {
                     case FramebufferTextureFormat::RGBA8:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, mSpecification.Width, mSpecification.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
                         break;
+                    case FramebufferTextureFormat::RGBA16F:
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, mSpecification.Width, mSpecification.Height, 0, GL_RGBA, GL_FLOAT, nullptr);
+                        break;
                     case FramebufferTextureFormat::RED_INTEGER:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, mSpecification.Width, mSpecification.Height, 0, GL_RED_INTEGER, GL_INT, nullptr);
                         break;
