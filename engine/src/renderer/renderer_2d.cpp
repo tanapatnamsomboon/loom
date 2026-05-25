@@ -527,6 +527,17 @@ namespace Loom {
         const float inv_sc = 1.0f / (float)sheet_columns;
         const float inv_sr = 1.0f / (float)sheet_rows;
 
+        // Half-texel inset to stop adjacent tiles bleeding in at non-integer
+        // destination scales: u1 for tile N equals u0 for tile N+1, so a
+        // fragment whose interpolated UV lands exactly on the boundary (or
+        // bilinear-samples across it) reads from the neighbor. Pulling each
+        // edge half a texel inward eliminates the bleed under both nearest
+        // and linear filtering.
+        const float inv_tw = 1.0f / (float)spritesheet->GetWidth();
+        const float inv_th = 1.0f / (float)spritesheet->GetHeight();
+        const float hu = 0.5f * inv_tw;
+        const float hv = 0.5f * inv_th;
+
         for (int row = 0; row < rows; ++row) {
             for (int col = 0; col < columns; ++col) {
                 int tile_idx = tiles[row * columns + col];
@@ -538,10 +549,10 @@ namespace Loom {
                 int sheet_col = tile_idx % sheet_columns;
                 int sheet_row = tile_idx / sheet_columns;
 
-                float u0 = (float)sheet_col * inv_sc;
-                float u1 = (float)(sheet_col + 1) * inv_sc;
-                float v0 = 1.0f - (float)(sheet_row + 1) * inv_sr; // GL bottom
-                float v1 = 1.0f - (float)sheet_row * inv_sr;        // GL top
+                float u0 = (float)sheet_col       * inv_sc + hu;
+                float u1 = (float)(sheet_col + 1) * inv_sc - hu;
+                float v0 = 1.0f - (float)(sheet_row + 1) * inv_sr + hv; // GL bottom
+                float v1 = 1.0f -  (float)sheet_row      * inv_sr - hv; // GL top
 
                 const glm::vec2 tex_coords[4] = {
                     { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 }
