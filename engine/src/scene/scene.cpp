@@ -237,7 +237,9 @@ namespace Loom {
         auto view = mRegistry.view<CameraComponent>();
         for (auto entity : view) {
             auto& camera_component = view.get<CameraComponent>(entity);
-            if (!camera_component.FixedAspectRatio) {
+            if (camera_component.FixedAspectRatio) {
+                camera_component.Camera.SetAspectRatio(camera_component.AspectRatio);
+            } else {
                 camera_component.Camera.SetViewportSize(width, height);
             }
         }

@@ -29,6 +29,12 @@ namespace Loom {
         RecalculateProjection();
     }
 
+    void SceneCamera::SetAspectRatio(float aspect) {
+        if (aspect <= 0.0f) return;
+        mAspectRatio = aspect;
+        RecalculateProjection();
+    }
+
     void SceneCamera::RecalculateProjection() {
         if (mProjectionType == ProjectionType::Perspective) {
             mProjection = glm::perspective(mPerspectiveFOV, mAspectRatio, mPerspectiveNear, mPerspectiveFar);

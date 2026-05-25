@@ -139,6 +139,7 @@ namespace Loom {
             auto& cam = cc.Camera;
             out << YAML::Key << "Primary" << YAML::Value << cc.Primary;
             out << YAML::Key << "FixedAspectRatio" << YAML::Value << cc.FixedAspectRatio;
+            out << YAML::Key << "AspectRatio" << YAML::Value << cc.AspectRatio;
 
             // Orthographic
             out << YAML::Key << "OrthographicSize" << YAML::Value << cam.GetOrthographicSize();
@@ -582,6 +583,7 @@ namespace Loom {
                 auto& cc            = entity.AddComponent<CameraComponent>();
                 cc.Primary          = YAML_GET(cc_node["Primary"], bool, false);
                 cc.FixedAspectRatio = YAML_GET(cc_node["FixedAspectRatio"], bool, true);
+                cc.AspectRatio      = YAML_GET(cc_node["AspectRatio"], float, 16.0f / 9.0f);
 
                 auto ortho_size = YAML_GET(cc_node["OrthographicSize"], float, 10.0f);
                 auto ortho_near = YAML_GET(cc_node["OrthographicNear"], float, 0.1f);
@@ -952,6 +954,7 @@ namespace Loom {
             auto& cc            = entity.AddComponent<CameraComponent>();
             cc.Primary          = YAML_GET(cc_node["Primary"], bool, false);
             cc.FixedAspectRatio = YAML_GET(cc_node["FixedAspectRatio"], bool, true);
+            cc.AspectRatio      = YAML_GET(cc_node["AspectRatio"], float, 16.0f / 9.0f);
 
             cc.Camera.SetOrthographic(
                 YAML_GET(cc_node["OrthographicSize"], float, 10.0f),

@@ -20,6 +20,7 @@ namespace Loom {
         void SetOrthographic(float size, float near_clip, float far_clip);
 
         void SetViewportSize(uint32_t width, uint32_t height);
+        void SetAspectRatio(float aspect);
 
         ProjectionType GetProjectionType() const { return mProjectionType; }
         void           SetProjectionType(ProjectionType type) {

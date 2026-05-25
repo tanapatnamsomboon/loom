@@ -1,8 +1,8 @@
 Scene: platformer_2d
 EditorCamera:
-  Position: [0.45175117, 2.6068027, 12.565268]
-  Pitch: 0.07199993
-  Yaw: 0.030999716
+  Position: [1.6423118, 4.926249, 17.841047]
+  Pitch: 0.084000036
+  Yaw: 0.034000702
 Entities:
   - Entity: 1880131328386108234
     TagComponent:
@@ -133,11 +133,12 @@ Entities:
       Tag: MainCamera
     TransformComponent:
       Translation: [0, 2, 10]
-      Rotation: [0, 0, 0]
+      Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     CameraComponent:
       Primary: true
-      FixedAspectRatio: false
+      FixedAspectRatio: true
+      AspectRatio: 1.7777778
       OrthographicSize: 12
       OrthographicNear: -1
       OrthographicFar: 20

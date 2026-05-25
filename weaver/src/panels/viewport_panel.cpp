@@ -80,16 +80,58 @@ namespace Weaver {
     }
 
     void ViewportPanel::HandleViewportResize() {
-        mContext.ActiveScene->OnViewportResize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
+        ComputeGameViewRect();
+
+        // Pass the rendered "game view" size to the scene so non-fixed-aspect
+        // cameras (and the editor camera) project at the rendered aspect, not
+        // the panel aspect. In Edit mode mGameViewSize == panel size so this
+        // is identical to the previous behavior.
+        mContext.ActiveScene->OnViewportResize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
 
         Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
-        if (mContext.ViewportSize.x > 0.0f && mContext.ViewportSize.y > 0.0f &&
-            (spec.Width != mContext.ViewportSize.x || spec.Height != mContext.ViewportSize.y)) {
-            mFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
-            mLDRFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
-            mFinalFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
-            mContext.EditorCamera.SetViewportSize(mContext.ViewportSize.x, mContext.ViewportSize.y);
+        if (mGameViewSize.x > 0.0f && mGameViewSize.y > 0.0f &&
+            (spec.Width != mGameViewSize.x || spec.Height != mGameViewSize.y)) {
+            mFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
+            mLDRFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
+            mFinalFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
+            mContext.EditorCamera.SetViewportSize(mGameViewSize.x, mGameViewSize.y);
         }
+    }
+
+    void ViewportPanel::ComputeGameViewRect() {
+        const float panel_w = mContext.ViewportSize.x;
+        const float panel_h = mContext.ViewportSize.y;
+
+        // Default: render fills the full panel.
+        mGameViewSize   = { panel_w, panel_h };
+        mGameViewOffset = { 0.0f, 0.0f };
+
+        if (panel_w <= 0.0f || panel_h <= 0.0f) return;
+        if (mContext.SceneState != SceneState::Play) return;
+        if (!mContext.ActiveScene) return;
+
+        // Find the primary camera; if it has a fixed aspect, that's our target.
+        float target_aspect = 0.0f;
+        auto view = mContext.ActiveScene->GetAllEntitiesWith<Loom::CameraComponent>();
+        for (auto entity : view) {
+            const auto& cc = view.get<Loom::CameraComponent>(entity);
+            if (cc.Primary && cc.FixedAspectRatio && cc.AspectRatio > 0.0f) {
+                target_aspect = cc.AspectRatio;
+                break;
+            }
+        }
+        if (target_aspect <= 0.0f) return;
+
+        const float panel_aspect = panel_w / panel_h;
+        if (target_aspect > panel_aspect) {
+            // Camera is wider than panel → letterbox (bars on top/bottom).
+            mGameViewSize = { panel_w, panel_w / target_aspect };
+        } else {
+            // Camera is narrower than panel → pillarbox (bars on left/right).
+            mGameViewSize = { panel_h * target_aspect, panel_h };
+        }
+        mGameViewOffset = { (panel_w - mGameViewSize.x) * 0.5f,
+                            (panel_h - mGameViewSize.y) * 0.5f };
     }
 
     void ViewportPanel::RenderScene(Loom::Timestep ts) {
@@ -162,16 +204,16 @@ namespace Weaver {
 
     void ViewportPanel::UpdateHoveredEntity() {
         auto [mx, my] = ImGui::GetMousePos();
-        mx -= mContext.ViewportBounds[0].x;
-        my -= mContext.ViewportBounds[0].y;
-
-        glm::vec2 size = mContext.ViewportBounds[1] - mContext.ViewportBounds[0];
-        my = size.y - my;
+        // Subtract panel origin + letterbox offset → coords relative to the
+        // game-view rect (which is the framebuffer's coordinate space).
+        mx -= mContext.ViewportBounds[0].x + mGameViewOffset.x;
+        my -= mContext.ViewportBounds[0].y + mGameViewOffset.y;
+        my = mGameViewSize.y - my;
 
         int mouse_x = (int)mx;
         int mouse_y = (int)my;
 
-        if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)size.x && mouse_y < (int)size.y) {
+        if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)mGameViewSize.x && mouse_y < (int)mGameViewSize.y) {
             int pixel = mFramebuffer->ReadPixel(1, mouse_x, mouse_y);
             mContext.HoveredEntity = (pixel == -1)
                 ? Loom::Entity()
@@ -247,7 +289,32 @@ namespace Weaver {
         uint32_t tex_id = Loom::Renderer3D::IsFXAAEnabled()
             ? mFinalFramebuffer->GetColorAttachmentRendererID(0)
             : mLDRFramebuffer->GetColorAttachmentRendererID(0);
-        ImGui::Image((void*)(intptr_t)tex_id, ImVec2{ mContext.ViewportSize.x, mContext.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+
+        // Letterbox: position the image inside the centered sub-rect. The
+        // surrounding panel area gets filled with black so the bars read as
+        // intentional framing rather than viewport bleed-through.
+        ImVec2 image_pos = ImVec2{ mContext.ViewportBounds[0].x + mGameViewOffset.x,
+                                   mContext.ViewportBounds[0].y + mGameViewOffset.y };
+        ImGui::SetCursorScreenPos(image_pos);
+        ImGui::Image((void*)(intptr_t)tex_id,
+                     ImVec2{ mGameViewSize.x, mGameViewSize.y },
+                     ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+
+        // Bars (only drawn when an actual letterbox is active).
+        if (mGameViewOffset.x > 0.0f || mGameViewOffset.y > 0.0f) {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            ImU32 bar_col = IM_COL32(0, 0, 0, 255);
+            ImVec2 vp_tl = ImVec2{ mContext.ViewportBounds[0].x, mContext.ViewportBounds[0].y };
+            ImVec2 vp_br = ImVec2{ mContext.ViewportBounds[1].x, mContext.ViewportBounds[1].y };
+            if (mGameViewOffset.x > 0.0f) {
+                dl->AddRectFilled(vp_tl, ImVec2{ image_pos.x, vp_br.y }, bar_col);
+                dl->AddRectFilled(ImVec2{ image_pos.x + mGameViewSize.x, vp_tl.y }, vp_br, bar_col);
+            }
+            if (mGameViewOffset.y > 0.0f) {
+                dl->AddRectFilled(vp_tl, ImVec2{ vp_br.x, image_pos.y }, bar_col);
+                dl->AddRectFilled(ImVec2{ vp_tl.x, image_pos.y + mGameViewSize.y }, vp_br, bar_col);
+            }
+        }
 
         if (ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM")) {

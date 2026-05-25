@@ -448,6 +448,35 @@ namespace Weaver {
 
                 is_modified |= ImGui::Checkbox("Primary", &cc.Primary);
 
+                if (ImGui::Checkbox("Fixed Aspect Ratio", &cc.FixedAspectRatio)) {
+                    is_modified = true;
+                    if (cc.FixedAspectRatio) camera.SetAspectRatio(cc.AspectRatio);
+                }
+                if (cc.FixedAspectRatio) {
+                    if (ImGui::DragFloat("Aspect", &cc.AspectRatio, 0.01f, 0.1f, 10.0f, "%.4f")) {
+                        camera.SetAspectRatio(cc.AspectRatio);
+                        is_modified = true;
+                    }
+                    // Preset row — common shipping aspects.
+                    struct AspectPreset { const char* label; float value; };
+                    static const AspectPreset presets[] = {
+                        { "16:9",  16.0f / 9.0f },
+                        { "16:10", 16.0f / 10.0f },
+                        { "4:3",   4.0f  / 3.0f  },
+                        { "21:9",  21.0f / 9.0f  },
+                        { "2:1",   2.0f },
+                        { "1:1",   1.0f },
+                    };
+                    for (size_t i = 0; i < IM_ARRAYSIZE(presets); ++i) {
+                        if (i > 0) ImGui::SameLine(0, 4.0f);
+                        if (ImGui::SmallButton(presets[i].label)) {
+                            cc.AspectRatio = presets[i].value;
+                            camera.SetAspectRatio(cc.AspectRatio);
+                            is_modified = true;
+                        }
+                    }
+                }
+
                 const char* projection_type_strings[] = { "Perspective", "Orthographic" };
                 const char* current_projection_string = projection_type_strings[(int)camera.GetProjectionType()];
 

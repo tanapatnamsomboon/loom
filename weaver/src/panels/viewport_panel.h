@@ -44,6 +44,11 @@ namespace Weaver {
         void HandleViewportResize();
         void UpdateViewportBounds();
         void UpdateViewportSize();
+        // Decides the rendered "game view" sub-rect inside the panel — equals
+        // the full panel in Edit mode and in Play mode without a fixed-aspect
+        // primary camera; shrinks to a centered letterboxed sub-rect when Play
+        // mode has a primary camera with FixedAspectRatio = true.
+        void ComputeGameViewRect();
 
         // ── Tile paint ─────────────────────────────────────────────────────
         void RenderTilePaint();
@@ -79,6 +84,13 @@ namespace Weaver {
         bool                     mGizmoWasUsing  = false; // ImGuizmo::IsUsing() last frame, to detect drag start/end edges
         uint64_t                 mDragEntityUUID = 0;
         Loom::TransformComponent mDragStartLocal;
+
+        // ── Letterbox state ────────────────────────────────────────────────
+        // mGameViewSize is the scene framebuffer size (matches the camera's
+        // fixed aspect when active). mGameViewOffset is the centering offset
+        // inside the panel where the rendered texture is drawn.
+        glm::vec2 mGameViewSize   = { 0.0f, 0.0f };
+        glm::vec2 mGameViewOffset = { 0.0f, 0.0f };
     };
 
 } // namespace Weaver

@@ -65,6 +65,7 @@ namespace Loom {
         SceneCamera Camera;
         bool        Primary          = true;
         bool        FixedAspectRatio = false;
+        float       AspectRatio      = 16.0f / 9.0f; // used only when FixedAspectRatio = true
 
         CameraComponent()                       = default;
         CameraComponent(const CameraComponent&) = default;
