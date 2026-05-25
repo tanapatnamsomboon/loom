@@ -44,20 +44,15 @@ namespace Weaver {
         void HandleViewportResize();
         void UpdateViewportBounds();
         void UpdateViewportSize();
-        // Decides the rendered "game view" sub-rect inside the panel — equals
-        // the full panel in Edit mode and in Play mode without a fixed-aspect
-        // primary camera; shrinks to a centered letterboxed sub-rect when Play
-        // mode has a primary camera with FixedAspectRatio = true.
+        // Picks the rendered sub-rect inside the panel — full panel except in
+        // Play mode with a fixed-aspect primary camera, where it letterboxes.
         void ComputeGameViewRect();
 
         // ── Tile paint ─────────────────────────────────────────────────────
         void RenderTilePaint();
 
         // ── Gizmo (ImGuizmo) ───────────────────────────────────────────────
-        // RenderGizmo runs every OnImGuiRender. It sets up ImGuizmo's per-frame
-        // viewport rect, calls ImGuizmo::Manipulate, and on drag-end pushes a
-        // TransformEditCommand so the move/rotate/scale lands in undo history
-        // as one batched step (not per-frame).
+        // Per-frame ImGuizmo wiring; batches the full drag into one undo step.
         void RenderGizmo();
 
     private:
@@ -66,29 +61,21 @@ namespace Weaver {
         std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
         std::function<void(const std::filesystem::path&)> mPrefabInstantiateCallback;
 
-        // HDR scene framebuffer: RGBA16F + RED_INTEGER (picking) + DEPTH
+        // Pipeline: HDR scene (RGBA16F + RED_INTEGER picking + DEPTH) → tonemap →
+        // LDR (RGBA8) → FXAA → Final (RGBA8) shown by ImGui::Image.
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
-        // LDR intermediate framebuffer: RGBA8, holds the tonemapped sRGB output
-        // before FXAA samples it. Kept separate from the HDR buffer so the
-        // RED_INTEGER picking attachment stays readable.
         std::shared_ptr<Loom::Framebuffer>  mLDRFramebuffer;
-        // Final framebuffer: RGBA8, holds the FXAA-resolved image actually
-        // shown in the ImGui::Image.
         std::shared_ptr<Loom::Framebuffer>  mFinalFramebuffer;
 
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;
         std::shared_ptr<Loom::Shader>       mGridShader;
 
-        // ── Gizmo state (just enough to batch drag deltas into one undo step)
-        bool                     mGizmoWasUsing  = false; // ImGuizmo::IsUsing() last frame, to detect drag start/end edges
+        bool                     mGizmoWasUsing  = false; // drag edge detection
         uint64_t                 mDragEntityUUID = 0;
         Loom::TransformComponent mDragStartLocal;
 
-        // ── Letterbox state ────────────────────────────────────────────────
-        // mGameViewSize is the scene framebuffer size (matches the camera's
-        // fixed aspect when active). mGameViewOffset is the centering offset
-        // inside the panel where the rendered texture is drawn.
+        // Scene framebuffer size + offset inside the panel (for play-mode letterbox).
         glm::vec2 mGameViewSize   = { 0.0f, 0.0f };
         glm::vec2 mGameViewOffset = { 0.0f, 0.0f };
     };

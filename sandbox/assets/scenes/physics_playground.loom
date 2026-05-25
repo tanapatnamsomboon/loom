@@ -1,8 +1,8 @@
 Scene: physics_playground
 EditorCamera:
-  Position: [-6.7622385, 14.347775, 13.207762]
-  Pitch: 0.40700266
-  Yaw: 0.6789928
+  Position: [-5.8431215, 17.056978, -6.005582]
+  Pitch: 0.7400042
+  Yaw: 1.860996
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 904713175390046086
@@ -30,6 +30,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 1547501419547952814
@@ -57,6 +61,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 5362426847429019494
@@ -84,6 +92,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.799
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
   - Entity: 6482787951803675139
     TagComponent:
       Tag: Sphere_1
@@ -109,15 +121,19 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 6680434295012452241
     TagComponent:
       Tag: Capsule_1
     TransformComponent:
-      Translation: [1, 7.5, -3]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Translation: [0.5201176, 7.5, -5]
+      Rotation: [1.5707964, 0, 0]
+      Scale: [0.99999624, 1, 1]
     Rigidbody3DComponent:
       Type: 1
       FixedRotation: false
@@ -137,6 +153,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 9525373456108546852
@@ -165,6 +185,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 11143099165752719575
@@ -192,6 +216,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 11997904251082766831
@@ -229,6 +257,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 13929510452961889989
@@ -257,6 +289,10 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua
   - Entity: 17873331395247612581
@@ -269,6 +305,7 @@ Entities:
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
+      AspectRatio: 1.7777778
       OrthographicSize: 10
       OrthographicNear: -1
       OrthographicFar: 1
@@ -301,5 +338,9 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.5
       Metallic: 0
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
     LuaScriptComponent:
       ScriptPath: physics_playground/scripts/collision_logger.lua

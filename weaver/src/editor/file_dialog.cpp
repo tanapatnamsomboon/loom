@@ -14,9 +14,6 @@ namespace Weaver::FileDialog {
 
         constexpr ImVec2 kMinSize = { 920, 540 };
 
-        // Resolves the directory a dialog should open in. An explicit start_dir
-        // always wins; otherwise we default to the project's asset directory so
-        // the Game Developer lands inside their own assets, not the build dir.
         std::string ResolveStartDir(const std::string& start_dir) {
             if (!start_dir.empty())
                 return start_dir;
@@ -25,14 +22,10 @@ namespace Weaver::FileDialog {
             return ".";
         }
 
-        // Soft neutral text color for places-pane entries; the icon carries meaning.
         IGFD::FileStyle PlaceStyle(const char* icon) {
             return IGFD::FileStyle(ImVec4(0.82f, 0.84f, 0.88f, 1.0f), icon);
         }
 
-        // (Re)builds the "Project" places group from the active project's asset
-        // directory. Called on every dialog open so the group always tracks the
-        // currently loaded project, however it became active.
         void RefreshProjectPlaces() {
             auto* dlg = ImGuiFileDialog::Instance();
             dlg->RemovePlacesGroup("Project");
@@ -48,7 +41,6 @@ namespace Weaver::FileDialog {
             std::filesystem::path assets = Loom::Project::GetAssetDirectory();
             group->AddPlace("Assets", assets.generic_string(), false, PlaceStyle(ICON_FK_FOLDER_OPEN));
 
-            // Standard asset subfolders — listed only when they actually exist.
             for (const char* sub : { "scenes", "textures", "scripts", "models",
                                      "meshes", "audio", "fonts", "prefabs", "materials" }) {
                 std::filesystem::path p = assets / sub;
@@ -58,8 +50,6 @@ namespace Weaver::FileDialog {
             }
         }
 
-        // Seeds the "System" places group with the user's standard folders. This
-        // set is static for the session, so it runs once from Init().
         void SetupSystemPlaces() {
             const char* home = std::getenv("USERPROFILE");
             if (!home)
@@ -91,11 +81,9 @@ namespace Weaver::FileDialog {
     void Init() {
         auto* dlg = ImGuiFileDialog::Instance();
 
-        // Folders and the generic-file fallback.
         dlg->SetFileStyle(IGFD_FileStyleByTypeDir,  "", ImVec4(0.90f, 0.78f, 0.40f, 1.0f), ICON_FK_FOLDER);
         dlg->SetFileStyle(IGFD_FileStyleByTypeFile, "", ImVec4(0.78f, 0.80f, 0.82f, 1.0f), ICON_FK_FILE);
 
-        // Per-extension color + icon. Each call styles every file with that extension.
         auto ext = [dlg](const char* e, const ImVec4& c, const char* icon) {
             dlg->SetFileStyle(IGFD_FileStyleByExtention, e, c, icon);
         };
@@ -126,7 +114,6 @@ namespace Weaver::FileDialog {
 
         ext(".hdr", kHdr, ICON_FK_PICTURE_O);
 
-        // Seed the session-static System group in the places pane.
         SetupSystemPlaces();
     }
 
@@ -167,9 +154,7 @@ namespace Weaver::FileDialog {
         if (sActive.empty())
             return;
 
-        // Rounded corners on the dialog window + its inner widgets. Pushed around
-        // Display() so the dialog's internal Begin/End picks the values up, then
-        // popped so the rest of the editor keeps its own style.
+        // Push rounding around Display() so the dialog's inner Begin/End picks it up.
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,    8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,     8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,     6.0f);

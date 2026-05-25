@@ -24,9 +24,6 @@ namespace Weaver {
     // ────────────────────────────────────────────────────────────────────────
     ViewportPanel::ViewportPanel(EditorContext& ctx)
         : mContext(ctx) {
-        // HDR scene framebuffer — Color 0 is RGBA16F so linear radiance values
-        // above 1.0 survive until the tonemap pass. RED_INTEGER stays for entity
-        // picking (values are indices, unaffected by the float format change).
         Loom::FramebufferSpecification hdr_spec;
         hdr_spec.Attachments = {
             Loom::FramebufferTextureFormat::RGBA16F,
@@ -37,15 +34,11 @@ namespace Weaver {
         hdr_spec.Height = 720;
         mFramebuffer = Loom::Framebuffer::Create(hdr_spec);
 
-        // LDR intermediate framebuffer — plain RGBA8, receives the tonemapped
-        // sRGB output that FXAA samples as input.
         Loom::FramebufferSpecification ldr_spec;
         ldr_spec.Attachments = { Loom::FramebufferTextureFormat::RGBA8 };
         ldr_spec.Width  = 1280;
         ldr_spec.Height = 720;
-        mLDRFramebuffer = Loom::Framebuffer::Create(ldr_spec);
-
-        // Final framebuffer — FXAA writes here, ImGui::Image displays this.
+        mLDRFramebuffer   = Loom::Framebuffer::Create(ldr_spec);
         mFinalFramebuffer = Loom::Framebuffer::Create(ldr_spec);
     }
 
@@ -82,10 +75,6 @@ namespace Weaver {
     void ViewportPanel::HandleViewportResize() {
         ComputeGameViewRect();
 
-        // Pass the rendered "game view" size to the scene so non-fixed-aspect
-        // cameras (and the editor camera) project at the rendered aspect, not
-        // the panel aspect. In Edit mode mGameViewSize == panel size so this
-        // is identical to the previous behavior.
         mContext.ActiveScene->OnViewportResize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
 
         Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
@@ -102,7 +91,6 @@ namespace Weaver {
         const float panel_w = mContext.ViewportSize.x;
         const float panel_h = mContext.ViewportSize.y;
 
-        // Default: render fills the full panel.
         mGameViewSize   = { panel_w, panel_h };
         mGameViewOffset = { 0.0f, 0.0f };
 
@@ -110,7 +98,6 @@ namespace Weaver {
         if (mContext.SceneState != SceneState::Play) return;
         if (!mContext.ActiveScene) return;
 
-        // Find the primary camera; if it has a fixed aspect, that's our target.
         float target_aspect = 0.0f;
         auto view = mContext.ActiveScene->GetAllEntitiesWith<Loom::CameraComponent>();
         for (auto entity : view) {
@@ -124,10 +111,8 @@ namespace Weaver {
 
         const float panel_aspect = panel_w / panel_h;
         if (target_aspect > panel_aspect) {
-            // Camera is wider than panel → letterbox (bars on top/bottom).
             mGameViewSize = { panel_w, panel_w / target_aspect };
         } else {
-            // Camera is narrower than panel → pillarbox (bars on left/right).
             mGameViewSize = { panel_h * target_aspect, panel_h };
         }
         mGameViewOffset = { (panel_w - mGameViewSize.x) * 0.5f,
@@ -144,12 +129,6 @@ namespace Weaver {
             else
                 mContext.EditorCamera.ResetMousePosition();
 
-            // Skybox — scene's own env if assigned, else the editor's fallback
-            // HDR. The B.2 debug toggle (toolbar "Skybox Source") swaps env for
-            // irradiance so we can inspect convolution quality directly.
-            // Either side may resolve to null if the user has no scene env
-            // AND the engine default failed to load; in that case nothing
-            // draws and the clear color shows through.
             auto scene_skybox     = mContext.ActiveScene->GetSkyboxCubemap();
             auto scene_irradiance = mContext.ActiveScene->GetIrradianceCubemap();
             auto effective_skybox     = scene_skybox     ? scene_skybox
@@ -177,12 +156,8 @@ namespace Weaver {
         }
 
         if (mContext.SceneState == SceneState::Edit) {
-            // Grid is drawn *after* the meshes so its alpha blend uses whatever
-            // is in the framebuffer at that pixel — sky where no mesh covered
-            // it, or mesh color where a mesh sits behind the y=0 plane. Drawing
-            // it before the meshes (as we used to) made every grid line a
-            // sky-tinted island punched through dark geometry, which read as a
-            // bright halo around each line.
+            // Grid must draw AFTER meshes so its alpha blend uses the current
+            // framebuffer color (sky or mesh) instead of haloing each line.
             const auto& gs       = mContext.Grid;
             glm::vec3   cam_pos  = mContext.EditorCamera.GetPosition();
             glm::mat4   grid_transform = glm::translate(glm::mat4(1.0f), { cam_pos.x, 0.0f, cam_pos.z })
@@ -204,8 +179,6 @@ namespace Weaver {
 
     void ViewportPanel::UpdateHoveredEntity() {
         auto [mx, my] = ImGui::GetMousePos();
-        // Subtract panel origin + letterbox offset → coords relative to the
-        // game-view rect (which is the framebuffer's coordinate space).
         mx -= mContext.ViewportBounds[0].x + mGameViewOffset.x;
         my -= mContext.ViewportBounds[0].y + mGameViewOffset.y;
         my = mGameViewSize.y - my;
@@ -226,23 +199,16 @@ namespace Weaver {
     void ViewportPanel::EndFrame() {
         mFramebuffer->Unbind();
 
-        // Bloom pass — runs the downsample + upsample chain on the HDR scene
-        // and caches the result for the tonemap pass to composite.
         const auto& spec = mFramebuffer->GetSpecification();
         Loom::Renderer3D::BloomPass(mFramebuffer->GetColorAttachmentRendererID(0),
                                     spec.Width, spec.Height);
 
-        // Tonemap pass — ACES + sRGB from the linear HDR scene (with bloom
-        // composited internally) into the LDR intermediate buffer.
         mLDRFramebuffer->Bind();
         Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer3D::Tonemap(mFramebuffer->GetColorAttachmentRendererID(0));
         mLDRFramebuffer->Unbind();
 
-        // FXAA pass — anti-aliases the tonemapped sRGB image into the final
-        // display buffer. Skipped entirely when FXAA is disabled (e.g. for
-        // pixel-art 2D scenes); OnImGuiRender then shows mLDRFramebuffer.
         if (Loom::Renderer3D::IsFXAAEnabled()) {
             mFinalFramebuffer->Bind();
             Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -270,9 +236,8 @@ namespace Weaver {
         mContext.ViewportFocused = ImGui::IsWindowFocused();
         mContext.ViewportHovered = ImGui::IsWindowHovered();
 
-        // RMB-press inside the viewport force-focuses the window. ImGui defaults
-        // to LMB-only focus switching, so RMB-orbiting the camera while an
-        // Inspector text field had focus would route WASD into the textbox.
+        // RMB force-focus: ImGui only LMB-focuses windows; without this, RMB-orbiting
+        // would route WASD into whatever textbox last held focus.
         if (mContext.ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             ImGui::SetWindowFocus();
             mContext.ViewportFocused = true;
@@ -283,16 +248,10 @@ namespace Weaver {
         UpdateViewportBounds();
         UpdateViewportSize();
 
-        // Show the FXAA-resolved output when enabled, otherwise the raw
-        // tonemap output (which keeps pixel art crisp). Entity picking still
-        // reads from mFramebuffer (HDR) Color 1 (RED_INTEGER) — unchanged.
         uint32_t tex_id = Loom::Renderer3D::IsFXAAEnabled()
             ? mFinalFramebuffer->GetColorAttachmentRendererID(0)
             : mLDRFramebuffer->GetColorAttachmentRendererID(0);
 
-        // Letterbox: position the image inside the centered sub-rect. The
-        // surrounding panel area gets filled with black so the bars read as
-        // intentional framing rather than viewport bleed-through.
         ImVec2 image_pos = ImVec2{ mContext.ViewportBounds[0].x + mGameViewOffset.x,
                                    mContext.ViewportBounds[0].y + mGameViewOffset.y };
         ImGui::SetCursorScreenPos(image_pos);
@@ -300,7 +259,6 @@ namespace Weaver {
                      ImVec2{ mGameViewSize.x, mGameViewSize.y },
                      ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
-        // Bars (only drawn when an actual letterbox is active).
         if (mGameViewOffset.x > 0.0f || mGameViewOffset.y > 0.0f) {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImU32 bar_col = IM_COL32(0, 0, 0, 255);
@@ -328,7 +286,6 @@ namespace Weaver {
             ImGui::EndDragDropTarget();
         }
 
-        // Tile paint and the gizmo are mutually exclusive — paint mode hides the gizmo.
         if (mContext.Tool == ToolMode::TilePaint) {
             RenderTilePaint();
         } else {
@@ -361,21 +318,15 @@ namespace Weaver {
     }
 
     void ViewportPanel::RenderGizmo() {
-        // Gating: only in Edit mode, only when something with a Transform is
-        // selected, and only when the user has chosen a gizmo op.
         if (mContext.SceneState != SceneState::Edit) return;
         if (mContext.GizmoOp == GizmoOperation::None) return;
         Loom::Entity selected = mContext.HierarchyPanel ? mContext.HierarchyPanel->GetSelectedEntity() : Loom::Entity();
         if (!selected || !selected.HasComponent<Loom::TransformComponent>()) return;
         if (mContext.ViewportSize.x <= 0.0f || mContext.ViewportSize.y <= 0.0f) return;
 
-        // Per-frame ImGuizmo setup. SetAlternativeWindow is the critical fix:
-        // ImGuizmo::BeginFrame creates an internal NoInputs "gizmo" window and
-        // routes its IsHoveringWindow check against THAT window's name. Since
-        // a NoInputs window can never equal HoveredWindow, mbMouseOver stays
-        // false → GetMoveType returns MT_NONE → hover silently dies. Telling
-        // ImGuizmo that the viewport is the alternative interactive window
-        // makes IsHoveringWindow succeed when HoveredWindow == viewport.
+        // SetAlternativeWindow is required: ImGuizmo's BeginFrame creates an internal
+        // NoInputs window for hit-testing; without this hint, IsHoveringWindow fails
+        // against our viewport and gizmo hover silently dies.
         ImGuizmo::PushID(0);
         ImGuizmo::Enable(true);
         ImGuizmo::AllowAxisFlip(false);
@@ -386,7 +337,6 @@ namespace Weaver {
         ImGuizmo::SetRect(mContext.ViewportBounds[0].x, mContext.ViewportBounds[0].y,
                           mContext.ViewportSize.x,      mContext.ViewportSize.y);
 
-        // ── Map editor enums to ImGuizmo enums ──
         ImGuizmo::OPERATION op;
         switch (mContext.GizmoOp) {
             case GizmoOperation::Translate: op = ImGuizmo::TRANSLATE; break;
@@ -399,36 +349,28 @@ namespace Weaver {
                             ? ImGuizmo::WORLD
                             : ImGuizmo::LOCAL;
 
-        // ── Build matrices for ImGuizmo ──
         auto& tc            = selected.GetComponent<Loom::TransformComponent>();
         Loom::Entity parent = selected.GetParent();
-        glm::mat4 parent_world    = parent ? mContext.ActiveScene->GetWorldTransform(parent) : glm::mat4(1.0f);
+        glm::mat4 parent_world     = parent ? mContext.ActiveScene->GetWorldTransform(parent) : glm::mat4(1.0f);
         glm::mat4 parent_world_inv = glm::inverse(parent_world);
-        glm::mat4 entity_world    = parent_world * tc.GetTransform();
+        glm::mat4 entity_world     = parent_world * tc.GetTransform();
 
         glm::mat4 view = mContext.EditorCamera.GetViewMatrix();
         glm::mat4 proj = mContext.EditorCamera.GetProjectionMatrix();
 
-        // ImGuizmo writes the manipulated world matrix in place.
         ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
                              op, mode,
                              glm::value_ptr(entity_world),
-                             nullptr,  // delta matrix (unused)
-                             nullptr); // snap (TODO: wire into EditorContext later)
+                             nullptr,
+                             nullptr); // TODO: snap from EditorContext
 
-
-        // ── Drag-start: snapshot the local transform so we can push a single
-        // TransformEditCommand on drag-end (batches the whole drag as one
-        // undoable step instead of one per frame).
+        // Drag-start: snapshot for a single batched TransformEditCommand on drag-end.
         bool using_now = ImGuizmo::IsUsing();
         if (using_now && !mGizmoWasUsing) {
             mDragEntityUUID = (uint64_t)selected.GetComponent<Loom::IDComponent>().ID;
             mDragStartLocal = tc;
         }
 
-        // ── While dragging, decompose ImGuizmo's new world matrix back into a
-        // local transform on the entity. inverse(parent_world) strips the
-        // parent's contribution so parent-aware drags work correctly.
         if (using_now) {
             glm::mat4 new_local = parent_world_inv * entity_world;
             glm::vec3 t, r, s;
@@ -439,10 +381,8 @@ namespace Weaver {
             }
         }
 
-        // ── Drag-end: push the undo command if the entity actually changed.
         if (!using_now && mGizmoWasUsing && mDragEntityUUID != 0) {
-            // Look the entity up by UUID — the user may have deleted or swapped
-            // selection between drag start and end.
+            // UUID lookup: selection may have changed between drag start and end.
             Loom::Entity e = mContext.ActiveScene ? mContext.ActiveScene->GetEntityByUUID(Loom::UUID{ mDragEntityUUID })
                                                   : Loom::Entity();
             if (e && e.HasComponent<Loom::TransformComponent>()) {
@@ -487,7 +427,7 @@ namespace Weaver {
         Loom::Entity selected = mContext.HierarchyPanel->GetSelectedEntity();
         auto& tc = selected.GetComponent<Loom::TilemapComponent>();
 
-        // Defensive: keep Tiles sized to map dims (in case scripts/serializer drifted it).
+        // Defensive: scripts/serializer may have drifted Tiles size from map dims.
         int expected = tc.Columns * tc.Rows;
         if ((int)tc.Tiles.size() != expected) tc.Tiles.assign(expected, -1);
 
@@ -498,7 +438,6 @@ namespace Weaver {
         glm::mat4 proj = mContext.EditorCamera.GetProjectionMatrix();
         glm::mat4 vp   = proj * view;
 
-        // Tilemap world transform + the plane it lies on (local XY at z=0).
         glm::mat4 world      = mContext.ActiveScene->GetWorldTransform(selected);
         glm::vec3 plane_pt   = glm::vec3(world[3]);
         glm::vec3 plane_n_w  = glm::vec3(world[2]);
@@ -509,7 +448,6 @@ namespace Weaver {
         float hw = tc.Columns * tc.TileWidth  * 0.5f;
         float hh = tc.Rows    * tc.TileHeight * 0.5f;
 
-        // Project a tilemap-local point to absolute screen coords (for ImDrawList).
         auto local_to_abs = [&](glm::vec3 local) -> std::optional<ImVec2> {
             glm::vec4 ws = world * glm::vec4(local, 1.0f);
             auto vp_px = Loom::Math::WorldToScreen(glm::vec3(ws), vp_size, vp);
@@ -518,11 +456,10 @@ namespace Weaver {
                            vp_px->y + mContext.ViewportBounds[0].y };
         };
 
-        // Window draw list (not the foreground one) so the overlay respects the
-        // viewport's clip rect and doesn't bleed over docked panels like Inspector.
+        // Window draw list (not foreground) so the overlay respects the viewport clip rect.
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        // Outer border + interior grid lines (O(rows + cols), not O(rows*cols)).
+        // Border + interior lines walk rows/cols separately — O(R+C), not O(R*C).
         ImU32 grid_col   = IM_COL32(255, 255, 255,  90);
         ImU32 border_col = IM_COL32(255, 200,  80, 220);
 
@@ -549,8 +486,6 @@ namespace Weaver {
             if (a && b) dl->AddLine(*a, *b, grid_col, 1.0f);
         }
 
-        // Red tint for cells whose sheet tile is flagged Solid — shows the artist exactly
-        // which cells will spawn collider rectangles when the scene enters Play.
         if (!tc.Solid.empty()) {
             ImU32 solid_fill = IM_COL32(220, 60, 60, 70);
             for (int rr = 0; rr < tc.Rows; ++rr) {
@@ -573,9 +508,8 @@ namespace Weaver {
             }
         }
 
-        // Mouse-to-cell.
         if (!mContext.ViewportHovered) return;
-        if (ImGui::GetIO().WantTextInput)   return;
+        if (ImGui::GetIO().WantTextInput) return;
 
         ImVec2 mouse_abs = ImGui::GetMousePos();
         glm::vec2 mouse_vp = { mouse_abs.x - mContext.ViewportBounds[0].x,
@@ -590,7 +524,6 @@ namespace Weaver {
         int row = (int)std::floor((hh - hit_local.y) / tc.TileHeight);
         if (col < 0 || col >= tc.Columns || row < 0 || row >= tc.Rows) return;
 
-        // Hovered cell highlight.
         float cx0 = -hw + col * tc.TileWidth;
         float cx1 = cx0 + tc.TileWidth;
         float cy1 = hh - row * tc.TileHeight;
@@ -608,7 +541,7 @@ namespace Weaver {
             dl->AddPolyline(quad, 4, IM_COL32(255, 255, 255, 240), ImDrawFlags_Closed, 2.0f);
         }
 
-        // Paint while LMB is held. Idempotent per-cell — we only mutate if the tile changes.
+        // Paint is idempotent per-cell: only mutate if the tile would change.
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             int& tile = tc.Tiles[row * tc.Columns + col];
             if (tile != mContext.SelectedTileIndex) {

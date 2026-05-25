@@ -527,16 +527,9 @@ namespace Loom {
         const float inv_sc = 1.0f / (float)sheet_columns;
         const float inv_sr = 1.0f / (float)sheet_rows;
 
-        // Half-texel inset to stop adjacent tiles bleeding in at non-integer
-        // destination scales: u1 for tile N equals u0 for tile N+1, so a
-        // fragment whose interpolated UV lands exactly on the boundary (or
-        // bilinear-samples across it) reads from the neighbor. Pulling each
-        // edge half a texel inward eliminates the bleed under both nearest
-        // and linear filtering.
-        const float inv_tw = 1.0f / (float)spritesheet->GetWidth();
-        const float inv_th = 1.0f / (float)spritesheet->GetHeight();
-        const float hu = 0.5f * inv_tw;
-        const float hv = 0.5f * inv_th;
+        // Half-texel UV inset: stops adjacent tiles bleeding in at non-integer scales.
+        const float hu = 0.5f / (float)spritesheet->GetWidth();
+        const float hv = 0.5f / (float)spritesheet->GetHeight();
 
         for (int row = 0; row < rows; ++row) {
             for (int col = 0; col < columns; ++col) {

@@ -330,26 +330,19 @@ namespace Loom {
         std::string                AlbedoTexturePath; // relative to asset directory
         std::shared_ptr<Texture2D> AlbedoTexture;     // runtime handle — not serialized
 
-        // Material — surface. ORMTexture is the industry-standard packed map:
-        // R = ambient occlusion, G = roughness, B = metallic. The shader samples
-        // all three channels from the single texture; the Roughness/Metallic
-        // sliders below act as multipliers (white texture => factor only). AO
-        // modulates IBL ambient only — direct lighting stays untouched.
+        // ORM packs R=AO, G=roughness, B=metallic. Roughness/Metallic act as
+        // multipliers over the texture (white fallback => factor only).
         float                      Roughness = 0.5f;
         float                      Metallic  = 0.0f;
         std::string                ORMTexturePath; // relative to asset directory
         std::shared_ptr<Texture2D> ORMTexture;     // runtime handle — not serialized
 
-        // Material — emissive. EmissiveFactor is linear-space RGB (HDR — values
-        // above 1 are allowed); EmissiveTexture is sampled in sRGB and multiplied
-        // by the factor. Default factor 0 means no emission (the texture, if any,
-        // is effectively muted by the zero multiplier).
+        // Linear HDR multiplier × sRGB-sampled texture. Default 0 = no emission.
         glm::vec3                  EmissiveFactor = { 0.0f, 0.0f, 0.0f };
         std::string                EmissiveTexturePath;
         std::shared_ptr<Texture2D> EmissiveTexture;
 
-        // Material — normal map. Tangent-space normal map. Engine uses a
-        // 1×1 flat-normal fallback when this is empty so no shader branch is needed.
+        // Tangent-space; 1x1 flat-normal fallback when empty.
         std::string                NormalTexturePath;
         std::shared_ptr<Texture2D> NormalTexture;
 

@@ -16,13 +16,10 @@ namespace Loom {
         std::shared_ptr<Shader>    MeshShader;
         std::shared_ptr<Shader>    ShadowShader;
         std::shared_ptr<Texture2D> WhiteTexture;
-        // 1×1 RGBA=(128,128,255,255) — decodes to tangent-space (0,0,1) so the
-        // TBN transform yields the original geometry normal (no perturbation).
+        // 1x1 (128,128,255,255) — decodes to tangent-space (0,0,1) so TBN
+        // returns the geometry normal unchanged when no map is bound.
         std::shared_ptr<Texture2D> FlatNormalTexture;
 
-        // View-projection bound at UBO slot 0 (shared with Renderer2D — both write
-        // it at BeginScene; last-write-wins is fine since they are called in
-        // strict sequence per frame).
         struct CameraData {
             glm::mat4 ViewProjection;
         };
@@ -31,7 +28,6 @@ namespace Loom {
 
         glm::vec3 ViewPosition = glm::vec3(0.0f);
 
-        // Scratch storage for SoA upload to the shader.
         glm::vec3 DirLightDir[Renderer3D::kMaxDirectionalLights];
         glm::vec3 DirLightColor[Renderer3D::kMaxDirectionalLights];
         int       DirLightCount = 0;
@@ -41,79 +37,57 @@ namespace Loom {
         float     PointLightRange[Renderer3D::kMaxPointLights];
         int       PointLightCount = 0;
 
-        // ── IBL state ──
-        // Texture unit layout in Submit:
-        //   0     = albedo
-        //   1-4   = shadow cascades
-        //   5     = irradiance cubemap (diffuse ambient)
-        //   6     = prefiltered env cubemap (specular IBL, mips = roughness)
-        //   7     = BRDF LUT (split-sum scale+bias, generated once at Init)
+        // Mesh-shader texture unit layout:
+        //   0    = albedo
+        //   1-4  = shadow cascades
+        //   5    = irradiance cubemap
+        //   6    = prefiltered env (mips = roughness)
+        //   7    = BRDF LUT (split-sum)
+        //   8    = ORM (R=AO, G=rough, B=metal)
+        //   9    = emissive
+        //   10   = normal map
         std::shared_ptr<TextureCubemap> IrradianceMap;
         std::shared_ptr<TextureCubemap> PrefilterMap;
-        // BRDF LUT is an RG16F 2D texture owned as raw GL state — Texture2D's
-        // abstraction is RGBA8-only and adding a format-enum just for this
-        // single-instance global texture isn't worth it. Generated at Init,
-        // freed at Shutdown.
-        GLuint                          BRDFLUT      = 0;
-        // log2(prefilter face size) — uploaded to the shader so it knows the
-        // max LOD to clamp roughness against. 0 when no prefilter is bound.
+        GLuint                          BRDFLUT          = 0; // RG16F, raw GL (no engine abstraction needed)
         float                           MaxReflectionLOD = 0.0f;
 
-        // Debug visualization mode (see mesh.frag uDebugViz). 0 = normal PBR.
         int DebugViz = 0;
 
-        // ── Skybox state ──
-        // Unit cube + skybox shader owned here so both the editor and scene
-        // play-mode paths can call DrawSkybox without duplicating setup.
         std::shared_ptr<Shader>       SkyboxShader;
         std::shared_ptr<VertexArray>  SkyboxVAO;
         std::shared_ptr<VertexBuffer> SkyboxVBO;
 
-        // ── Tonemap state ──
-        // Empty VAO + fullscreen-triangle shader for the post-process tonemap
-        // pass that consumes the HDR scene framebuffer.
         std::shared_ptr<Shader>      TonemapShader;
         std::shared_ptr<VertexArray> TonemapVAO;
 
-        // ── Bloom state ──
-        // Mip chain (each half the resolution of the previous), rebuilt when
-        // the scene resolution changes. RGBA16F to keep HDR brights intact.
         std::vector<std::shared_ptr<Framebuffer>> BloomMips;
         uint32_t                BloomSceneWidth   = 0;
         uint32_t                BloomSceneHeight  = 0;
         std::shared_ptr<Shader> BloomDownsampleShader;
         std::shared_ptr<Shader> BloomUpsampleShader;
         std::shared_ptr<Shader> FXAAShader;
-        bool                    FXAAEnabled = true;
-        // Texture handle of the final bloom result (mip 0 after the upsample
-        // chain). 0 when bloom is disabled or no pass ran this frame.
+        bool                    FXAAEnabled       = true;
         uint32_t                BloomFinalTexture = 0;
         bool                    BloomEnabled      = true;
         float                   BloomThreshold    = 1.0f;
         float                   BloomIntensity    = 0.04f;
 
-        // ── Shadow state (cascaded) ──
-        // One framebuffer per cascade. Sized to a square depth texture each;
-        // mesh.frag has kCascadeCount sampler2D uniforms bound at units 1..N.
+        // One depth-only framebuffer per cascade.
         std::shared_ptr<Framebuffer> ShadowFramebuffers[Renderer3D::kCascadeCount];
         glm::mat4                    LightVPs       [Renderer3D::kCascadeCount];
         float                        CascadeSplits  [Renderer3D::kCascadeCount] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        // Index of cascade currently being rendered (between Begin/EndShadowPass).
         int                          ActiveCascade   = -1;
-        bool                         ShadowsActive   = false; // any cascade rendered this frame; consumed by Submit; cleared at EndScene
-        // Saved framebuffer + viewport restored at EndShadowPass.
-        int                          PrevFBO         = 0;
+        bool                         ShadowsActive   = false; // set on any cascade; cleared at EndScene
+        int                          PrevFBO         = 0;     // restored at last EndShadowPass
         int                          PrevViewport[4] = { 0, 0, 0, 0 };
     };
 
     static Renderer3DStorage sData;
 
     namespace {
-        // Generates the BRDF LUT for the Karis split-sum IBL approximation —
-        // 512×512 RG16F, axes = (NdotV, roughness), values = (scale, bias) for
-        // F = F0 * scale + bias. Runs once at Renderer3D::Init.
+        // Generates the Karis split-sum BRDF LUT (RG16F: axes = NdotV / roughness,
+        // values = F = F0 * scale + bias). Runs once at Renderer3D::Init.
         GLuint GenerateBRDFLUT(uint32_t size) {
-            constexpr GLuint   kBindTextureUnit = 7; // matches the mesh-shader uniform
             const std::string  shader_path =
                 Project::GetEngineAssetFileSystemPath("shaders/brdf_lut").generic_string();
             std::shared_ptr<Shader> shader = AssetManager::GetShader(shader_path);
@@ -127,11 +101,9 @@ namespace Loom {
             glTextureParameteri(lut, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTextureParameteri(lut, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            // Snapshot caller state so this Init helper restores cleanly.
-            // GL state leaked from this pass into long-lived render state has
-            // bitten us once already: forgetting to restore GL_BLEND turned
-            // transparent grid / icon edges opaque for the rest of the
-            // session. Save everything we touch, restore on the way out.
+            // GL state leaking from this Init helper has caused regressions before
+            // (forgetting to restore GL_BLEND made transparent grid lines opaque).
+            // Snapshot everything we touch, restore on exit.
             GLint     prev_fbo = 0, prev_viewport[4] = { 0, 0, 0, 0 };
             GLint     prev_vao = 0;
             GLfloat   prev_clear_color[4] = { 0, 0, 0, 0 };
@@ -146,15 +118,12 @@ namespace Loom {
             prev_cull  = glIsEnabled(GL_CULL_FACE);
             prev_blend = glIsEnabled(GL_BLEND);
 
-            // Scratch FBO + VAO (core profile requires a VAO bound even for
-            // gl_VertexID-only draws; the brdf_lut.vert reads no attributes).
+            // Core profile requires a VAO bound even for gl_VertexID-only draws.
             GLuint fbo = 0, vao = 0;
             glCreateFramebuffers(1, &fbo);
             glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, lut, 0);
-            // Explicit draw-buffer mapping. New FBOs technically default to
-            // GL_COLOR_ATTACHMENT0, but a handful of drivers (and some debug
-            // captures) have shipped with that initial state set to GL_NONE.
-            // Setting it explicitly is free and rules the class of bug out.
+            // Explicit draw-buffer mapping: some drivers ship the FBO default as
+            // GL_NONE despite the spec, which silently no-ops the draw.
             GLenum draw_bufs[] = { GL_COLOR_ATTACHMENT0 };
             glNamedFramebufferDrawBuffers(fbo, 1, draw_bufs);
             GLenum fb_status = glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
@@ -166,9 +135,6 @@ namespace Loom {
             }
             glCreateVertexArrays(1, &vao);
 
-            // Guard against color-write masks leaking in from earlier draws.
-            // (None should at engine-init time, but Renderer3D::Init runs
-            // after Application has touched GL once, so we're paranoid.)
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);
@@ -182,10 +148,9 @@ namespace Loom {
             glBindVertexArray(vao);
             glDrawArrays(GL_TRIANGLES, 0, 3);
 
-            // Verify a non-zero pixel landed. If the texture is still all
-            // zero after the draw, something silently no-op'd (most often
-            // a shader linkage / draw-buffer issue) and the LUT-sampled
-            // specular IBL will be invisible — surface the error early.
+            // Sanity-check: zero center pixel means the draw silently no-op'd
+            // (usually a shader linkage / draw-buffer issue) and specular IBL
+            // will be black.
             float pixel[4] = { 0, 0, 0, 0 };
             glGetTextureSubImage(lut, 0, (GLint)(size / 2), (GLint)(size / 2), 0,
                                  1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(pixel), pixel);
@@ -200,7 +165,6 @@ namespace Loom {
             glDeleteFramebuffers(1, &fbo);
             glDeleteVertexArrays(1, &vao);
 
-            // Restore caller state.
             if (prev_depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
             if (prev_cull)  glEnable(GL_CULL_FACE);  else glDisable(GL_CULL_FACE);
             if (prev_blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
@@ -210,7 +174,6 @@ namespace Loom {
             glBindVertexArray((GLuint)prev_vao);
             glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
 
-            (void)kBindTextureUnit;
             LOOM_CORE_TRACE("IBL: BRDF LUT generated ({}x{} RG16F, split-sum)", size, size);
             return lut;
         }
@@ -228,15 +191,12 @@ namespace Loom {
         sData.WhiteTexture->SetData(&white, sizeof(uint32_t));
 
         sData.FlatNormalTexture = Texture2D::Create(1, 1);
-        // GL_RGBA + GL_UNSIGNED_BYTE reads bytes in memory order.
-        // On little-endian: 0xFFFF8080 -> bytes [80,80,FF,FF] -> R=128, G=128, B=255, A=255
-        // which decodes in the shader as tangent-space (0,0,1) = no perturbation.
+        // Little-endian: 0xFFFF8080 -> bytes [80,80,FF,FF] -> (128,128,255,255).
         uint32_t flat_normal    = 0xFFFF8080;
         sData.FlatNormalTexture->SetData(&flat_normal, sizeof(uint32_t));
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
 
-        // One depth-only shadow framebuffer per cascade. DEPTH32F, no color attachments.
         FramebufferSpecification shadow_spec;
         shadow_spec.Width       = kShadowMapSize;
         shadow_spec.Height      = kShadowMapSize;
@@ -245,9 +205,6 @@ namespace Loom {
             sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
         }
 
-        // Bind sampler units once: albedo on 0, cascade shadows on 1..kCascadeCount,
-        // IBL irradiance on 5, prefilter cubemap on 6, BRDF LUT on 7,
-        // ORM map on 8 (R=AO, G=rough, B=metal), emissive on 9.
         sData.MeshShader->Bind();
         sData.MeshShader->UploadUniformInt("uAlbedoTexture",            0);
         sData.MeshShader->UploadUniformInt("uShadowMap0",               1);
@@ -261,12 +218,9 @@ namespace Loom {
         sData.MeshShader->UploadUniformInt("uEmissiveTexture",          9);
         sData.MeshShader->UploadUniformInt("uNormalMapTexture",        10);
 
-        // BRDF LUT — environment-independent, generated once at engine init.
         sData.BRDFLUT = GenerateBRDFLUT(512);
 
-        // Skybox cube: 8 unique vertices, 36 indices via IBO. Same layout the
-        // editor used to keep inline — moved here so the play-mode path can
-        // also draw a skybox without duplicating geometry/shader setup.
+        // Skybox cube: 8 unique vertices, 36 indices.
         float skybox_vertices[] = {
             -1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f,
             -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f
@@ -291,10 +245,8 @@ namespace Loom {
         std::string skybox_shader_path = Project::GetEngineAssetFileSystemPath("shaders/skybox").generic_string();
         sData.SkyboxShader             = AssetManager::GetShader(skybox_shader_path);
 
-        // Tonemap shader + empty VAO. The vertex shader uses gl_VertexID to
-        // emit a fullscreen triangle, so no vertex buffer is needed — but a
-        // VAO must still be bound in OpenGL 4.6 core profile for the draw to
-        // be valid.
+        // Tonemap + bloom + FXAA use gl_VertexID-only fullscreen triangles;
+        // core profile still requires a bound VAO for the draw to be valid.
         std::string tonemap_shader_path = Project::GetEngineAssetFileSystemPath("shaders/tonemap").generic_string();
         sData.TonemapShader = AssetManager::GetShader(tonemap_shader_path);
         sData.TonemapShader->Bind();
@@ -302,7 +254,6 @@ namespace Loom {
         sData.TonemapShader->UploadUniformInt("uBloom",    1);
         sData.TonemapVAO = VertexArray::Create();
 
-        // Bloom shaders — downsample (with optional bright-pass) + upsample (tent).
         std::string bloom_ds_path = Project::GetEngineAssetFileSystemPath("shaders/bloom_downsample").generic_string();
         sData.BloomDownsampleShader = AssetManager::GetShader(bloom_ds_path);
         sData.BloomDownsampleShader->Bind();
@@ -349,7 +300,6 @@ namespace Loom {
         sData.CameraUniformBuffer->SetData(&sData.CameraBuffer.ViewProjection, sizeof(glm::mat4));
         sData.ViewPosition = camera.GetPosition();
 
-        // Reset light state; SetLights is called per-frame to refill.
         sData.DirLightCount   = 0;
         sData.PointLightCount = 0;
     }
@@ -364,8 +314,6 @@ namespace Loom {
     }
 
     void Renderer3D::EndScene() {
-        // Shadow state only applies to the 3D pass we just ran. Clear it so
-        // any subsequent BeginScene without a matching shadow pass is shadow-free.
         sData.ShadowsActive = false;
     }
 
@@ -379,10 +327,8 @@ namespace Loom {
 
     void Renderer3D::SetPrefilterMap(const std::shared_ptr<TextureCubemap>& prefilter) {
         sData.PrefilterMap = prefilter;
-        // The shader samples `textureLod(uPrefilterMap, R, roughness * uMaxReflectionLOD)`,
-        // so MaxLOD must match the cubemap's last mip index. For a face_size
-        // of N, mip count is floor(log2(N)) + 1 — the last mip's LOD index
-        // is mip_count - 1.
+        // Shader samples textureLod(R, roughness * uMaxReflectionLOD), so this
+        // must equal the cubemap's last mip index.
         if (prefilter && prefilter->GetMipLevels() > 0) {
             sData.MaxReflectionLOD = float(prefilter->GetMipLevels() - 1);
         } else {
@@ -418,15 +364,14 @@ namespace Loom {
         sData.ActiveCascade           = cascade_index;
         sData.ShadowsActive           = true;
 
-        // Save current FBO + viewport on the FIRST cascade only — restoring on
-        // every EndShadowPass would thrash, and the saved values are identical
-        // for back-to-back cascades within one frame.
+        // Save FBO+viewport on the first cascade only; cascades within a frame
+        // share the same caller state, so restoring per-cascade would thrash.
         if (cascade_index == 0) {
             glGetIntegerv(GL_FRAMEBUFFER_BINDING, &sData.PrevFBO);
             glGetIntegerv(GL_VIEWPORT,            sData.PrevViewport);
         }
 
-        sData.ShadowFramebuffers[cascade_index]->Bind(); // also sets viewport to shadow map size
+        sData.ShadowFramebuffers[cascade_index]->Bind();
         glClear(GL_DEPTH_BUFFER_BIT);
 
         sData.ShadowShader->Bind();
@@ -448,7 +393,6 @@ namespace Loom {
     void Renderer3D::EndShadowPass() {
         if (sData.ActiveCascade < 0) return;
 
-        // Restore the caller's framebuffer + viewport on the LAST cascade only.
         if (sData.ActiveCascade == kCascadeCount - 1) {
             glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)sData.PrevFBO);
             glViewport(sData.PrevViewport[0], sData.PrevViewport[1],
@@ -488,7 +432,6 @@ namespace Loom {
 
         sData.MeshShader->Bind();
 
-        // Per-draw uniforms
         sData.MeshShader->UploadUniformMat4  ("uModel",        transform);
         sData.MeshShader->UploadUniformFloat4("uAlbedoColor",  albedo_color);
         sData.MeshShader->UploadUniformFloat ("uRoughness",     roughness);
@@ -496,8 +439,6 @@ namespace Loom {
         sData.MeshShader->UploadUniformFloat3("uEmissiveFactor", emissive_factor);
         sData.MeshShader->UploadUniformInt   ("uEntityID",      entity_id);
 
-        // Per-frame uniforms (cheap to re-upload; keeps Submit self-sufficient
-        // even if SetLights / camera state changes mid-frame).
         sData.MeshShader->UploadUniformFloat3("uViewPos",      sData.ViewPosition);
         sData.MeshShader->UploadUniformInt   ("uDirLightCount",   sData.DirLightCount);
         sData.MeshShader->UploadUniformInt   ("uPointLightCount", sData.PointLightCount);
@@ -511,10 +452,6 @@ namespace Loom {
             sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
         }
 
-        // IBL — bind irradiance (5), prefilter (6), BRDF LUT (7). The `uHasIBL`
-        // gate flips on when *any* of the three is present; the shader handles
-        // a missing prefilter/LUT by skipping just the specular IBL term. In
-        // practice the scene either has the full triple bound or nothing.
         bool has_ibl = sData.IrradianceMap || sData.PrefilterMap;
         sData.MeshShader->UploadUniformInt  ("uHasIBL",          has_ibl ? 1 : 0);
         sData.MeshShader->UploadUniformInt  ("uHasPrefilter",    sData.PrefilterMap ? 1 : 0);
@@ -523,46 +460,33 @@ namespace Loom {
         if (sData.PrefilterMap)  sData.PrefilterMap->Bind(6);
         if (sData.BRDFLUT)       glBindTextureUnit(7, sData.BRDFLUT);
 
-        // Debug visualization mode (0 = normal PBR path).
         sData.MeshShader->UploadUniformInt("uDebugViz", sData.DebugViz);
 
-        // Shadow uniforms — only meaningful when at least one cascade ran this frame.
         sData.MeshShader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);
         if (sData.ShadowsActive) {
-            // Per-cascade VP matrices + far-plane splits (used by the frag shader
-            // to pick which cascade to sample based on view-space depth).
             sData.MeshShader->UploadUniformMat4 ("uLightVP0",       sData.LightVPs[0]);
             sData.MeshShader->UploadUniformMat4 ("uLightVP1",       sData.LightVPs[1]);
             sData.MeshShader->UploadUniformMat4 ("uLightVP2",       sData.LightVPs[2]);
             sData.MeshShader->UploadUniformMat4 ("uLightVP3",       sData.LightVPs[3]);
             sData.MeshShader->UploadUniformFloatArray("uCascadeSplits", sData.CascadeSplits, kCascadeCount);
 
-            // Bind all cascade depth textures to units 1..N.
             for (int i = 0; i < kCascadeCount; ++i) {
                 uint32_t tex = sData.ShadowFramebuffers[i]->GetDepthAttachmentRendererID();
                 glActiveTexture(GL_TEXTURE1 + i);
                 glBindTexture(GL_TEXTURE_2D, tex);
             }
-            glActiveTexture(GL_TEXTURE0); // restore the conventional active unit
+            glActiveTexture(GL_TEXTURE0);
         }
 
         const auto& tex = albedo_texture ? albedo_texture : sData.WhiteTexture;
         tex->Bind(0);
 
-        // ORM map on unit 8 (R=AO, G=roughness, B=metallic). White fallback
-        // => no occlusion + factors pass through unchanged (G/B == 1.0). The
-        // shader always samples it, no per-draw "has map" branch.
         const auto& orm_tex = orm_texture ? orm_texture : sData.WhiteTexture;
         orm_tex->Bind(8);
 
-        // Emissive on unit 9. White fallback × zero EmissiveFactor still mutes
-        // the term, so the common no-emissive case has no extra cost.
         const auto& em_tex = emissive_texture ? emissive_texture : sData.WhiteTexture;
         em_tex->Bind(9);
 
-        // Normal map on unit 10. Flat-normal fallback decodes to (0,0,1) in
-        // tangent space, which TBN transforms back to the geometry normal — no
-        // perturbation, so existing meshes without a normal map are unaffected.
         const auto& nrm_tex = normal_texture ? normal_texture : sData.FlatNormalTexture;
         nrm_tex->Bind(10);
 
@@ -607,8 +531,6 @@ namespace Loom {
             return;
         }
 
-        // Rebuild the mip chain when the scene resolution changes. Each mip
-        // is half the previous; stop adding mips once dimensions drop below 4.
         if (scene_width != sData.BloomSceneWidth || scene_height != sData.BloomSceneHeight) {
             sData.BloomMips.clear();
             constexpr int kMaxMips = 6;
@@ -632,7 +554,6 @@ namespace Loom {
             return;
         }
 
-        // Save GL state that the bloom passes change.
         GLboolean prev_blend     = glIsEnabled(GL_BLEND);
         GLboolean prev_depth     = glIsEnabled(GL_DEPTH_TEST);
         GLint     prev_blend_src = 0, prev_blend_dst = 0;
@@ -655,7 +576,7 @@ namespace Loom {
         uint32_t src_width  = scene_width;
         uint32_t src_height = scene_height;
         for (size_t i = 0; i < sData.BloomMips.size(); ++i) {
-            sData.BloomMips[i]->Bind(); // also sets viewport to this mip's size
+            sData.BloomMips[i]->Bind();
             sData.BloomDownsampleShader->UploadUniformInt   ("uPrefilter",
                                                              (i == 0) ? 1 : 0);
             sData.BloomDownsampleShader->UploadUniformFloat2("uSrcTexelSize",
@@ -669,10 +590,7 @@ namespace Loom {
             src_height = spec.Height;
         }
 
-        // ── Upsample chain (additive) ──
-        // Walk from the smallest mip toward mip 0; each step samples the
-        // smaller mip with a 3x3 tent and additively blends on top of the
-        // current mip's downsample content.
+        // ── Upsample chain (3x3 tent, additive over downsample content) ──
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
 
@@ -682,7 +600,7 @@ namespace Loom {
             auto& current_mip = sData.BloomMips[i];
             auto& smaller_mip = sData.BloomMips[i + 1];
 
-            current_mip->Bind(); // sets viewport to current mip
+            current_mip->Bind();
             const auto& smaller_spec = smaller_mip->GetSpecification();
             sData.BloomUpsampleShader->UploadUniformFloat2("uSrcTexelSize",
                 glm::vec2(1.0f / float(smaller_spec.Width),
@@ -693,7 +611,6 @@ namespace Loom {
 
         sData.BloomFinalTexture = sData.BloomMips[0]->GetColorAttachmentRendererID(0);
 
-        // Restore caller state.
         if (prev_blend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
         if (prev_depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
         glBlendFunc((GLenum)prev_blend_src, (GLenum)prev_blend_dst);

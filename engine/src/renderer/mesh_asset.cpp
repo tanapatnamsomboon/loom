@@ -58,15 +58,11 @@ namespace Loom {
         bool any_uvs     = false;
         bool any_normals = false;
 
-        // First primitive material wins — our import concatenates every
-        // primitive into a single VAO, so the mesh carries one material.
+        // First primitive material wins — all primitives concatenate into one VAO.
         const cgltf_material* material_src = nullptr;
 
-        // Bakes one cgltf_mesh's primitives into the shared vertex / index
-        // buffers, transforming positions by `world` and normals by the
-        // inverse-transpose of its upper 3x3 (so non-uniform scale doesn't
-        // skew them). Hoisted out of the scene-graph walk below so a node
-        // and a no-scene-graph fallback can share the same code path.
+        // Bakes one cgltf_mesh's primitives into the shared vertex/index buffers,
+        // transforming by world (positions) and inverse-transpose (normals).
         auto emit_mesh = [&](const cgltf_mesh& mesh, const glm::mat4& world,
                              const glm::mat3& normal_matrix) {
             for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi) {
@@ -115,8 +111,7 @@ namespace Loom {
 
                     glm::vec3 nrm_local = glm::vec3(0.0f, 0.0f, 1.0f);
                     if (nrm_acc) cgltf_accessor_read_float(nrm_acc, i, &nrm_local.x, 3);
-                    // Renormalize after transform — non-uniform scale stretches
-                    // the normal even with the inverse-transpose remap.
+                    // Renormalize: non-uniform scale stretches the normal even with the inverse-transpose remap.
                     glm::vec3 nrm_world = normal_matrix * nrm_local;
                     float     len2      = glm::dot(nrm_world, nrm_world);
                     v.Normal = (len2 > 1e-8f) ? nrm_world * glm::inversesqrt(len2)
@@ -124,11 +119,8 @@ namespace Loom {
 
                     if (uv_acc) {
                         cgltf_accessor_read_float(uv_acc, i, &v.TexCoord.x, 2);
-                        // glTF UV origin is top-left (+V down). The engine loads
-                        // every texture with stbi flip-vertically-on-load (so
-                        // Renderer2D's bottom-left quad UVs show sprites upright),
-                        // which puts GL t=0 at the image bottom. Flip mesh V here
-                        // so glTF UVs land on the correct texel rows.
+                        // V-flip: textures load with stbi flip-vertically (engine convention),
+                        // so glTF top-left UVs need their V flipped to land on the right texel.
                         v.TexCoord.y = 1.0f - v.TexCoord.y;
                     } else {
                         v.TexCoord = glm::vec2(0.0f);
@@ -137,8 +129,7 @@ namespace Loom {
                     if (tan_acc) {
                         glm::vec4 tan_local;
                         cgltf_accessor_read_float(tan_acc, i, &tan_local.x, 4);
-                        // glTF spec: tangent xyz transforms by the model's upper 3x3
-                        // (not the inverse-transpose — w carries handedness, not direction).
+                        // glTF: tangent xyz transforms by upper-3x3, not inverse-transpose (w = handedness).
                         glm::vec3 t_world = model3 * glm::vec3(tan_local);
                         float     tlen2   = glm::dot(t_world, t_world);
                         t_world = (tlen2 > 1e-8f) ? t_world * glm::inversesqrt(tlen2)
@@ -158,16 +149,14 @@ namespace Loom {
                         indices[istart + i] = (uint32_t)(cgltf_accessor_read_index(prim.indices, i) + vstart);
                     }
                 } else {
-                    // Non-indexed primitive: emit a sequential index list.
                     indices.reserve(indices.size() + vcount);
                     for (cgltf_size i = 0; i < vcount; ++i)
                         indices.push_back((uint32_t)(vstart + i));
                 }
 
-                // Lengyel per-triangle tangent accumulation when the glTF had no TANGENT attribute.
+                // Lengyel per-triangle tangent accumulation (no TANGENT attribute).
                 if (!tan_acc) {
                     const cgltf_size icount_this = indices.size() - istart_this_prim;
-                    // Accumulate tangent/bitangent sums into Tangent.xyz / Normal.xyz reuse via temp vecs.
                     std::vector<glm::vec3> tan_sum(vcount, glm::vec3(0.0f));
                     std::vector<glm::vec3> btn_sum(vcount, glm::vec3(0.0f));
                     for (cgltf_size t = 0; t < icount_this; t += 3) {
@@ -201,12 +190,9 @@ namespace Loom {
             }
         };
 
-        // Walk the glTF scene graph, baking each node's world transform into
-        // its referenced mesh. Without this, models that ship with a non-
-        // identity root node (e.g. DamagedHelmet, or anything exported from
-        // Blender's "+Y up" preset which inserts a root axis-conversion
-        // rotation) come in mis-oriented because cgltf stores mesh vertices
-        // in node-local space.
+        // Bake each node's world transform into its mesh — cgltf stores vertices
+        // in node-local space, so models with non-identity roots (DamagedHelmet,
+        // Blender +Y-up axis-conversion) come in mis-oriented otherwise.
         auto walk_node = [&](auto& self, const cgltf_node* node) -> void {
             cgltf_float wm_raw[16];
             cgltf_node_transform_world(node, wm_raw);
@@ -234,23 +220,18 @@ namespace Loom {
                 walk_scene(&data->scenes[si]);
         }
         if (!walked_any) {
-            // Defensive fallback: file has no scene graph (rare, but legal).
-            // Walk all meshes with identity transform — preserves the
-            // pre-fix behavior so we don't regress anything that loaded before.
+            // Defensive fallback: no scene graph (rare but legal).
             for (cgltf_size mi = 0; mi < data->meshes_count; ++mi)
                 emit_mesh(data->meshes[mi], glm::mat4(1.0f), glm::mat3(1.0f));
         }
 
-        // ── Material (pbrMetallicRoughness + occlusion + emissive) ───────
-        // Extracted before cgltf_free since material_src points into `data`.
+        // Material extraction must happen before cgltf_free — material_src points into `data`.
         MeshMaterial material;
         if (material_src) {
             material.HasMaterial = true;
 
-            // Resolves a glTF texture-view's external URI into `out`, or warns
-            // (and leaves `out` empty) when the texture is embedded (.glb
-            // buffer-view / data-URI) — those would need stb-from-memory decode,
-            // tracked separately on the roadmap.
+            // Embedded textures (.glb buffer-view or data:) need stb-from-memory
+            // decode (roadmap); for now warn and leave the URI empty.
             auto extract_uri = [&](const cgltf_texture* tex, const char* label,
                                    std::string& out) {
                 const char* uri = (tex && tex->image) ? tex->image->uri : nullptr;
@@ -274,18 +255,12 @@ namespace Loom {
                 material.RoughnessFactor = pbr.roughness_factor;
                 extract_uri(pbr.base_color_texture.texture,         "base-color",
                             material.BaseColorTexture);
-                // The metallic-roughness texture *is* the ORM texture in our
-                // model. R is also used as AO; G/B are roughness/metallic.
+                // Engine convention: MR texture doubles as ORM (R=AO, G=rough, B=metal).
                 extract_uri(pbr.metallic_roughness_texture.texture, "ORM",
                             material.ORMTexture);
             }
 
-            // glTF also exposes occlusionTexture as a separate slot. The ORM
-            // convention reuses the metallic-roughness texture for AO (R), so
-            // when both slots reference the same image we silently treat it
-            // as the ORM map. When they point to *different* images, the
-            // author hasn't followed the convention — log a warning and stick
-            // with the MR texture (which we already imported above).
+            // Separate occlusionTexture is non-ORM; warn and keep the MR import above.
             const cgltf_texture* occ_tex = material_src->occlusion_texture.texture;
             const cgltf_texture* mr_tex  = material_src->has_pbr_metallic_roughness
                 ? material_src->pbr_metallic_roughness.metallic_roughness_texture.texture
@@ -299,21 +274,15 @@ namespace Loom {
                                path);
             }
 
-            // Normal map is also on cgltf_material directly.
-            extract_uri(material_src->normal_texture.texture, "normal",
+            extract_uri(material_src->normal_texture.texture,   "normal",
                         material.NormalTexture);
-
-            // Emissive lives on cgltf_material directly, not nested inside
-            // pbrMetallicRoughness, so it applies to any material.
-            extract_uri(material_src->emissive_texture.texture,  "emissive",
+            extract_uri(material_src->emissive_texture.texture, "emissive",
                         material.EmissiveTexture);
 
             glm::vec3 e_factor(material_src->emissive_factor[0],
                                material_src->emissive_factor[1],
                                material_src->emissive_factor[2]);
-            // KHR_materials_emissive_strength multiplies the factor to push it
-            // into HDR territory. We fold it into the factor at import time so
-            // consumers can apply it verbatim.
+            // Fold KHR_materials_emissive_strength into the factor at import time.
             if (material_src->has_emissive_strength)
                 e_factor *= material_src->emissive_strength.emissive_strength;
             material.EmissiveFactor = e_factor;
@@ -359,9 +328,6 @@ namespace Loom {
     }
 
     void MeshAsset::Reload() {
-        // Re-run the importer through Create() so we share one code path for
-        // parsing + scene-graph baking + material extraction. On success, swap
-        // internals so existing shared_ptr holders pick up the refreshed data.
         auto fresh = MeshAsset::Create(mPath);
         if (!fresh) {
             LOOM_CORE_ERROR("MeshAsset: reload failed for '{}', keeping previous data", mPath);

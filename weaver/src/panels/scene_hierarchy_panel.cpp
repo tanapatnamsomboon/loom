@@ -457,7 +457,6 @@ namespace Weaver {
                         camera.SetAspectRatio(cc.AspectRatio);
                         is_modified = true;
                     }
-                    // Preset row — common shipping aspects.
                     struct AspectPreset { const char* label; float value; };
                     static const AspectPreset presets[] = {
                         { "16:9",  16.0f / 9.0f },
@@ -1371,14 +1370,8 @@ namespace Weaver {
                 if (ImGui::DragInt2("Sheet (cols x rows)", sheet, 1, 1, 64)) {
                     tm.SheetColumns = std::max(1, sheet[0]);
                     tm.SheetRows    = std::max(1, sheet[1]);
-                    // Solid is keyed by sheet-tile index — must resize in the
-                    // same frame so the palette render below doesn't read past
-                    // the old end. The top-of-block defensive resize only
-                    // catches mismatches at *frame start*; growing the sheet
-                    // mid-frame slips past it. Existing flags keep their
-                    // linear indices (so growing rows preserves the in-place
-                    // mapping; growing columns shifts which (row,col) each
-                    // flag points at — acceptable, the user can re-mark).
+                    // Solid is sheet-tile-indexed; resize in the same frame to keep
+                    // the palette read below from running off the old end.
                     tm.Solid.resize(tm.SheetColumns * tm.SheetRows, false);
                     is_modified     = true;
                 }
@@ -1772,15 +1765,12 @@ namespace Weaver {
                         mrc.AlbedoColor   = gm.BaseColorFactor;
                         mrc.Roughness     = gm.RoughnessFactor;
                         mrc.Metallic      = gm.MetallicFactor;
-                        mrc.EmissiveFactor = gm.EmissiveFactor; // already folds KHR emissive_strength
+                        mrc.EmissiveFactor = gm.EmissiveFactor; // folds KHR_materials_emissive_strength
 
                         // glTF texture URIs are relative to the model file's directory.
                         std::filesystem::path model_dir =
                             std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
 
-                        // Resolves a glTF-relative texture URI to a loaded Texture2D +
-                        // project-relative path, warning (and skipping) when the file
-                        // is missing next to the model. label is for the log message.
                         auto import_tex = [&](const std::string& uri, const char* label,
                                               std::shared_ptr<Loom::Texture2D>& out_tex,
                                               std::string& out_path) {
@@ -1887,13 +1877,7 @@ namespace Weaver {
                 is_modified |= ImGui::SliderFloat("Roughness", &mrc.Roughness, 0.0f, 1.0f);
                 is_modified |= ImGui::SliderFloat("Metallic",  &mrc.Metallic,  0.0f, 1.0f);
 
-                // ---- Material: ORM map ------------------------------------------
-                // Industry-standard packed texture: R=AmbientOcclusion,
-                // G=Roughness, B=Metallic. Substance Painter, Unreal, and
-                // Blender's glTF exporter (with the glTF Settings node wired
-                // to the AO texture) all emit this layout by default. The
-                // Roughness / Metallic sliders multiply the sampled G/B —
-                // assign a texture and the sliders act as scale factors.
+                // ---- Material: ORM map (R=AO, G=Roughness, B=Metallic) ----------
                 {
                     ImTextureID orm_id = (ImTextureID)(uintptr_t)(mrc.ORMTexture
                         ? mrc.ORMTexture->GetRendererID()
@@ -1957,11 +1941,7 @@ namespace Weaver {
                     ImGui::PopID();
                 }
 
-                // ---- Material: emissive -----------------------------------------
-                // HDR-allowed factor (multiplies the emissive texture). Default
-                // (0,0,0) means the material is not emissive even when a texture
-                // is assigned — common for non-emissive materials whose authored
-                // emissive slot is just left at zero in the glTF.
+                // ---- Material: emissive (HDR factor multiplies the texture) ----
                 is_modified |= ImGui::ColorEdit3("Emissive", glm::value_ptr(mrc.EmissiveFactor),
                                                  ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
                 {
@@ -2027,10 +2007,7 @@ namespace Weaver {
                     ImGui::PopID();
                 }
 
-                // ---- Material: normal map ----------------------------------------
-                // Tangent-space normal map. A 1×1 flat-normal fallback is used when
-                // empty so no shader branch is needed. Import from glTF via the
-                // "Import Material" button above.
+                // ---- Material: normal map (tangent-space; flat fallback when empty)
                 {
                     ImTextureID nrm_id = (ImTextureID)(uintptr_t)(mrc.NormalTexture
                         ? mrc.NormalTexture->GetRendererID()

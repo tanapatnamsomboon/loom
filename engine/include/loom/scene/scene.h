@@ -51,9 +51,7 @@ namespace Loom {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void   DestroyEntity(Entity entity);
 
-        // Deep-copies an entity (all components + descendant subtree) into the
-        // same scene. The copy gets fresh UUIDs and is parented as a sibling of
-        // the source. Returns the new root entity (null if src is invalid).
+        // Deep-copies entity + descendants with fresh UUIDs; parents as sibling of src.
         Entity DuplicateEntity(Entity src);
 
         Entity    GetEntityByUUID(UUID uuid);

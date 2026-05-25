@@ -35,12 +35,7 @@
 namespace Loom {
     Scene::Scene() {
         std::string camera_icon_path = Project::GetEngineAssetFileSystemPath("icons/camera_icon.png").generic_string();
-        // Editor icons skip mipmap generation. Mip box-averaging mixes the
-        // opaque icon RGB with the PNG's transparent pixels' RGB (typically
-        // white in unauthored PNGs), producing a low-alpha white halo that
-        // bleeds through alpha blending at distance. Nearest + clamp + no mips
-        // pairs with the quad shader's alpha-discard to give perfectly crisp
-        // icon edges at any zoom.
+        // Nearest + Clamp + no mips: avoids box-average halo from transparent PNG pixels.
         TextureSpecification icon_spec;
         icon_spec.Filter       = FilterMode::Nearest;
         icon_spec.Wrap         = WrapMode::Clamp;
@@ -139,9 +134,8 @@ namespace Loom {
         }
     }
 
-    // Copy every listed component that exists on `src` onto `dst`, within one
-    // registry. Component copy-constructors null out runtime handles (physics
-    // bodies, sounds, GPU resources) — the same contract Scene::Copy relies on.
+    // Copies the listed components from `src` to `dst` within a single registry.
+    // Component copy-ctors null out runtime handles — same contract Scene::Copy uses.
     template<typename... Component>
     static void CopyEntityComponents(entt::registry& reg, entt::entity dst, entt::entity src) {
         ([&] {
@@ -263,9 +257,8 @@ namespace Loom {
         return entity;
     }
 
-    // Physics3D contact-event plumbing — the Pimpl payload declared in scene.h.
-    // Defined here, near the top, so Scene members above (DestroyEntity) can
-    // touch its fields; LoomContactListener3D further down also uses it.
+    // Physics3D contact-event Pimpl (declared in scene.h). Defined above
+    // DestroyEntity so it can touch the fields.
     struct Physics3DEventState {
         enum class Kind : uint8_t { Begin, End };
         struct Event { Kind kind; uint32_t body_a; uint32_t body_b; };
@@ -299,9 +292,8 @@ namespace Loom {
             }
         }
 
-        // Tear down any runtime Box2D body so destroying an entity mid-play
-        // can't leave an orphaned body still emitting contact/sensor events or
-        // being hit by raycasts (which would resolve to this dead entity).
+        // Tear down runtime bodies so mid-play destroys can't leave orphans
+        // firing contact/sensor events against a dead entity handle.
         if (entity.HasComponent<Rigidbody2DComponent>()) {
             auto& rb = entity.GetComponent<Rigidbody2DComponent>();
             if (b2Body_IsValid(rb.RuntimeBody)) {
@@ -349,7 +341,7 @@ namespace Loom {
             SphereCollider3DComponent, CapsuleCollider3DComponent
         >(mRegistry, (entt::entity)dst, (entt::entity)src);
 
-        // Native scripts: copy the binding, never alias the live instance.
+        // NativeScript: copy the binding, never alias the live instance.
         if (src.HasComponent<NativeScriptComponent>()) {
             auto& dst_nsc = dst.AddComponent<NativeScriptComponent>(
                 src.GetComponent<NativeScriptComponent>());
@@ -358,14 +350,12 @@ namespace Loom {
                 dst_nsc.BindByName(dst_nsc.ScriptName);
         }
 
-        // Recurse into the child subtree, parenting each copy under dst.
         for (Entity child : src.GetChildren()) {
             Entity dup_child = DuplicateEntity(child);
             if (dup_child) SetParent(dup_child, dst);
         }
 
-        // Place the copy as a sibling of the source (SetParent reparents
-        // cleanly, so a child copy's transient parent is harmless).
+        // Place the copy as a sibling of the source.
         if (Entity parent = src.GetParent())
             SetParent(dst, parent);
 
@@ -777,8 +767,6 @@ namespace Loom {
                 mrc.AlbedoTexture = AssetManager::GetTexture(abs_tex, kMeshAlbedoTextureSpec);
         }
 
-        // Lazy-load ORM + emissive + normal textures. All use the mesh-albedo
-        // texture spec (Linear + mips); the shader interprets channels by convention.
         if (!mrc.ORMTexturePath.empty()) {
             std::string abs_orm = Project::GetAssetFileSystemPath(mrc.ORMTexturePath).generic_string();
             if (!mrc.ORMTexture || mrc.ORMTexture->GetPath() != abs_orm)
@@ -904,8 +892,6 @@ namespace Loom {
     }
 
     // ---- Physics3D contact event plumbing ---------------------------------
-    // Physics3DEventState is defined near the top of this file (DestroyEntity
-    // needs it complete).
 
     namespace {
         // Jolt fires these from job threads; we only enqueue. Dispatch happens
@@ -1148,18 +1134,9 @@ namespace Loom {
         mPhysics3DEvents->body_to_entity.clear();
     }
 
-    // Aggregates a tilemap's solid cells into merged collision rectangles.
-    // Shared by the runtime fixture generator and the debug overlay so the
-    // editor previews the exact shapes Box2D will collide against.
-    //
-    // Two-pass: (1) per-row greedy horizontal runs, (2) extend a run from
-    // the previous row down by one if it has the same ColStart + Count.
-    // Catches rectangular regions (the common solid-floor / wall-block
-    // case) without paying for true max-rectangle decomposition.
-    //
-    // Staggered regions (e.g. an L-shape) still emit one rect per row of
-    // the staggered part — same physical behavior as the row-only version,
-    // just no improvement there. Real games rarely have such shapes.
+    // Greedy horizontal runs, then extend down when the next row's run matches —
+    // catches rectangular blocks without paying for true max-rect decomposition.
+    // Shared by the runtime fixture generator and the editor debug overlay.
     struct TilemapColliderRect {
         int RowStart;  // inclusive
         int RowEnd;    // inclusive (== RowStart for a single-row rect)
@@ -1186,8 +1163,6 @@ namespace Loom {
                 while (c < cols && is_solid(r, c)) ++c;
                 int count = c - start;
 
-                // Try to fuse with a matching open run from the previous row.
-                // Linear scan is fine — runs per row are typically a handful.
                 auto it = std::find_if(prev_open.begin(), prev_open.end(),
                     [&](const OpenRect& o) { return o.ColStart == start && o.Count == count; });
                 if (it != prev_open.end()) {
@@ -1198,14 +1173,12 @@ namespace Loom {
                 }
             }
 
-            // Anything left in prev_open didn't extend into this row — emit.
             for (const auto& o : prev_open) {
                 out.push_back({ o.RowStart, r - 1, o.ColStart, o.Count });
             }
             prev_open.swap(cur_open);
         }
 
-        // Flush remaining open rects at end of grid.
         int last_row = rows - 1;
         for (const auto& o : prev_open) {
             out.push_back({ o.RowStart, last_row, o.ColStart, o.Count });
@@ -1270,9 +1243,8 @@ namespace Loom {
                 shape_def.density = bc2d.Density;
                 shape_def.material.friction = bc2d.Friction;
                 shape_def.material.restitution = bc2d.Restitution;
-                // Box2D 3.1: a sensor only detects a visitor shape if that
-                // visitor also opts in to sensor events — so enable it on
-                // every shape, sensor or not.
+                // Box2D 3.1: sensors only detect visitors that also opt in,
+                // so enable sensor events on every shape (sensor or not).
                 shape_def.enableSensorEvents = true;
                 if (bc2d.IsSensor) {
                     shape_def.isSensor = true;
@@ -1297,9 +1269,8 @@ namespace Loom {
                 shape_def.density = cc2d.Density;
                 shape_def.material.friction = cc2d.Friction;
                 shape_def.material.restitution = cc2d.Restitution;
-                // Box2D 3.1: a sensor only detects a visitor shape if that
-                // visitor also opts in to sensor events — so enable it on
-                // every shape, sensor or not.
+                // Box2D 3.1: sensors only detect visitors that also opt in,
+                // so enable sensor events on every shape (sensor or not).
                 shape_def.enableSensorEvents = true;
                 if (cc2d.IsSensor) {
                     shape_def.isSensor = true;
@@ -1397,9 +1368,8 @@ namespace Loom {
             int32_t sub_step_count = 8;
             b2World_Step(mPhysicsWorld, ts, sub_step_count);
 
-            // Resolve a Box2D shape back to an Entity, validating every hop:
-            // a shape/body destroyed mid-dispatch (e.g. a script calling
-            // entity:Destroy()) must not resurrect a stale entity handle.
+            // Validates each hop so a shape/body destroyed mid-dispatch
+            // (script calling Destroy()) doesn't resurrect a stale handle.
             auto resolve_shape = [this](b2ShapeId shape_id) -> Entity {
                 if (!b2Shape_IsValid(shape_id)) return {};
                 b2BodyId body_id = b2Shape_GetBody(shape_id);

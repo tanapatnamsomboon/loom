@@ -684,10 +684,7 @@ namespace Loom {
                 mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
                 mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
                 mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
-                // ORMTexturePath is the canonical key; fall back to the
-                // legacy "MetallicRoughnessTexturePath" (shipped briefly in
-                // Slice 2 before the AO+ORM unification) so any scene saved
-                // between those two commits still loads.
+                // Legacy key fallback for scenes saved between MR-only and ORM unification.
                 mrc.ORMTexturePath  = YAML_GET(mrc_node["ORMTexturePath"], std::string, "");
                 if (mrc.ORMTexturePath.empty())
                     mrc.ORMTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
@@ -1041,8 +1038,7 @@ namespace Loom {
             mrc.AlbedoTexturePath = YAML_GET(mrc_node["AlbedoTexturePath"], std::string, "");
             mrc.Roughness         = YAML_GET(mrc_node["Roughness"],         float,       0.5f);
             mrc.Metallic          = YAML_GET(mrc_node["Metallic"],          float,       0.0f);
-            // Prefer the canonical ORMTexturePath; fall back to the legacy
-            // Slice 2 MetallicRoughnessTexturePath for one-version compat.
+            // Legacy key fallback for scenes saved between MR-only and ORM unification.
             mrc.ORMTexturePath = YAML_GET(mrc_node["ORMTexturePath"], std::string, "");
             if (mrc.ORMTexturePath.empty())
                 mrc.ORMTexturePath = YAML_GET(mrc_node["MetallicRoughnessTexturePath"], std::string, "");
