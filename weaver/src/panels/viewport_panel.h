@@ -63,10 +63,13 @@ namespace Weaver {
 
         // HDR scene framebuffer: RGBA16F + RED_INTEGER (picking) + DEPTH
         std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
-        // LDR display framebuffer: RGBA8 only — receives the tonemapped output
-        // that is shown in the ImGui::Image. Kept separate so the HDR buffer's
-        // RED_INTEGER attachment stays readable for entity picking.
+        // LDR intermediate framebuffer: RGBA8, holds the tonemapped sRGB output
+        // before FXAA samples it. Kept separate from the HDR buffer so the
+        // RED_INTEGER picking attachment stays readable.
         std::shared_ptr<Loom::Framebuffer>  mLDRFramebuffer;
+        // Final framebuffer: RGBA8, holds the FXAA-resolved image actually
+        // shown in the ImGui::Image.
+        std::shared_ptr<Loom::Framebuffer>  mFinalFramebuffer;
 
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;

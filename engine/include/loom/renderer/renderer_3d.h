@@ -92,6 +92,19 @@ namespace Loom {
         static void SetBloomThreshold(float threshold);
         static void SetBloomIntensity(float intensity);
 
+        // FXAA post-process pass — samples the tonemapped LDR/sRGB source and
+        // writes anti-aliased output to the currently-bound framebuffer. Must
+        // run AFTER tonemap (luma thresholds are tuned for sRGB display-space
+        // input; running on linear HDR would over-smooth low-contrast regions).
+        static void FXAAPass(uint32_t source_color_texture,
+                             uint32_t width, uint32_t height);
+        // FXAA enable toggle. Defaults to true. Set false for pixel-art 2D
+        // scenes where the edge-direction heuristic destabilizes on the
+        // perfectly-aligned pixel grid and produces noisy per-pixel blends.
+        // ViewportPanel reads this to decide whether to run the FXAA pass.
+        static void SetFXAAEnabled(bool enabled);
+        static bool IsFXAAEnabled();
+
         // One draw call per submission (no batching). Any of the four texture
         // slots (albedo / ORM / emissive / normal) may be null — a 1×1 white
         // texture is used for albedo/ORM/emissive, and a 1×1 flat-normal texture

@@ -83,6 +83,8 @@ namespace Loom {
         uint32_t                BloomSceneHeight  = 0;
         std::shared_ptr<Shader> BloomDownsampleShader;
         std::shared_ptr<Shader> BloomUpsampleShader;
+        std::shared_ptr<Shader> FXAAShader;
+        bool                    FXAAEnabled = true;
         // Texture handle of the final bloom result (mip 0 after the upsample
         // chain). 0 when bloom is disabled or no pass ran this frame.
         uint32_t                BloomFinalTexture = 0;
@@ -310,6 +312,11 @@ namespace Loom {
         sData.BloomUpsampleShader = AssetManager::GetShader(bloom_us_path);
         sData.BloomUpsampleShader->Bind();
         sData.BloomUpsampleShader->UploadUniformInt("uSource", 0);
+
+        std::string fxaa_path = Project::GetEngineAssetFileSystemPath("shaders/fxaa").generic_string();
+        sData.FXAAShader = AssetManager::GetShader(fxaa_path);
+        sData.FXAAShader->Bind();
+        sData.FXAAShader->UploadUniformInt("uSource", 0);
     }
 
     void Renderer3D::Shutdown() {
@@ -327,6 +334,7 @@ namespace Loom {
         sData.BloomUpsampleShader.reset();
         sData.BloomMips.clear();
         sData.BloomFinalTexture = 0;
+        sData.FXAAShader.reset();
         sData.IrradianceMap.reset();
         sData.PrefilterMap.reset();
         if (sData.BRDFLUT) {
@@ -579,6 +587,18 @@ namespace Loom {
     void Renderer3D::SetBloomEnabled(bool enabled)     { sData.BloomEnabled   = enabled; }
     void Renderer3D::SetBloomThreshold(float v)        { sData.BloomThreshold = v; }
     void Renderer3D::SetBloomIntensity(float v)        { sData.BloomIntensity = v; }
+
+    void Renderer3D::FXAAPass(uint32_t source_color_texture, uint32_t width, uint32_t height) {
+        sData.FXAAShader->Bind();
+        glBindTextureUnit(0, source_color_texture);
+        sData.FXAAShader->UploadUniformFloat2("uTexelSize",
+            glm::vec2(1.0f / float(width), 1.0f / float(height)));
+        sData.TonemapVAO->Bind();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    }
+
+    void Renderer3D::SetFXAAEnabled(bool enabled) { sData.FXAAEnabled = enabled; }
+    bool Renderer3D::IsFXAAEnabled()              { return sData.FXAAEnabled; }
 
     void Renderer3D::BloomPass(uint32_t hdr_color_texture_id,
                                uint32_t scene_width, uint32_t scene_height) {

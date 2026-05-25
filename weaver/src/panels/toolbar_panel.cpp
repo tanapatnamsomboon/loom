@@ -132,6 +132,17 @@ namespace Weaver {
         }
 
         ImGui::Spacing();
+        ImGui::TextDisabled("POST PROCESSING");
+        ImGui::Separator();
+        {
+            bool fxaa = Loom::Renderer3D::IsFXAAEnabled();
+            if (ImGui::Checkbox("FXAA", &fxaa))
+                Loom::Renderer3D::SetFXAAEnabled(fxaa);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Fast Approximate Anti-Aliasing.\nLeave on for 3D scenes; turn off for pixel-art 2D scenes\n(FXAA destabilizes on perfectly-aligned pixel grids).");
+        }
+
+        ImGui::Spacing();
         ImGui::TextDisabled("DEBUG VIZ");
         ImGui::Separator();
         {

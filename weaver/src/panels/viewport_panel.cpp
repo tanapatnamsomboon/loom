@@ -37,12 +37,16 @@ namespace Weaver {
         hdr_spec.Height = 720;
         mFramebuffer = Loom::Framebuffer::Create(hdr_spec);
 
-        // LDR display framebuffer — plain RGBA8, receives the tonemapped output.
+        // LDR intermediate framebuffer — plain RGBA8, receives the tonemapped
+        // sRGB output that FXAA samples as input.
         Loom::FramebufferSpecification ldr_spec;
         ldr_spec.Attachments = { Loom::FramebufferTextureFormat::RGBA8 };
         ldr_spec.Width  = 1280;
         ldr_spec.Height = 720;
         mLDRFramebuffer = Loom::Framebuffer::Create(ldr_spec);
+
+        // Final framebuffer — FXAA writes here, ImGui::Image displays this.
+        mFinalFramebuffer = Loom::Framebuffer::Create(ldr_spec);
     }
 
     void ViewportPanel::Init() {
@@ -83,6 +87,7 @@ namespace Weaver {
             (spec.Width != mContext.ViewportSize.x || spec.Height != mContext.ViewportSize.y)) {
             mFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
             mLDRFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
+            mFinalFramebuffer->Resize((uint32_t)mContext.ViewportSize.x, (uint32_t)mContext.ViewportSize.y);
             mContext.EditorCamera.SetViewportSize(mContext.ViewportSize.x, mContext.ViewportSize.y);
         }
     }
@@ -186,12 +191,25 @@ namespace Weaver {
                                     spec.Width, spec.Height);
 
         // Tonemap pass — ACES + sRGB from the linear HDR scene (with bloom
-        // composited internally) into the LDR display buffer.
+        // composited internally) into the LDR intermediate buffer.
         mLDRFramebuffer->Bind();
         Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         Loom::RenderCommand::Clear();
         Loom::Renderer3D::Tonemap(mFramebuffer->GetColorAttachmentRendererID(0));
         mLDRFramebuffer->Unbind();
+
+        // FXAA pass — anti-aliases the tonemapped sRGB image into the final
+        // display buffer. Skipped entirely when FXAA is disabled (e.g. for
+        // pixel-art 2D scenes); OnImGuiRender then shows mLDRFramebuffer.
+        if (Loom::Renderer3D::IsFXAAEnabled()) {
+            mFinalFramebuffer->Bind();
+            Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            Loom::RenderCommand::Clear();
+            const auto& final_spec = mFinalFramebuffer->GetSpecification();
+            Loom::Renderer3D::FXAAPass(mLDRFramebuffer->GetColorAttachmentRendererID(0),
+                                       final_spec.Width, final_spec.Height);
+            mFinalFramebuffer->Unbind();
+        }
     }
 
     void ViewportPanel::OnImGuiRender() {
@@ -223,9 +241,12 @@ namespace Weaver {
         UpdateViewportBounds();
         UpdateViewportSize();
 
-        // Show the tonemapped LDR output. Entity picking still reads from
-        // mFramebuffer (HDR) Color 1 (RED_INTEGER) — unchanged.
-        uint32_t tex_id = mLDRFramebuffer->GetColorAttachmentRendererID(0);
+        // Show the FXAA-resolved output when enabled, otherwise the raw
+        // tonemap output (which keeps pixel art crisp). Entity picking still
+        // reads from mFramebuffer (HDR) Color 1 (RED_INTEGER) — unchanged.
+        uint32_t tex_id = Loom::Renderer3D::IsFXAAEnabled()
+            ? mFinalFramebuffer->GetColorAttachmentRendererID(0)
+            : mLDRFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::Image((void*)(intptr_t)tex_id, ImVec2{ mContext.ViewportSize.x, mContext.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
         if (ImGui::BeginDragDropTarget()) {
