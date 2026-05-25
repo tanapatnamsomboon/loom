@@ -358,11 +358,34 @@ namespace Weaver {
         glm::mat4 view = mContext.EditorCamera.GetViewMatrix();
         glm::mat4 proj = mContext.EditorCamera.GetProjectionMatrix();
 
+        // Hold Ctrl to snap (Unity / Unreal convention). Polled live each
+        // frame so the user can toggle the modifier mid-drag.
+        // ImGuizmo reads 3 floats for TRANSLATE (per-axis), 1 for ROTATE/SCALE.
+        float snap_values[3] = { 0.0f, 0.0f, 0.0f };
+        const float* snap_ptr = nullptr;
+        if (ImGui::GetIO().KeyCtrl) {
+            switch (mContext.GizmoOp) {
+                case GizmoOperation::Translate:
+                    snap_values[0] = snap_values[1] = snap_values[2] = mContext.TranslateSnap;
+                    snap_ptr = snap_values;
+                    break;
+                case GizmoOperation::Rotate:
+                    snap_values[0] = mContext.RotateSnap;
+                    snap_ptr = snap_values;
+                    break;
+                case GizmoOperation::Scale:
+                    snap_values[0] = mContext.ScaleSnap;
+                    snap_ptr = snap_values;
+                    break;
+                default: break;
+            }
+        }
+
         ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
                              op, mode,
                              glm::value_ptr(entity_world),
                              nullptr,
-                             nullptr); // TODO: snap from EditorContext
+                             snap_ptr);
 
         // Drag-start: snapshot for a single batched TransformEditCommand on drag-end.
         bool using_now = ImGuizmo::IsUsing();

@@ -1,17 +1,17 @@
 Scene: physics_playground
 EditorCamera:
-  Position: [-5.8431215, 17.056978, -6.005582]
-  Pitch: 0.7400042
-  Yaw: 1.860996
+  Position: [-2.519228, 13.715224, -11.16744]
+  Pitch: 0.2030033
+  Yaw: 2.8330019
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 904713175390046086
     TagComponent:
       Tag: Sphere_2
     TransformComponent:
-      Translation: [2, 10, -3]
-      Rotation: [0, -0, 0]
-      Scale: [1, 1, 1]
+      Translation: [3.5, 10, -3]
+      Rotation: [0.523599, -0, 0]
+      Scale: [0.99999577, 0.99999917, 0.99999917]
     Rigidbody3DComponent:
       Type: 1
       FixedRotation: false

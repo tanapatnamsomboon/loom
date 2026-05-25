@@ -96,6 +96,12 @@ namespace Weaver {
         GizmoOperation GizmoOp    = GizmoOperation::Translate;
         GizmoSpace     GizmoMode  = GizmoSpace::Local;
 
+        // Gizmo snapping — engaged by holding Ctrl during a gizmo drag
+        // (Unity / Unreal convention). Per-op step sizes.
+        float TranslateSnap = 0.5f;
+        float RotateSnap    = 15.0f;
+        float ScaleSnap     = 0.1f;
+
         // Tile paint state — written by SceneHierarchyPanel + keyboard shortcuts, read by ViewportPanel
         ToolMode Tool             = ToolMode::Transform;
         int      SelectedTileIndex = 0; // -1 acts as the eraser brush

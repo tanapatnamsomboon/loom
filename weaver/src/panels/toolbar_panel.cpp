@@ -122,6 +122,13 @@ namespace Weaver {
         ImGui::ColorEdit4("Major Color", glm::value_ptr(gs.MajorColor));
 
         ImGui::Spacing();
+        ImGui::TextDisabled("GIZMO SNAP  (Hold Ctrl while dragging)");
+        ImGui::Separator();
+        ImGui::DragFloat("Translate", &mContext.TranslateSnap, 0.05f, 0.001f, 100.0f, "%.3f");
+        ImGui::DragFloat("Rotate",    &mContext.RotateSnap,    0.5f,  0.1f,   180.0f, "%.2f deg");
+        ImGui::DragFloat("Scale",     &mContext.ScaleSnap,     0.01f, 0.001f, 10.0f,  "%.3f");
+
+        ImGui::Spacing();
         ImGui::TextDisabled("PHYSICS");
         ImGui::Separator();
         bool show_colliders = mContext.ActiveScene->IsShowingPhysicsColliders();
