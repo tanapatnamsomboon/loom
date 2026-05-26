@@ -6,6 +6,7 @@
 #include <cgltf.h>
 
 #include <cstring>
+#include <fstream>
 #include <vector>
 
 namespace Loom {
@@ -230,20 +231,21 @@ namespace Loom {
         if (material_src) {
             material.HasMaterial = true;
 
-            // Embedded textures (.glb buffer-view or data:) need stb-from-memory
-            // decode (roadmap); for now warn and leave the URI empty.
-            auto extract_uri = [&](const cgltf_texture* tex, const char* label,
-                                   std::string& out) {
-                const char* uri = (tex && tex->image) ? tex->image->uri : nullptr;
+            // External URI → fill out; embedded (data: URI or buffer view) →
+            // mark the slot's *Embedded flag and leave out empty for
+            // ExtractEmbeddedTextures to populate later.
+            auto extract_uri = [&](const cgltf_texture* tex,
+                                   std::string& out, bool& out_embedded) {
+                if (!tex || !tex->image) return;
+                const cgltf_image* img = tex->image;
+                const char* uri = img->uri;
                 if (uri && uri[0] != '\0' && std::strncmp(uri, "data:", 5) != 0) {
                     std::string decoded(uri);
                     cgltf_decode_uri(&decoded[0]);
                     decoded.resize(std::strlen(decoded.c_str()));
                     out = decoded;
-                } else if (tex && tex->image) {
-                    LOOM_CORE_WARN("MeshAsset: '{}' has an embedded {} texture — "
-                                   "import will bring factors only; extract the texture "
-                                   "and assign it manually.", path, label);
+                } else if ((uri && std::strncmp(uri, "data:", 5) == 0) || img->buffer_view) {
+                    out_embedded = true;
                 }
             };
 
@@ -253,11 +255,11 @@ namespace Loom {
                                                      pbr.base_color_factor[2], pbr.base_color_factor[3]);
                 material.MetallicFactor  = pbr.metallic_factor;
                 material.RoughnessFactor = pbr.roughness_factor;
-                extract_uri(pbr.base_color_texture.texture,         "base-color",
-                            material.BaseColorTexture);
+                extract_uri(pbr.base_color_texture.texture,
+                            material.BaseColorTexture, material.BaseColorEmbedded);
                 // Engine convention: MR texture doubles as ORM (R=AO, G=rough, B=metal).
-                extract_uri(pbr.metallic_roughness_texture.texture, "ORM",
-                            material.ORMTexture);
+                extract_uri(pbr.metallic_roughness_texture.texture,
+                            material.ORMTexture, material.ORMEmbedded);
             }
 
             // Separate occlusionTexture is non-ORM; warn and keep the MR import above.
@@ -268,16 +270,16 @@ namespace Loom {
             if (occ_tex && occ_tex != mr_tex) {
                 LOOM_CORE_WARN("MeshAsset: '{}' provides a separate occlusionTexture "
                                "distinct from metallicRoughnessTexture. The engine uses "
-                               "ORM-packed textures (R=AO, G=rough, B=metal) — re-pack "
+                               "ORM-packed textures (R=AO, G=rough, B=metal) - re-pack "
                                "AO into the R channel of the MR texture, or re-wire the "
                                "Blender 'glTF Settings' node to point at the same image.",
                                path);
             }
 
-            extract_uri(material_src->normal_texture.texture,   "normal",
-                        material.NormalTexture);
-            extract_uri(material_src->emissive_texture.texture, "emissive",
-                        material.EmissiveTexture);
+            extract_uri(material_src->normal_texture.texture,
+                        material.NormalTexture,   material.NormalEmbedded);
+            extract_uri(material_src->emissive_texture.texture,
+                        material.EmissiveTexture, material.EmissiveEmbedded);
 
             glm::vec3 e_factor(material_src->emissive_factor[0],
                                material_src->emissive_factor[1],
@@ -325,6 +327,184 @@ namespace Loom {
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "
                            "Re-export the model with UVs (Blender: 'UV -> Smart UV Project' or 'Cube Projection' before glTF export).", path);
         return asset;
+    }
+
+    // ---- Embedded-texture extraction --------------------------------------
+
+    namespace {
+        const char* MimeToExt(const char* mime) {
+            if (!mime) return ".bin";
+            if (std::strcmp(mime, "image/png")  == 0) return ".png";
+            if (std::strcmp(mime, "image/jpeg") == 0) return ".jpg";
+            if (std::strcmp(mime, "image/bmp")  == 0) return ".bmp";
+            return ".bin";
+        }
+
+        // Sniffs a magic-number header when the MIME type is missing — common
+        // for buffer-view images that omit the mimeType field.
+        const char* SniffExt(const uint8_t* data, size_t size) {
+            if (size >= 8 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G')
+                return ".png";
+            if (size >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+                return ".jpg";
+            if (size >= 2 && data[0] == 'B' && data[1] == 'M')
+                return ".bmp";
+            return ".bin";
+        }
+
+        // RFC 4648 base64 decode; tolerates standard alphabet only (glTF spec).
+        std::vector<uint8_t> Base64Decode(const char* src, size_t len) {
+            static int8_t table[256];
+            static bool  init = false;
+            if (!init) {
+                std::memset(table, -1, sizeof(table));
+                const char* alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                for (int i = 0; i < 64; ++i) table[(uint8_t)alpha[i]] = (int8_t)i;
+                init = true;
+            }
+            std::vector<uint8_t> out;
+            out.reserve(len * 3 / 4);
+            uint32_t buf = 0;
+            int      bits = 0;
+            for (size_t i = 0; i < len; ++i) {
+                uint8_t c = (uint8_t)src[i];
+                if (c == '=') break;
+                int8_t v = table[c];
+                if (v < 0) continue; // skip whitespace / invalid
+                buf = (buf << 6) | (uint32_t)v;
+                bits += 6;
+                if (bits >= 8) {
+                    bits -= 8;
+                    out.push_back((uint8_t)((buf >> bits) & 0xFF));
+                }
+            }
+            return out;
+        }
+    } // namespace
+
+    int MeshAsset::ExtractEmbeddedTextures(const std::string&            mesh_path,
+                                           const std::filesystem::path&  dest_dir,
+                                           const std::string&            filename_prefix,
+                                           MeshMaterial&                 io_material) {
+        cgltf_options options{};
+        cgltf_data*   data = nullptr;
+        if (cgltf_parse_file(&options, mesh_path.c_str(), &data) != cgltf_result_success) {
+            LOOM_CORE_ERROR("MeshAsset::ExtractEmbeddedTextures: parse failed for '{}'", mesh_path);
+            return 0;
+        }
+        if (cgltf_load_buffers(&options, data, mesh_path.c_str()) != cgltf_result_success) {
+            LOOM_CORE_ERROR("MeshAsset::ExtractEmbeddedTextures: buffer load failed for '{}'", mesh_path);
+            cgltf_free(data);
+            return 0;
+        }
+
+        std::error_code ec;
+        std::filesystem::create_directories(dest_dir, ec);
+
+        // Mirror Create()'s "first primitive material wins" with the same
+        // scene-graph traversal — otherwise multi-material assets risk picking
+        // a different material than the one whose embedded flags the inspector
+        // is acting on.
+        const cgltf_material* mat = nullptr;
+        auto find_first = [&](auto& self, const cgltf_node* node) -> void {
+            if (mat) return;
+            if (node->mesh) {
+                for (cgltf_size pi = 0; pi < node->mesh->primitives_count && !mat; ++pi)
+                    if (node->mesh->primitives[pi].material)
+                        mat = node->mesh->primitives[pi].material;
+            }
+            for (cgltf_size ci = 0; ci < node->children_count && !mat; ++ci)
+                self(self, node->children[ci]);
+        };
+        if (data->scene) {
+            for (cgltf_size ni = 0; ni < data->scene->nodes_count && !mat; ++ni)
+                find_first(find_first, data->scene->nodes[ni]);
+        } else {
+            for (cgltf_size si = 0; si < data->scenes_count && !mat; ++si)
+                for (cgltf_size ni = 0; ni < data->scenes[si].nodes_count && !mat; ++ni)
+                    find_first(find_first, data->scenes[si].nodes[ni]);
+        }
+        if (!mat) {
+            for (cgltf_size mi = 0; mi < data->meshes_count && !mat; ++mi)
+                for (cgltf_size pi = 0; pi < data->meshes[mi].primitives_count && !mat; ++pi)
+                    if (data->meshes[mi].primitives[pi].material)
+                        mat = data->meshes[mi].primitives[pi].material;
+        }
+        if (!mat) {
+            cgltf_free(data);
+            return 0;
+        }
+
+        int written = 0;
+
+        auto write_slot = [&](const cgltf_texture* tex, const char* slot_name,
+                              std::string& out_uri, bool& flag) -> void {
+            if (!flag || !tex || !tex->image) return;
+            const cgltf_image* img = tex->image;
+            std::vector<uint8_t> bytes;
+            std::string mime_buf;
+            const char* mime = img->mime_type;
+
+            if (img->buffer_view) {
+                const cgltf_buffer_view* bv = img->buffer_view;
+                if (!bv->buffer || !bv->buffer->data) {
+                    LOOM_CORE_WARN("ExtractEmbeddedTextures: {} buffer-view has no data", slot_name);
+                    return;
+                }
+                const uint8_t* src = (const uint8_t*)bv->buffer->data + bv->offset;
+                bytes.assign(src, src + bv->size);
+            } else if (img->uri && std::strncmp(img->uri, "data:", 5) == 0) {
+                const char* comma = std::strchr(img->uri, ',');
+                if (!comma) {
+                    LOOM_CORE_WARN("ExtractEmbeddedTextures: {} data-URI malformed", slot_name);
+                    return;
+                }
+                // Pull MIME from "data:<mime>;base64": between offset 5 and the first ';' (or ',').
+                if (!mime) {
+                    const char* mime_start = img->uri + 5;
+                    const char* mime_end = std::strchr(mime_start, ';');
+                    if (!mime_end || mime_end > comma) mime_end = comma;
+                    mime_buf.assign(mime_start, (size_t)(mime_end - mime_start));
+                    mime = mime_buf.c_str();
+                }
+                bytes = Base64Decode(comma + 1, std::strlen(comma + 1));
+            } else {
+                return;
+            }
+
+            const char* ext = mime ? MimeToExt(mime) : SniffExt(bytes.data(), bytes.size());
+            std::string filename = filename_prefix + "_" + slot_name + ext;
+            std::filesystem::path out_path = dest_dir / filename;
+
+            std::ofstream ofs(out_path, std::ios::binary | std::ios::trunc);
+            if (!ofs) {
+                LOOM_CORE_ERROR("ExtractEmbeddedTextures: cannot open '{}' for write",
+                                out_path.generic_string());
+                return;
+            }
+            ofs.write(reinterpret_cast<const char*>(bytes.data()), (std::streamsize)bytes.size());
+            ofs.close();
+
+            out_uri = filename;
+            flag    = false;
+            ++written;
+            LOOM_CORE_INFO("ExtractEmbeddedTextures: wrote '{}' ({} bytes)",
+                           out_path.generic_string(), bytes.size());
+        };
+
+        if (mat->has_pbr_metallic_roughness) {
+            write_slot(mat->pbr_metallic_roughness.base_color_texture.texture, "base_color",
+                       io_material.BaseColorTexture, io_material.BaseColorEmbedded);
+            write_slot(mat->pbr_metallic_roughness.metallic_roughness_texture.texture, "orm",
+                       io_material.ORMTexture, io_material.ORMEmbedded);
+        }
+        write_slot(mat->normal_texture.texture,   "normal",
+                   io_material.NormalTexture,   io_material.NormalEmbedded);
+        write_slot(mat->emissive_texture.texture, "emissive",
+                   io_material.EmissiveTexture, io_material.EmissiveEmbedded);
+
+        cgltf_free(data);
+        return written;
     }
 
     void MeshAsset::Reload() {

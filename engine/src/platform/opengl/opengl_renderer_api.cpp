@@ -23,7 +23,7 @@ namespace Loom {
         // enable; logging it makes the IBL "I see pixelated seams" case
         // diagnosable without a debugger).
         GLboolean seamless = glIsEnabled(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-        LOOM_CORE_TRACE("OpenGLRendererAPI::Init — GL_TEXTURE_CUBE_MAP_SEAMLESS={}",
+        LOOM_CORE_TRACE("OpenGLRendererAPI::Init - GL_TEXTURE_CUBE_MAP_SEAMLESS={}",
                         seamless ? "ON" : "OFF");
     }
 

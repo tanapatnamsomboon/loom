@@ -24,7 +24,7 @@ namespace Loom {
 
     struct TransformComponent;
     struct CameraComponent;
-    struct Physics3DEventState; // Pimpl — body→entity map + thread-safe contact event queue (defined in scene.cpp)
+    struct Physics3DEventState; // Pimpl - body→entity map + thread-safe contact event queue (defined in scene.cpp)
 
     class LOOM_API Scene {
     public:

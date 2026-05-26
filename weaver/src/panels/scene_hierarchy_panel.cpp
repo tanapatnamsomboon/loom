@@ -1761,15 +1761,37 @@ namespace Weaver {
                     const bool has_gltf_mat = mrc.Mesh && mrc.Mesh->GetMaterial().HasMaterial;
                     ImGui::BeginDisabled(!has_gltf_mat);
                     if (ImGui::Button("Import Material from glTF")) {
-                        const auto& gm    = mrc.Mesh->GetMaterial();
+                        // Mutable copy — ExtractEmbeddedTextures fills its URIs
+                        // in-place when there's embedded image data.
+                        Loom::MeshMaterial gm = mrc.Mesh->GetMaterial();
                         mrc.AlbedoColor   = gm.BaseColorFactor;
                         mrc.Roughness     = gm.RoughnessFactor;
                         mrc.Metallic      = gm.MetallicFactor;
                         mrc.EmissiveFactor = gm.EmissiveFactor; // folds KHR_materials_emissive_strength
 
+                        // Clean-slate the texture slots so a slot the new mesh
+                        // doesn't define doesn't keep the previous mesh's
+                        // texture, and so a freshly-extracted file at the same
+                        // path loads with new pixels (AssetManager cache holds
+                        // weak_ptrs — dropping the strong ref forces a reload).
+                        mrc.AlbedoTexture.reset();   mrc.AlbedoTexturePath.clear();
+                        mrc.ORMTexture.reset();      mrc.ORMTexturePath.clear();
+                        mrc.EmissiveTexture.reset(); mrc.EmissiveTexturePath.clear();
+                        mrc.NormalTexture.reset();   mrc.NormalTexturePath.clear();
+
                         // glTF texture URIs are relative to the model file's directory.
                         std::filesystem::path model_dir =
                             std::filesystem::path(mrc.Mesh->GetPath()).parent_path();
+
+                        // Extract embedded textures (.glb buffer-views, data-URIs)
+                        // into the model dir as <mesh_basename>_<slot>.<ext>.
+                        if (gm.BaseColorEmbedded || gm.ORMEmbedded ||
+                            gm.EmissiveEmbedded || gm.NormalEmbedded) {
+                            std::string prefix = std::filesystem::path(mrc.Mesh->GetPath())
+                                                    .stem().string();
+                            Loom::MeshAsset::ExtractEmbeddedTextures(
+                                mrc.Mesh->GetPath(), model_dir, prefix, gm);
+                        }
 
                         auto import_tex = [&](const std::string& uri, const char* label,
                                               std::shared_ptr<Loom::Texture2D>& out_tex,
@@ -1785,7 +1807,7 @@ namespace Weaver {
                                 }
                             } else {
                                 LOOM_CORE_WARN("Import Material: {} texture '{}' not found "
-                                               "next to the model — factors imported, texture skipped.",
+                                               "next to the model - factors imported, texture skipped.",
                                                label, abs_tex.generic_string());
                             }
                         };
@@ -1802,8 +1824,9 @@ namespace Weaver {
                     ImGui::EndDisabled();
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                         ImGui::SetTooltip(has_gltf_mat
-                            ? "Copy baseColor / metallic / roughness (and any external\n"
-                              "base-color texture) from the assigned glTF onto this material."
+                            ? "Copy baseColor / metallic / roughness from the glTF,\n"
+                              "load any external textures, and extract embedded textures\n"
+                              "(.glb buffer-view or data-URI) next to the model file."
                             : "Assign a glTF/glb mesh that carries a pbrMetallicRoughness\n"
                               "material to enable import.");
                     }

@@ -105,7 +105,7 @@ namespace Loom {
 
     void PhysicsEngine3D::Init() {
         if (sState.Initialized) {
-            LOOM_CORE_WARN("PhysicsEngine3D::Init called twice — ignored");
+            LOOM_CORE_WARN("PhysicsEngine3D::Init called twice - ignored");
             return;
         }
 

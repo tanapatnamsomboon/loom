@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-2.1981063, 3.9583697, 7.31461]
-  Pitch: 0.32100266
-  Yaw: -0.6040713
+  Position: [-4.7451806, 1.2305869, 3.9365962]
+  Pitch: 0.2460027
+  Yaw: -1.2430717
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -127,6 +127,7 @@ Entities:
     CameraComponent:
       Primary: true
       FixedAspectRatio: false
+      AspectRatio: 1.7777778
       OrthographicSize: 10
       OrthographicNear: -1
       OrthographicFar: 1
@@ -159,15 +160,15 @@ Entities:
       Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
-      MeshPath: common/models/damaged_helmet/damaged_helmet.gltf
+      MeshPath: common/models/damaged_helmet/glb/damaged_helmet.glb
       AlbedoColor: [1, 1, 1, 1]
-      AlbedoTexturePath: common/models/damaged_helmet/damaged_helmet_albedo.jpg
+      AlbedoTexturePath: common/models/damaged_helmet/glb/damaged_helmet_base_color.jpg
       Roughness: 1
       Metallic: 1
-      ORMTexturePath: common/models/damaged_helmet/damaged_helmet_orm.png
+      ORMTexturePath: common/models/damaged_helmet/glb/damaged_helmet_orm.png
       EmissiveFactor: [1, 1, 1]
-      EmissiveTexturePath: common/models/damaged_helmet/damaged_helmet_emissive.jpg
-      NormalTexturePath: common/models/damaged_helmet/damaged_helmet_normal.jpg
+      EmissiveTexturePath: common/models/damaged_helmet/glb/damaged_helmet_emissive.jpg
+      NormalTexturePath: common/models/damaged_helmet/glb/damaged_helmet_normal.jpg
   - Entity: 9874988102437962133
     TagComponent:
       Tag: Metal_3

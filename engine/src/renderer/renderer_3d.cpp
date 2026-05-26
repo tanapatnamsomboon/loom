@@ -155,10 +155,10 @@ namespace Loom {
             glGetTextureSubImage(lut, 0, (GLint)(size / 2), (GLint)(size / 2), 0,
                                  1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(pixel), pixel);
             if (pixel[0] == 0.0f && pixel[1] == 0.0f) {
-                LOOM_CORE_ERROR("IBL: BRDF LUT pass wrote zero — split-sum specular will be black. "
+                LOOM_CORE_ERROR("IBL: BRDF LUT pass wrote zero - split-sum specular will be black. "
                                 "Check brdf_lut.{{vert,frag}} compile log + driver output.");
             } else {
-                LOOM_CORE_TRACE("IBL: BRDF LUT center sample = ({}, {}) — generation OK.",
+                LOOM_CORE_TRACE("IBL: BRDF LUT center sample = ({}, {}) - generation OK.",
                                 pixel[0], pixel[1]);
             }
 
