@@ -11,6 +11,7 @@
 #include "loom/scripting/scripting_engine.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <filesystem>
 #include <limits>
 #include <random>
@@ -163,6 +164,7 @@ namespace Loom {
         CopyComponent<SpriteRendererComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<MeshRendererComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<AnimationComponent>(dst_registry, src_registry, entt_map);
+        CopyComponent<SkeletalAnimationComponent>(dst_registry, src_registry, entt_map);
         CopyComponent<CameraComponent>(dst_registry, src_registry, entt_map);
 
         auto nsc_view = src_registry.view<NativeScriptComponent>();
@@ -333,7 +335,8 @@ namespace Loom {
 
         CopyEntityComponents<
             TransformComponent, SpriteRendererComponent, MeshRendererComponent,
-            AnimationComponent, CameraComponent, LuaScriptComponent,
+            AnimationComponent, SkeletalAnimationComponent,
+            CameraComponent, LuaScriptComponent,
             TilemapComponent, TextComponent, AudioSourceComponent,
             ParticleComponent, Rigidbody2DComponent, BoxCollider2DComponent,
             CircleCollider2DComponent, DirectionalLightComponent,
@@ -751,7 +754,85 @@ namespace Loom {
         }
     }
 
-    static void DrawMeshEntity(Scene* scene, entt::registry& /*registry*/, entt::entity e, MeshRendererComponent& mrc) {
+    // ── Skeletal animation sampling ─────────────────────────────────────────
+    // Helpers + driver for SkeletalAnimationComponent. Advances Time and fills
+    // SampledLocals per joint. Runs once per frame in both edit + play modes
+    // (so the Game Developer sees animation previews live without entering
+    // Play mode).
+
+    static glm::vec3 SampleVec3Channel(const JointChannel& ch, float t, glm::vec3 fallback) {
+        if (ch.Empty() || ch.ValuesVec3.empty()) return fallback;
+        const auto& times = ch.Times;
+        if (t <= times.front()) return ch.ValuesVec3.front();
+        if (t >= times.back())  return ch.ValuesVec3.back();
+        int i = 0;
+        while (i + 1 < (int)times.size() && times[i + 1] < t) ++i;
+        if (ch.Interp == Interpolation::Step) return ch.ValuesVec3[i];
+        float u = (t - times[i]) / (times[i + 1] - times[i]);
+        return glm::mix(ch.ValuesVec3[i], ch.ValuesVec3[i + 1], u);
+    }
+
+    static glm::quat SampleQuatChannel(const JointChannel& ch, float t, glm::quat fallback) {
+        if (ch.Empty() || ch.ValuesQuat.empty()) return fallback;
+        const auto& times = ch.Times;
+        if (t <= times.front()) return ch.ValuesQuat.front();
+        if (t >= times.back())  return ch.ValuesQuat.back();
+        int i = 0;
+        while (i + 1 < (int)times.size() && times[i + 1] < t) ++i;
+        if (ch.Interp == Interpolation::Step) return ch.ValuesQuat[i];
+        float u = (t - times[i]) / (times[i + 1] - times[i]);
+        return glm::slerp(ch.ValuesQuat[i], ch.ValuesQuat[i + 1], u);
+    }
+
+    static void SampleSkeletalAnimations(entt::registry& registry, Timestep ts) {
+        registry.view<SkeletalAnimationComponent, MeshRendererComponent>().each(
+            [&](auto /*entt_id*/, SkeletalAnimationComponent& anim, MeshRendererComponent& mrc) {
+                if (!mrc.Mesh || !mrc.Mesh->IsSkinned()) return;
+                const Skeleton& skel = mrc.Mesh->GetSkeleton();
+                const int n          = skel.JointCount();
+                if (n <= 0) return;
+
+                // Resize scratch even if there's no clip selected — Renderer3D
+                // distinguishes "empty SampledLocals -> bind pose" from "filled
+                // with bind matrices -> sampled, but at rest".
+                anim.SampledLocals.resize(n);
+
+                const AnimationClip3D* clip = mrc.Mesh->FindClip(anim.CurrentClip);
+                if (!clip || clip->Duration <= 0.0f) {
+                    for (int j = 0; j < n; ++j)
+                        anim.SampledLocals[j] = skel.Joints[j].LocalBind;
+                    return;
+                }
+
+                if (anim.IsPlaying) {
+                    anim.Time += (float)ts * anim.Speed;
+                    if (anim.Loop) {
+                        anim.Time = std::fmod(anim.Time, clip->Duration);
+                        if (anim.Time < 0.0f) anim.Time += clip->Duration;
+                    } else {
+                        if (anim.Time >= clip->Duration) { anim.Time = clip->Duration; anim.IsPlaying = false; }
+                        if (anim.Time < 0.0f)            { anim.Time = 0.0f;          anim.IsPlaying = false; }
+                    }
+                }
+
+                for (int j = 0; j < n; ++j)
+                    anim.SampledLocals[j] = skel.Joints[j].LocalBind;
+
+                for (const auto& track : clip->Tracks) {
+                    int j = track.JointIndex;
+                    if (j < 0 || j >= n) continue;
+                    const SkeletonJoint& bone = skel.Joints[j];
+                    glm::vec3 t_val = SampleVec3Channel(track.Translation, anim.Time, bone.BindTranslation);
+                    glm::quat r_val = SampleQuatChannel(track.Rotation,    anim.Time, bone.BindRotation);
+                    glm::vec3 s_val = SampleVec3Channel(track.Scale,       anim.Time, bone.BindScale);
+                    anim.SampledLocals[j] = glm::translate(glm::mat4(1.0f), t_val)
+                                          * glm::mat4_cast(r_val)
+                                          * glm::scale(glm::mat4(1.0f), s_val);
+                }
+            });
+    }
+
+    static void DrawMeshEntity(Scene* scene, entt::registry& registry, entt::entity e, MeshRendererComponent& mrc) {
         // Lazy-load mesh
         if (!mrc.MeshPath.empty()) {
             std::string abs_path = Project::GetAssetFileSystemPath(mrc.MeshPath).generic_string();
@@ -784,10 +865,22 @@ namespace Loom {
         }
 
         glm::mat4 world = scene->GetWorldTransform({ e, scene });
+
+        const glm::mat4* sampled_bones = nullptr;
+        int              sampled_count = 0;
+        if (registry.all_of<SkeletalAnimationComponent>(e)) {
+            const auto& anim = registry.get<SkeletalAnimationComponent>(e);
+            if (!anim.SampledLocals.empty()) {
+                sampled_bones = anim.SampledLocals.data();
+                sampled_count = (int)anim.SampledLocals.size();
+            }
+        }
+
         Renderer3D::Submit(mrc.Mesh, mrc.AlbedoColor, mrc.AlbedoTexture,
                            mrc.ORMTexture, mrc.EmissiveTexture,
                            mrc.EmissiveFactor, mrc.NormalTexture, world,
-                           mrc.Roughness, mrc.Metallic, (int)(uint32_t)e);
+                           mrc.Roughness, mrc.Metallic, (int)(uint32_t)e,
+                           sampled_bones, sampled_count);
     }
 
     static void DrawTilemapEntity(Scene* scene, entt::registry& registry, entt::entity e, TilemapComponent& tc) {
@@ -805,6 +898,10 @@ namespace Loom {
     void Scene::OnUpdateEditor(Timestep ts, EditorCamera& camera, Entity selected_entity,
                                 std::shared_ptr<TextureCubemap> fallback_irradiance,
                                 std::shared_ptr<TextureCubemap> fallback_prefilter) {
+        // Sample skeletal animations BEFORE the shadow pass — both shadow and
+        // main passes read the resulting SampledLocals via DrawMeshEntity.
+        SampleSkeletalAnimations(mRegistry, ts);
+
         // Shadow pass runs first — fills the shadow map (separate FBO), then
         // restores the caller's framebuffer so the main 3D pass renders into
         // the editor viewport as usual.
@@ -1194,6 +1291,10 @@ namespace Loom {
             anim.LastEventFrame = -1;
         });
 
+        mRegistry.view<SkeletalAnimationComponent>().each([](SkeletalAnimationComponent& anim) {
+            anim.Time = 0.0f;
+        });
+
         mRegistry.view<ParticleComponent>().each([](ParticleComponent& pc) {
             pc.Live.clear();
             pc.SpawnAccumulator = 0.0f;
@@ -1444,6 +1545,9 @@ namespace Loom {
                 transform.Rotation    = JoltQuatToEuler(rot);
             }
         }
+
+        // 3a. Advance 3D skeletal animations (fills SampledLocals).
+        SampleSkeletalAnimations(mRegistry, ts);
 
         // 3. Advance sprite animations + fire per-frame events
         mRegistry.view<AnimationComponent>().each([&](auto entt_id, AnimationComponent& anim) {

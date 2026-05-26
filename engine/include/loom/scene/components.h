@@ -320,6 +320,28 @@ namespace Loom {
             , Texture(nullptr), Live{}, SpawnAccumulator(0.0f) {}
     };
 
+    // Per-entity skeletal animation playback state. Pairs with a sibling
+    // MeshRendererComponent whose Mesh->IsSkinned() is true; CurrentClip
+    // names one of mesh->GetClips() entries. The scene sampler advances Time
+    // and fills SampledLocals each frame (in both Edit and Play modes when
+    // IsPlaying is set). Renderer3D::Submit reads SampledLocals to override
+    // the skeleton's bind-pose during the per-frame skin-matrix walk.
+    struct SkeletalAnimationComponent {
+        std::string CurrentClip;          // empty = play nothing (bind pose)
+        float       Time      = 0.0f;     // seconds into the clip
+        float       Speed     = 1.0f;     // 1.0 = realtime; negative reverses
+        bool        Loop      = true;     // wrap Time at clip Duration
+        bool        IsPlaying = true;
+
+        // Per-frame scratch: sampled local TRS per joint, parallel to the
+        // owning mesh's Skeleton.Joints. Not serialized; resized each frame
+        // by the sampler.
+        std::vector<glm::mat4> SampledLocals;
+
+        SkeletalAnimationComponent()                                  = default;
+        SkeletalAnimationComponent(const SkeletalAnimationComponent&) = default;
+    };
+
     struct MeshRendererComponent {
         // Mesh
         std::string                MeshPath;          // relative to asset directory

@@ -283,6 +283,7 @@ namespace Weaver {
             push_add.template operator()<Loom::CapsuleCollider3DComponent>("Capsule Collider 3D");
             push_add.template operator()<Loom::LuaScriptComponent>("Lua Script");
             push_add.template operator()<Loom::AnimationComponent>("Sprite Animator");
+            push_add.template operator()<Loom::SkeletalAnimationComponent>("Skeletal Animator");
             push_add.template operator()<Loom::AudioSourceComponent>("Audio Source");
             push_add.template operator()<Loom::TextComponent>("Text");
             push_add.template operator()<Loom::TilemapComponent>("Tilemap");
@@ -1149,6 +1150,76 @@ namespace Weaver {
             }
 
             if (remove_component) push_remove.template operator()<Loom::AnimationComponent>("Sprite Animator");
+        }
+
+        if (entity.HasComponent<Loom::SkeletalAnimationComponent>()) {
+            bool remove_component = false;
+            bool opened = ImGui::TreeNodeEx((void*)typeid(Loom::SkeletalAnimationComponent).hash_code(),
+                          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "Skeletal Animator");
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Remove Component")) remove_component = true;
+                ImGui::EndPopup();
+            }
+
+            if (opened) {
+                auto& anim       = entity.GetComponent<Loom::SkeletalAnimationComponent>();
+                bool is_modified = false;
+
+                // Clip dropdown sources its options from the sibling MeshRendererComponent's
+                // mesh asset. Without a skinned mesh, the combo lists "(none)" only and the
+                // player is effectively idle.
+                std::shared_ptr<Loom::MeshAsset> mesh;
+                if (entity.HasComponent<Loom::MeshRendererComponent>())
+                    mesh = entity.GetComponent<Loom::MeshRendererComponent>().Mesh;
+
+                const char* current_label = anim.CurrentClip.empty() ? "(none)" : anim.CurrentClip.c_str();
+                if (ImGui::BeginCombo("Current Clip", current_label)) {
+                    if (ImGui::Selectable("(none)", anim.CurrentClip.empty())) {
+                        anim.CurrentClip = "";
+                        anim.Time        = 0.0f;
+                        is_modified      = true;
+                    }
+                    if (mesh) {
+                        for (const auto& clip : mesh->GetClips()) {
+                            bool selected = (clip.Name == anim.CurrentClip);
+                            if (ImGui::Selectable(clip.Name.c_str(), selected)) {
+                                anim.CurrentClip = clip.Name;
+                                anim.Time        = 0.0f;
+                                is_modified      = true;
+                            }
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
+                if (!mesh || !mesh->IsSkinned()) {
+                    ImGui::TextDisabled("(needs a sibling MeshRenderer with a skinned mesh)");
+                }
+
+                is_modified |= ImGui::Checkbox("Playing", &anim.IsPlaying);
+                ImGui::SameLine();
+                is_modified |= ImGui::Checkbox("Loop", &anim.Loop);
+                is_modified |= ImGui::DragFloat("Speed", &anim.Speed, 0.01f, -4.0f, 4.0f);
+
+                // Time scrubber: shows current time / duration. Editable in
+                // either play or pause state for manual frame inspection.
+                float duration = 0.0f;
+                if (mesh) {
+                    if (const auto* clip = mesh->FindClip(anim.CurrentClip))
+                        duration = clip->Duration;
+                }
+                if (duration > 0.0f) {
+                    is_modified |= ImGui::SliderFloat("Time", &anim.Time, 0.0f, duration, "%.3fs");
+                } else {
+                    ImGui::TextDisabled("Time: (no clip selected)");
+                }
+
+                if (is_modified && mSceneModifiedCallback) mSceneModifiedCallback();
+                ImGui::TreePop();
+            }
+
+            if (remove_component) push_remove.template operator()<Loom::SkeletalAnimationComponent>("Skeletal Animator");
         }
 
         if (entity.HasComponent<Loom::AudioSourceComponent>()) {

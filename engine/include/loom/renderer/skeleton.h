@@ -2,6 +2,7 @@
 
 #include "loom/core/core.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <string>
 #include <vector>
 
@@ -13,7 +14,17 @@ namespace Loom {
     // taken as joint-local).
     struct SkeletonJoint {
         int         Parent = -1;
-        glm::mat4   LocalBind   = glm::mat4(1.0f); // bind-pose local TRS (default for un-animated playback)
+
+        // Bind-pose TRS components used as defaults when an animation track
+        // omits one of the three channels (very common: rotation-only tracks).
+        // Read directly from cgltf's node TRS arrays at import time; for joints
+        // expressed as a single matrix in the glTF, these fall back to identity
+        // and LocalBind (below) carries the true bind transform.
+        glm::vec3 BindTranslation = glm::vec3(0.0f);
+        glm::quat BindRotation    = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec3 BindScale       = glm::vec3(1.0f);
+
+        glm::mat4   LocalBind   = glm::mat4(1.0f); // bind-pose local TRS, composed (== cgltf_node_transform_local)
         glm::mat4   InverseBind = glm::mat4(1.0f); // glTF skin's inverseBindMatrices entry
         std::string Name;
     };

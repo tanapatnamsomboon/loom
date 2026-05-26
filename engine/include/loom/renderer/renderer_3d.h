@@ -80,6 +80,11 @@ namespace Loom {
         // One draw call per submission. Any texture slot may be null (1x1 white
         // fallback; flat-normal fallback for normal_texture). ORM packs
         // R=AO, G=roughness, B=metallic. entity_id < 0 skips the picking write.
+        //
+        // sampled_local_transforms (skinned meshes only): when provided, the
+        // skeleton walk uses sampled_local_transforms[i] instead of the
+        // skeleton's bind-pose LocalBind for joint i. Pass null + count=0 to
+        // render the bind pose. Indices past sampled_count fall back to bind.
         static void Submit(const std::shared_ptr<MeshAsset>& mesh,
                            const glm::vec4& albedo_color,
                            const std::shared_ptr<Texture2D>& albedo_texture,
@@ -90,7 +95,9 @@ namespace Loom {
                            const glm::mat4& transform,
                            float roughness = 0.5f,
                            float metallic  = 0.0f,
-                           int   entity_id = -1);
+                           int   entity_id = -1,
+                           const glm::mat4* sampled_local_transforms = nullptr,
+                           int   sampled_count = 0);
 
         // ── Shadow pass (cascaded) ─────────────────────────────────────────
         // Caller workflow per frame (only when a shadow-casting directional light exists):

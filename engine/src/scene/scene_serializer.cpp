@@ -383,6 +383,19 @@ namespace Loom {
             out << YAML::EndMap;
         }
 
+        // Skeletal Animation Component (3D)
+        if (entity.HasComponent<SkeletalAnimationComponent>()) {
+            out << YAML::Key << "SkeletalAnimationComponent";
+            out << YAML::BeginMap;
+            auto& anim = entity.GetComponent<SkeletalAnimationComponent>();
+            out << YAML::Key << "CurrentClip" << YAML::Value << anim.CurrentClip;
+            out << YAML::Key << "Time"        << YAML::Value << anim.Time;
+            out << YAML::Key << "Speed"       << YAML::Value << anim.Speed;
+            out << YAML::Key << "Loop"        << YAML::Value << anim.Loop;
+            out << YAML::Key << "IsPlaying"   << YAML::Value << anim.IsPlaying;
+            out << YAML::EndMap;
+        }
+
         // Audio Source Component
         if (entity.HasComponent<AudioSourceComponent>()) {
             out << YAML::Key << "AudioSourceComponent";
@@ -820,6 +833,16 @@ namespace Loom {
                 cc2d.IsSensor             = YAML_GET(cc2d_node["IsSensor"],             bool,  false);
             }
 
+            // Skeletal Animation Component (3D)
+            if (auto sk_node = entity_node["SkeletalAnimationComponent"]) {
+                auto& anim       = entity.AddComponent<SkeletalAnimationComponent>();
+                anim.CurrentClip = YAML_GET(sk_node["CurrentClip"], std::string, std::string());
+                anim.Time        = YAML_GET(sk_node["Time"],        float, 0.0f);
+                anim.Speed       = YAML_GET(sk_node["Speed"],       float, 1.0f);
+                anim.Loop        = YAML_GET(sk_node["Loop"],        bool,  true);
+                anim.IsPlaying   = YAML_GET(sk_node["IsPlaying"],   bool,  true);
+            }
+
             // Audio Source Component
             if (auto asc_node = entity_node["AudioSourceComponent"]) {
                 auto& asc    = entity.AddComponent<AudioSourceComponent>();
@@ -1164,6 +1187,15 @@ namespace Loom {
                 anim.Clips.push_back(std::move(clip));
                 if (anim.CurrentClip.empty()) anim.CurrentClip = "Default";
             }
+        }
+
+        if (auto sk_node = data["SkeletalAnimationComponent"]) {
+            auto& anim       = entity.AddComponent<SkeletalAnimationComponent>();
+            anim.CurrentClip = YAML_GET(sk_node["CurrentClip"], std::string, std::string());
+            anim.Time        = YAML_GET(sk_node["Time"],        float, 0.0f);
+            anim.Speed       = YAML_GET(sk_node["Speed"],       float, 1.0f);
+            anim.Loop        = YAML_GET(sk_node["Loop"],        bool,  true);
+            anim.IsPlaying   = YAML_GET(sk_node["IsPlaying"],   bool,  true);
         }
 
         if (auto asc_node = data["AudioSourceComponent"]) {

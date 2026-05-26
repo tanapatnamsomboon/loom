@@ -378,13 +378,20 @@ namespace Loom {
                 SkeletonJoint&    sj = skeleton.Joints[j];
 
                 // Local bind = the joint node's local TRS. cgltf gives us a
-                // local transform via cgltf_node_transform_local.
+                // local transform via cgltf_node_transform_local; we also
+                // read the individual T/R/S arrays so the runtime sampler can
+                // use them as defaults for animation tracks that don't animate
+                // every channel.
                 cgltf_float local_m[16];
                 cgltf_node_transform_local(jn, local_m);
                 sj.LocalBind = glm::mat4(local_m[0],  local_m[1],  local_m[2],  local_m[3],
                                          local_m[4],  local_m[5],  local_m[6],  local_m[7],
                                          local_m[8],  local_m[9],  local_m[10], local_m[11],
                                          local_m[12], local_m[13], local_m[14], local_m[15]);
+                sj.BindTranslation = glm::vec3(jn->translation[0], jn->translation[1], jn->translation[2]);
+                // glTF rotation array is XYZW; glm::quat is WXYZ.
+                sj.BindRotation    = glm::quat(jn->rotation[3], jn->rotation[0], jn->rotation[1], jn->rotation[2]);
+                sj.BindScale       = glm::vec3(jn->scale[0], jn->scale[1], jn->scale[2]);
 
                 // Parent is the joint's scene-graph parent IF that parent is
                 // also in this skin's joint set. If not, treat as root (-1).

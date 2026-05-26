@@ -440,7 +440,9 @@ namespace Loom {
                             const glm::mat4& transform,
                             float roughness,
                             float metallic,
-                            int   entity_id) {
+                            int   entity_id,
+                            const glm::mat4* sampled_local_transforms,
+                            int   sampled_count) {
         if (!mesh || !mesh->GetVertexArray()) return;
 
         Shader* shader = mesh->IsSkinned() ? sData.MeshSkinnedShader.get()
@@ -456,6 +458,14 @@ namespace Loom {
             const Skeleton& skel = mesh->GetSkeleton();
             const int n          = std::min(skel.JointCount(), Skeleton::kMaxJoints);
 
+            // Pick local transform per joint: sampled value overrides bind
+            // when the caller supplied one, otherwise fall back to LocalBind.
+            auto local_for = [&](int i) -> const glm::mat4& {
+                if (sampled_local_transforms && i < sampled_count)
+                    return sampled_local_transforms[i];
+                return skel.Joints[i].LocalBind;
+            };
+
             glm::mat4 joint_world  [Skeleton::kMaxJoints];
             glm::mat4 skin_matrices[Skeleton::kMaxJoints];
             for (int i = 0; i < n; ++i) {
@@ -465,9 +475,9 @@ namespace Loom {
                     // skin; glTF spec recommends but doesn't require parent-first).
                     // RootWorld folds in any non-joint ancestor transform above
                     // the root joint (e.g., Blender's Z-up to Y-up rotation).
-                    joint_world[i] = skel.RootWorld * j.LocalBind;
+                    joint_world[i] = skel.RootWorld * local_for(i);
                 } else {
-                    joint_world[i] = joint_world[j.Parent] * j.LocalBind;
+                    joint_world[i] = joint_world[j.Parent] * local_for(i);
                 }
                 skin_matrices[i] = joint_world[i] * j.InverseBind;
             }

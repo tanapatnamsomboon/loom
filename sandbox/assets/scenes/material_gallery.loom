@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [10.988708, 2.6006043, 5.195802]
-  Pitch: 0.09000191
-  Yaw: -0.6550707
+  Position: [7.3821015, 1.8036003, 2.3666484]
+  Pitch: 0.645002
+  Yaw: -0.16007121
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -203,6 +203,12 @@ Entities:
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""
       NormalTexturePath: ""
+    SkeletalAnimationComponent:
+      CurrentClip: animation_0
+      Time: 1.1939398
+      Speed: 1
+      Loop: true
+      IsPlaying: true
   - Entity: 15268786537609647005
     TagComponent:
       Tag: Metal_4
