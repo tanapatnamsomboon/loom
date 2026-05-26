@@ -41,9 +41,9 @@ namespace Loom {
         glBindVertexArray(mRendererID);
         vertex_buffer->Bind();
 
-        uint32_t index = 0;
         const auto& layout = vertex_buffer->GetLayout();
         for (const auto& element : layout) {
+            uint32_t index = mNextAttribIndex;
             glEnableVertexAttribArray(index);
             switch (element.Type) {
                 case ShaderDataType::Int:
@@ -74,7 +74,7 @@ namespace Loom {
                     break;
                 default: LOOM_CORE_ERROR("Unknown ShaderDataType!");
             }
-            index++;
+            ++mNextAttribIndex;
         }
 
         mVertexBuffers.push_back(vertex_buffer);

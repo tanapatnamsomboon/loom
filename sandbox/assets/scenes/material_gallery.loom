@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [-4.7451806, 1.2305869, 3.9365962]
-  Pitch: 0.2460027
-  Yaw: -1.2430717
+  Position: [10.988708, 2.6006043, 5.195802]
+  Pitch: 0.09000191
+  Yaw: -0.6550707
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -182,6 +182,23 @@ Entities:
       AlbedoTexturePath: ""
       Roughness: 0.75
       Metallic: 1
+      ORMTexturePath: ""
+      EmissiveFactor: [0, 0, 0]
+      EmissiveTexturePath: ""
+      NormalTexturePath: ""
+  - Entity: 11416474939869703580
+    TagComponent:
+      Tag: CesiumMan
+    TransformComponent:
+      Translation: [7, 0, 0]
+      Rotation: [0, -0, 0]
+      Scale: [1, 1, 1]
+    MeshRendererComponent:
+      MeshPath: common/models/cesium_man/glb/cesium_man.glb
+      AlbedoColor: [1, 1, 1, 1]
+      AlbedoTexturePath: common/models/cesium_man/glb/cesium_man_base_color.jpg
+      Roughness: 1
+      Metallic: 0
       ORMTexturePath: ""
       EmissiveFactor: [0, 0, 0]
       EmissiveTexturePath: ""

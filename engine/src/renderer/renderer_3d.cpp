@@ -14,6 +14,7 @@ namespace Loom {
 
     struct Renderer3DStorage {
         std::shared_ptr<Shader>    MeshShader;
+        std::shared_ptr<Shader>    MeshSkinnedShader; // used when MeshAsset::IsSkinned()
         std::shared_ptr<Shader>    ShadowShader;
         std::shared_ptr<Texture2D> WhiteTexture;
         // 1x1 (128,128,255,255) — decodes to tangent-space (0,0,1) so TBN
@@ -25,6 +26,9 @@ namespace Loom {
         };
         CameraData                     CameraBuffer;
         std::shared_ptr<UniformBuffer> CameraUniformBuffer;
+        // Skin matrices UBO — binding=1, sized for Skeleton::kMaxJoints (128
+        // mat4s = 8 KB). Updated only on skinned-mesh Submit calls.
+        std::shared_ptr<UniformBuffer> BonesUniformBuffer;
 
         glm::vec3 ViewPosition = glm::vec3(0.0f);
 
@@ -183,6 +187,9 @@ namespace Loom {
         std::string mesh_path   = Project::GetEngineAssetFileSystemPath("shaders/mesh").generic_string();
         sData.MeshShader        = AssetManager::GetShader(mesh_path);
 
+        std::string skinned_path  = Project::GetEngineAssetFileSystemPath("shaders/mesh_skinned").generic_string();
+        sData.MeshSkinnedShader   = AssetManager::GetShader(skinned_path);
+
         std::string shadow_path = Project::GetEngineAssetFileSystemPath("shaders/shadow_depth").generic_string();
         sData.ShadowShader      = AssetManager::GetShader(shadow_path);
 
@@ -196,6 +203,7 @@ namespace Loom {
         sData.FlatNormalTexture->SetData(&flat_normal, sizeof(uint32_t));
 
         sData.CameraUniformBuffer = UniformBuffer::Create(sizeof(glm::mat4), 0);
+        sData.BonesUniformBuffer  = UniformBuffer::Create(sizeof(glm::mat4) * Skeleton::kMaxJoints, 1);
 
         FramebufferSpecification shadow_spec;
         shadow_spec.Width       = kShadowMapSize;
@@ -205,18 +213,21 @@ namespace Loom {
             sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
         }
 
-        sData.MeshShader->Bind();
-        sData.MeshShader->UploadUniformInt("uAlbedoTexture",            0);
-        sData.MeshShader->UploadUniformInt("uShadowMap0",               1);
-        sData.MeshShader->UploadUniformInt("uShadowMap1",               2);
-        sData.MeshShader->UploadUniformInt("uShadowMap2",               3);
-        sData.MeshShader->UploadUniformInt("uShadowMap3",               4);
-        sData.MeshShader->UploadUniformInt("uIrradianceMap",            5);
-        sData.MeshShader->UploadUniformInt("uPrefilterMap",             6);
-        sData.MeshShader->UploadUniformInt("uBRDFLUT",                  7);
-        sData.MeshShader->UploadUniformInt("uORMTexture",               8);
-        sData.MeshShader->UploadUniformInt("uEmissiveTexture",          9);
-        sData.MeshShader->UploadUniformInt("uNormalMapTexture",        10);
+        // Both shaders share the same fragment + texture-unit layout.
+        for (auto* shader : { &sData.MeshShader, &sData.MeshSkinnedShader }) {
+            (*shader)->Bind();
+            (*shader)->UploadUniformInt("uAlbedoTexture",            0);
+            (*shader)->UploadUniformInt("uShadowMap0",               1);
+            (*shader)->UploadUniformInt("uShadowMap1",               2);
+            (*shader)->UploadUniformInt("uShadowMap2",               3);
+            (*shader)->UploadUniformInt("uShadowMap3",               4);
+            (*shader)->UploadUniformInt("uIrradianceMap",            5);
+            (*shader)->UploadUniformInt("uPrefilterMap",             6);
+            (*shader)->UploadUniformInt("uBRDFLUT",                  7);
+            (*shader)->UploadUniformInt("uORMTexture",               8);
+            (*shader)->UploadUniformInt("uEmissiveTexture",          9);
+            (*shader)->UploadUniformInt("uNormalMapTexture",        10);
+        }
 
         sData.BRDFLUT = GenerateBRDFLUT(512);
 
@@ -272,10 +283,12 @@ namespace Loom {
 
     void Renderer3D::Shutdown() {
         sData.MeshShader.reset();
+        sData.MeshSkinnedShader.reset();
         sData.ShadowShader.reset();
         sData.WhiteTexture.reset();
         sData.FlatNormalTexture.reset();
         sData.CameraUniformBuffer.reset();
+        sData.BonesUniformBuffer.reset();
         sData.SkyboxShader.reset();
         sData.SkyboxVAO.reset();
         sData.SkyboxVBO.reset();
@@ -430,45 +443,79 @@ namespace Loom {
                             int   entity_id) {
         if (!mesh || !mesh->GetVertexArray()) return;
 
-        sData.MeshShader->Bind();
+        Shader* shader = mesh->IsSkinned() ? sData.MeshSkinnedShader.get()
+                                           : sData.MeshShader.get();
+        shader->Bind();
 
-        sData.MeshShader->UploadUniformMat4  ("uModel",        transform);
-        sData.MeshShader->UploadUniformFloat4("uAlbedoColor",  albedo_color);
-        sData.MeshShader->UploadUniformFloat ("uRoughness",     roughness);
-        sData.MeshShader->UploadUniformFloat ("uMetallic",      metallic);
-        sData.MeshShader->UploadUniformFloat3("uEmissiveFactor", emissive_factor);
-        sData.MeshShader->UploadUniformInt   ("uEntityID",      entity_id);
+        // Upload skin matrices for skinned meshes. Bind-pose path (slice 1):
+        // walk the skeleton top-down computing joint_world, then multiply by
+        // each joint's inverseBind to get the skin matrix. At bind pose this
+        // collapses to identity — but the math runs, so a Picasso-monster
+        // means a real bug rather than just bad uniform plumbing.
+        if (mesh->IsSkinned()) {
+            const Skeleton& skel = mesh->GetSkeleton();
+            const int n          = std::min(skel.JointCount(), Skeleton::kMaxJoints);
 
-        sData.MeshShader->UploadUniformFloat3("uViewPos",      sData.ViewPosition);
-        sData.MeshShader->UploadUniformInt   ("uDirLightCount",   sData.DirLightCount);
-        sData.MeshShader->UploadUniformInt   ("uPointLightCount", sData.PointLightCount);
+            glm::mat4 joint_world  [Skeleton::kMaxJoints];
+            glm::mat4 skin_matrices[Skeleton::kMaxJoints];
+            for (int i = 0; i < n; ++i) {
+                const SkeletonJoint& j = skel.Joints[i];
+                if (j.Parent < 0 || j.Parent >= i) {
+                    // No parent OR parent appears later in the array (mis-ordered
+                    // skin; glTF spec recommends but doesn't require parent-first).
+                    // RootWorld folds in any non-joint ancestor transform above
+                    // the root joint (e.g., Blender's Z-up to Y-up rotation).
+                    joint_world[i] = skel.RootWorld * j.LocalBind;
+                } else {
+                    joint_world[i] = joint_world[j.Parent] * j.LocalBind;
+                }
+                skin_matrices[i] = joint_world[i] * j.InverseBind;
+            }
+            // Pad remaining slots — vertices with bogus joint indices outside [0,n)
+            // were clamped at import time, so this is belt-and-suspenders.
+            for (int i = n; i < Skeleton::kMaxJoints; ++i)
+                skin_matrices[i] = glm::mat4(1.0f);
+
+            sData.BonesUniformBuffer->SetData(skin_matrices, sizeof(skin_matrices));
+        }
+
+        shader->UploadUniformMat4  ("uModel",        transform);
+        shader->UploadUniformFloat4("uAlbedoColor",  albedo_color);
+        shader->UploadUniformFloat ("uRoughness",     roughness);
+        shader->UploadUniformFloat ("uMetallic",      metallic);
+        shader->UploadUniformFloat3("uEmissiveFactor", emissive_factor);
+        shader->UploadUniformInt   ("uEntityID",      entity_id);
+
+        shader->UploadUniformFloat3("uViewPos",      sData.ViewPosition);
+        shader->UploadUniformInt   ("uDirLightCount",   sData.DirLightCount);
+        shader->UploadUniformInt   ("uPointLightCount", sData.PointLightCount);
         if (sData.DirLightCount > 0) {
-            sData.MeshShader->UploadUniformFloat3Array("uDirLightDir",   sData.DirLightDir,   sData.DirLightCount);
-            sData.MeshShader->UploadUniformFloat3Array("uDirLightColor", sData.DirLightColor, sData.DirLightCount);
+            shader->UploadUniformFloat3Array("uDirLightDir",   sData.DirLightDir,   sData.DirLightCount);
+            shader->UploadUniformFloat3Array("uDirLightColor", sData.DirLightColor, sData.DirLightCount);
         }
         if (sData.PointLightCount > 0) {
-            sData.MeshShader->UploadUniformFloat3Array("uPointLightPos",   sData.PointLightPos,   sData.PointLightCount);
-            sData.MeshShader->UploadUniformFloat3Array("uPointLightColor", sData.PointLightColor, sData.PointLightCount);
-            sData.MeshShader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
+            shader->UploadUniformFloat3Array("uPointLightPos",   sData.PointLightPos,   sData.PointLightCount);
+            shader->UploadUniformFloat3Array("uPointLightColor", sData.PointLightColor, sData.PointLightCount);
+            shader->UploadUniformFloatArray ("uPointLightRange", sData.PointLightRange, sData.PointLightCount);
         }
 
         bool has_ibl = sData.IrradianceMap || sData.PrefilterMap;
-        sData.MeshShader->UploadUniformInt  ("uHasIBL",          has_ibl ? 1 : 0);
-        sData.MeshShader->UploadUniformInt  ("uHasPrefilter",    sData.PrefilterMap ? 1 : 0);
-        sData.MeshShader->UploadUniformFloat("uMaxReflectionLOD", sData.MaxReflectionLOD);
+        shader->UploadUniformInt  ("uHasIBL",          has_ibl ? 1 : 0);
+        shader->UploadUniformInt  ("uHasPrefilter",    sData.PrefilterMap ? 1 : 0);
+        shader->UploadUniformFloat("uMaxReflectionLOD", sData.MaxReflectionLOD);
         if (sData.IrradianceMap) sData.IrradianceMap->Bind(5);
         if (sData.PrefilterMap)  sData.PrefilterMap->Bind(6);
         if (sData.BRDFLUT)       glBindTextureUnit(7, sData.BRDFLUT);
 
-        sData.MeshShader->UploadUniformInt("uDebugViz", sData.DebugViz);
+        shader->UploadUniformInt("uDebugViz", sData.DebugViz);
 
-        sData.MeshShader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);
+        shader->UploadUniformInt("uShadowsEnabled", sData.ShadowsActive ? 1 : 0);
         if (sData.ShadowsActive) {
-            sData.MeshShader->UploadUniformMat4 ("uLightVP0",       sData.LightVPs[0]);
-            sData.MeshShader->UploadUniformMat4 ("uLightVP1",       sData.LightVPs[1]);
-            sData.MeshShader->UploadUniformMat4 ("uLightVP2",       sData.LightVPs[2]);
-            sData.MeshShader->UploadUniformMat4 ("uLightVP3",       sData.LightVPs[3]);
-            sData.MeshShader->UploadUniformFloatArray("uCascadeSplits", sData.CascadeSplits, kCascadeCount);
+            shader->UploadUniformMat4 ("uLightVP0",       sData.LightVPs[0]);
+            shader->UploadUniformMat4 ("uLightVP1",       sData.LightVPs[1]);
+            shader->UploadUniformMat4 ("uLightVP2",       sData.LightVPs[2]);
+            shader->UploadUniformMat4 ("uLightVP3",       sData.LightVPs[3]);
+            shader->UploadUniformFloatArray("uCascadeSplits", sData.CascadeSplits, kCascadeCount);
 
             for (int i = 0; i < kCascadeCount; ++i) {
                 uint32_t tex = sData.ShadowFramebuffers[i]->GetDepthAttachmentRendererID();

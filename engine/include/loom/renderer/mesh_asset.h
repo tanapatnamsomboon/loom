@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/core/core.h"
+#include "loom/renderer/skeleton.h"
 #include "loom/renderer/vertex_array.h"
 #include <filesystem>
 #include <glm/glm.hpp>
@@ -55,6 +56,12 @@ namespace Loom {
         const std::string& GetPath() const { return mPath; }
         const MeshMaterial& GetMaterial() const { return mMaterial; }
 
+        // Skinning surface — empty skeleton means a static mesh that goes
+        // through the standard mesh.vert shader path. Renderer3D::Submit
+        // branches to the skinned shader iff IsSkinned() is true.
+        bool IsSkinned() const { return !mSkeleton.Empty(); }
+        const Skeleton& GetSkeleton() const { return mSkeleton; }
+
         // Re-parses mPath and atomically swaps in new geometry+material. On
         // failure existing data is preserved. Driven by the FileWatcher.
         void Reload();
@@ -77,6 +84,8 @@ namespace Loom {
         uint32_t mVertexCount = 0;
         uint32_t mIndexCount  = 0;
         MeshMaterial mMaterial;
+        // Empty for static meshes.
+        Skeleton mSkeleton;
     };
 
 } // namespace Loom

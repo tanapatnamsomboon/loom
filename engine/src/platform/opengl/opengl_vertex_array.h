@@ -20,6 +20,10 @@ namespace Loom {
 
     private:
         uint32_t mRendererID;
+        // Cumulative across AddVertexBuffer calls so multi-VBO VAOs (e.g.,
+        // skinned meshes with a parallel joints+weights buffer) get
+        // non-overlapping attribute slots.
+        uint32_t mNextAttribIndex = 0;
         std::vector<std::shared_ptr<VertexBuffer>> mVertexBuffers;
         std::shared_ptr<IndexBuffer> mIndexBuffer;
     };

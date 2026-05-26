@@ -5,8 +5,10 @@
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <string>
 #include <vector>
 
 namespace Loom {
@@ -59,13 +61,31 @@ namespace Loom {
         bool any_uvs     = false;
         bool any_normals = false;
 
+        // Parallel-to-`vertices` skin attributes: only populated when a primitive
+        // carries JOINTS_0 / WEIGHTS_0. We commit a separate skin VBO at the end
+        // iff any primitive contributed real skin data (a static mesh leaves
+        // these empty and gets the standard single-VBO layout).
+        //
+        // Joints are stored as ivec4 (i32, not the spec's u8/u16) — the engine's
+        // ShaderDataType doesn't have an unsigned-int slot, and 128-joint cap
+        // fits ivec4 trivially. Weights stay as vec4.
+        struct SkinVertex { glm::ivec4 Joints; glm::vec4 Weights; };
+        std::vector<SkinVertex> skin_attribs;
+        bool any_skin       = false;
+        const cgltf_skin* skin_src = nullptr; // first primitive's skin wins, mirroring material policy
+
         // First primitive material wins — all primitives concatenate into one VAO.
         const cgltf_material* material_src = nullptr;
 
         // Bakes one cgltf_mesh's primitives into the shared vertex/index buffers,
         // transforming by world (positions) and inverse-transpose (normals).
-        auto emit_mesh = [&](const cgltf_mesh& mesh, const glm::mat4& world,
-                             const glm::mat3& normal_matrix) {
+        // Skinned primitives override world->identity locally: glTF specifies
+        // that node transforms are ignored when a mesh is skinned (the skin's
+        // joint transforms handle all positioning).
+        auto emit_mesh = [&](const cgltf_mesh& mesh,
+                             const cgltf_skin* node_skin,
+                             const glm::mat4& world_in,
+                             const glm::mat3& normal_matrix_in) {
             for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi) {
                 const cgltf_primitive& prim = mesh.primitives[pi];
                 if (prim.type != cgltf_primitive_type_triangles) {
@@ -78,6 +98,8 @@ namespace Loom {
                 const cgltf_accessor* nrm_acc = nullptr;
                 const cgltf_accessor* uv_acc  = nullptr;
                 const cgltf_accessor* tan_acc = nullptr;
+                const cgltf_accessor* joints_acc  = nullptr;
+                const cgltf_accessor* weights_acc = nullptr;
                 for (cgltf_size ai = 0; ai < prim.attributes_count; ++ai) {
                     const cgltf_attribute& attr = prim.attributes[ai];
                     switch (attr.type) {
@@ -85,9 +107,23 @@ namespace Loom {
                         case cgltf_attribute_type_normal:   nrm_acc = attr.data; break;
                         case cgltf_attribute_type_texcoord: if (attr.index == 0) uv_acc = attr.data; break;
                         case cgltf_attribute_type_tangent:  tan_acc = attr.data; break;
+                        case cgltf_attribute_type_joints:   if (attr.index == 0) joints_acc  = attr.data; break;
+                        case cgltf_attribute_type_weights:  if (attr.index == 0) weights_acc = attr.data; break;
                         default: break;
                     }
                 }
+
+                // Skinned iff the primitive carries JOINTS_0 + WEIGHTS_0 AND
+                // the owning node has a skin. (A primitive with JOINTS_0 but
+                // no node->skin is malformed glTF — treat as static.)
+                const bool prim_skinned = (joints_acc && weights_acc && node_skin != nullptr);
+                if (prim_skinned) {
+                    any_skin = true;
+                    if (!skin_src) skin_src = node_skin;
+                }
+
+                const glm::mat4 world         = prim_skinned ? glm::mat4(1.0f) : world_in;
+                const glm::mat3 normal_matrix = prim_skinned ? glm::mat3(1.0f) : normal_matrix_in;
 
                 if (!pos_acc) {
                     LOOM_CORE_WARN("MeshAsset: primitive in '{}' has no POSITION attribute, skipping", path);
@@ -97,6 +133,12 @@ namespace Loom {
                 const cgltf_size  vstart = vertices.size();
                 const cgltf_size  vcount = pos_acc->count;
                 vertices.resize(vstart + vcount);
+
+                // Skin attribs run parallel to `vertices`. Static primitives
+                // append zeroed entries so per-vertex indices line up if a
+                // later primitive turns out to be skinned. The whole buffer is
+                // committed iff any primitive was skinned.
+                skin_attribs.resize(vstart + vcount);
 
                 if (nrm_acc) any_normals = true;
                 if (uv_acc)  any_uvs     = true;
@@ -138,6 +180,23 @@ namespace Loom {
                         v.Tangent = glm::vec4(t_world, tan_local.w);
                     } else {
                         v.Tangent = glm::vec4(0.0f); // sentinel — triggers Lengyel pass below
+                    }
+
+                    SkinVertex& sv = skin_attribs[vstart + i];
+                    if (prim_skinned) {
+                        cgltf_uint    j[4]  = { 0, 0, 0, 0 };
+                        cgltf_float   w[4]  = { 0.0f, 0.0f, 0.0f, 0.0f };
+                        cgltf_accessor_read_uint (joints_acc,  i, j, 4);
+                        cgltf_accessor_read_float(weights_acc, i, w, 4);
+                        // Weights should sum to 1.0 per glTF spec but exporters
+                        // occasionally drift; renormalize defensively.
+                        float wsum = w[0] + w[1] + w[2] + w[3];
+                        float inv  = (wsum > 1e-6f) ? (1.0f / wsum) : 0.0f;
+                        sv.Joints  = glm::ivec4((int)j[0], (int)j[1], (int)j[2], (int)j[3]);
+                        sv.Weights = glm::vec4(w[0] * inv, w[1] * inv, w[2] * inv, w[3] * inv);
+                    } else {
+                        sv.Joints  = glm::ivec4(0, 0, 0, 0);
+                        sv.Weights = glm::vec4(0.0f);
                     }
                 }
 
@@ -202,7 +261,7 @@ namespace Loom {
                             wm_raw[8],  wm_raw[9],  wm_raw[10], wm_raw[11],
                             wm_raw[12], wm_raw[13], wm_raw[14], wm_raw[15]);
             glm::mat3 nm = glm::transpose(glm::inverse(glm::mat3(world)));
-            if (node->mesh) emit_mesh(*node->mesh, world, nm);
+            if (node->mesh) emit_mesh(*node->mesh, node->skin, world, nm);
             for (cgltf_size ci = 0; ci < node->children_count; ++ci)
                 self(self, node->children[ci]);
         };
@@ -223,7 +282,7 @@ namespace Loom {
         if (!walked_any) {
             // Defensive fallback: no scene graph (rare but legal).
             for (cgltf_size mi = 0; mi < data->meshes_count; ++mi)
-                emit_mesh(data->meshes[mi], glm::mat4(1.0f), glm::mat3(1.0f));
+                emit_mesh(data->meshes[mi], nullptr, glm::mat4(1.0f), glm::mat3(1.0f));
         }
 
         // Material extraction must happen before cgltf_free — material_src points into `data`.
@@ -290,6 +349,92 @@ namespace Loom {
             material.EmissiveFactor = e_factor;
         }
 
+        // Build the Skeleton from the first skin we found (must happen before
+        // cgltf_free — skin_src points into `data`).
+        Skeleton skeleton;
+        if (skin_src) {
+            const cgltf_size raw_joint_count = skin_src->joints_count;
+            const cgltf_size joint_count     = (raw_joint_count > (cgltf_size)Skeleton::kMaxJoints)
+                                               ? (cgltf_size)Skeleton::kMaxJoints
+                                               : raw_joint_count;
+            if (raw_joint_count > (cgltf_size)Skeleton::kMaxJoints) {
+                LOOM_CORE_WARN("MeshAsset: '{}' skin has {} joints; engine cap is {}. "
+                               "Extra joints will be clamped to index 0 - animation will be wrong "
+                               "for vertices weighted to clamped joints.",
+                               path, raw_joint_count, Skeleton::kMaxJoints);
+            }
+            skeleton.Joints.resize(joint_count);
+
+            // Map cgltf_node* -> joint index, for parent-link resolution below.
+            // Joints not in this skin produce -1 (root-like behavior).
+            auto node_to_joint = [&](const cgltf_node* n) -> int {
+                for (cgltf_size j = 0; j < joint_count; ++j)
+                    if (skin_src->joints[j] == n) return (int)j;
+                return -1;
+            };
+
+            for (cgltf_size j = 0; j < joint_count; ++j) {
+                const cgltf_node* jn = skin_src->joints[j];
+                SkeletonJoint&    sj = skeleton.Joints[j];
+
+                // Local bind = the joint node's local TRS. cgltf gives us a
+                // local transform via cgltf_node_transform_local.
+                cgltf_float local_m[16];
+                cgltf_node_transform_local(jn, local_m);
+                sj.LocalBind = glm::mat4(local_m[0],  local_m[1],  local_m[2],  local_m[3],
+                                         local_m[4],  local_m[5],  local_m[6],  local_m[7],
+                                         local_m[8],  local_m[9],  local_m[10], local_m[11],
+                                         local_m[12], local_m[13], local_m[14], local_m[15]);
+
+                // Parent is the joint's scene-graph parent IF that parent is
+                // also in this skin's joint set. If not, treat as root (-1).
+                sj.Parent = (jn->parent ? node_to_joint(jn->parent) : -1);
+
+                sj.Name = jn->name ? jn->name : ("joint_" + std::to_string(j));
+            }
+
+            // Inverse bind matrices: optional in glTF (default = identity per
+            // joint), provided as a tightly-packed float16 accessor when present.
+            if (skin_src->inverse_bind_matrices) {
+                const cgltf_accessor* ibm = skin_src->inverse_bind_matrices;
+                for (cgltf_size j = 0; j < joint_count && j < ibm->count; ++j) {
+                    cgltf_float m[16];
+                    cgltf_accessor_read_float(ibm, j, m, 16);
+                    skeleton.Joints[j].InverseBind = glm::mat4(
+                        m[0],  m[1],  m[2],  m[3],
+                        m[4],  m[5],  m[6],  m[7],
+                        m[8],  m[9],  m[10], m[11],
+                        m[12], m[13], m[14], m[15]);
+                }
+            }
+            // Capture the world transform of any non-joint ancestor chain
+            // above the skin's root joint(s). glTF exporters (Blender et al.)
+            // routinely tuck a Z-up to Y-up rotation onto a "Skeleton" /
+            // "Armature" node that wraps the joint hierarchy. Without this,
+            // root joints would render in the model's pre-rotation frame
+            // (character lying horizontally instead of standing upright).
+            const cgltf_node* above_root = nullptr;
+            for (cgltf_size j = 0; j < joint_count; ++j) {
+                if (skeleton.Joints[j].Parent < 0) {
+                    above_root = skin_src->joints[j]->parent;
+                    break;
+                }
+            }
+            if (above_root) {
+                cgltf_float m[16];
+                cgltf_node_transform_world(above_root, m);
+                skeleton.RootWorld = glm::mat4(m[0],  m[1],  m[2],  m[3],
+                                               m[4],  m[5],  m[6],  m[7],
+                                               m[8],  m[9],  m[10], m[11],
+                                               m[12], m[13], m[14], m[15]);
+            }
+
+            LOOM_CORE_TRACE("MeshAsset: '{}' skin loaded - {} joints, IBM={}, root_above={}",
+                            path, joint_count,
+                            skin_src->inverse_bind_matrices ? "yes" : "no (identity defaulted)",
+                            above_root ? "yes" : "no");
+        }
+
         cgltf_free(data);
 
         if (vertices.empty() || indices.empty()) {
@@ -309,6 +454,30 @@ namespace Loom {
 
         auto vao = VertexArray::Create();
         vao->AddVertexBuffer(vbo);
+
+        // Skin VBO — only attached when the mesh has skinning data. Layout
+        // claims attribute slots 4 (ivec4 joints) and 5 (vec4 weights),
+        // matching mesh_skinned.vert. Static meshes leave these slots
+        // disabled and use mesh.vert.
+        if (any_skin && !skeleton.Empty()) {
+            // Clamp joint indices to the skeleton's actual joint count so a
+            // bogus index can't index past the bones UBO.
+            const int max_joint = skeleton.JointCount() - 1;
+            for (auto& sv : skin_attribs) {
+                sv.Joints.x = std::clamp(sv.Joints.x, 0, max_joint);
+                sv.Joints.y = std::clamp(sv.Joints.y, 0, max_joint);
+                sv.Joints.z = std::clamp(sv.Joints.z, 0, max_joint);
+                sv.Joints.w = std::clamp(sv.Joints.w, 0, max_joint);
+            }
+            auto skin_vbo = VertexBuffer::Create(skin_attribs.data(),
+                                                 (uint32_t)(skin_attribs.size() * sizeof(SkinVertex)));
+            skin_vbo->SetLayout({
+                { ShaderDataType::Int4,   "a_Joints"  },
+                { ShaderDataType::Float4, "a_Weights" },
+            });
+            vao->AddVertexBuffer(skin_vbo);
+        }
+
         vao->SetIndexBuffer(ibo);
 
         auto asset = std::make_shared<MeshAsset>();
@@ -317,12 +486,14 @@ namespace Loom {
         asset->mVertexCount = (uint32_t)vertices.size();
         asset->mIndexCount  = (uint32_t)indices.size();
         asset->mMaterial    = material;
+        if (any_skin) asset->mSkeleton = std::move(skeleton);
 
-        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={})",
+        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={}, skin={})",
                         path, asset->mVertexCount, asset->mIndexCount,
                         any_normals ? "yes" : "NO (defaulted to +Z)",
                         any_uvs     ? "yes" : "NO (tangents generated from geometry only; normal map will be flat)",
-                        material.HasMaterial ? "yes" : "none");
+                        material.HasMaterial ? "yes" : "none",
+                        asset->IsSkinned() ? std::to_string(asset->mSkeleton.JointCount()) + " joints" : "static");
         if (!any_uvs)
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "
                            "Re-export the model with UVs (Blender: 'UV -> Smart UV Project' or 'Cube Projection' before glTF export).", path);
@@ -517,6 +688,7 @@ namespace Loom {
         mVertexCount = fresh->mVertexCount;
         mIndexCount  = fresh->mIndexCount;
         mMaterial    = std::move(fresh->mMaterial);
+        mSkeleton    = std::move(fresh->mSkeleton);
         LOOM_CORE_INFO("MeshAsset: hot-reloaded '{}'", mPath);
     }
 
