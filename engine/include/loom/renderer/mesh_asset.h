@@ -1,12 +1,14 @@
 #pragma once
 
 #include "loom/core/core.h"
+#include "loom/renderer/animation_clip_3d.h"
 #include "loom/renderer/skeleton.h"
 #include "loom/renderer/vertex_array.h"
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace Loom {
 
@@ -56,11 +58,20 @@ namespace Loom {
         const std::string& GetPath() const { return mPath; }
         const MeshMaterial& GetMaterial() const { return mMaterial; }
 
-        // Skinning surface — empty skeleton means a static mesh that goes
+        // Skinning surface. Empty skeleton means a static mesh that goes
         // through the standard mesh.vert shader path. Renderer3D::Submit
         // branches to the skinned shader iff IsSkinned() is true.
         bool IsSkinned() const { return !mSkeleton.Empty(); }
         const Skeleton& GetSkeleton() const { return mSkeleton; }
+
+        // Animation clips parsed from the glTF, indexable by name. JointIndex
+        // values are baked against this asset's Skeleton at import time so
+        // they're only meaningful when paired with the owning MeshAsset.
+        const std::vector<AnimationClip3D>& GetClips() const { return mClips; }
+        const AnimationClip3D* FindClip(const std::string& name) const {
+            for (const auto& c : mClips) if (c.Name == name) return &c;
+            return nullptr;
+        }
 
         // Re-parses mPath and atomically swaps in new geometry+material. On
         // failure existing data is preserved. Driven by the FileWatcher.
@@ -86,6 +97,9 @@ namespace Loom {
         MeshMaterial mMaterial;
         // Empty for static meshes.
         Skeleton mSkeleton;
+        // Empty when the glTF has no animations or when no animation channel
+        // targets a joint in this asset's skin.
+        std::vector<AnimationClip3D> mClips;
     };
 
 } // namespace Loom

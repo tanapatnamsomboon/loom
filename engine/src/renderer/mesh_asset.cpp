@@ -435,6 +435,118 @@ namespace Loom {
                             above_root ? "yes" : "no");
         }
 
+        // ── Animation clip extraction ───────────────────────────────────────
+        // Only meaningful when we have a skin (otherwise there are no joints
+        // for animation channels to target). Channels not targeting joints in
+        // this skin are silently dropped; weight/morph channels are skipped.
+        std::vector<AnimationClip3D> clips;
+        if (skin_src && skeleton.JointCount() > 0) {
+            auto node_to_joint = [&](const cgltf_node* n) -> int {
+                for (int j = 0; j < skeleton.JointCount(); ++j)
+                    if (skin_src->joints[j] == n) return j;
+                return -1;
+            };
+
+            auto cgltf_interp_to_engine = [](cgltf_interpolation_type t) {
+                switch (t) {
+                    case cgltf_interpolation_type_linear:       return Interpolation::Linear;
+                    case cgltf_interpolation_type_step:         return Interpolation::Step;
+                    case cgltf_interpolation_type_cubic_spline: return Interpolation::CubicSpline;
+                    default:                                    return Interpolation::Linear;
+                }
+            };
+
+            for (cgltf_size ai = 0; ai < data->animations_count; ++ai) {
+                const cgltf_animation& anim = data->animations[ai];
+                AnimationClip3D clip;
+                clip.Name = anim.name ? anim.name : ("animation_" + std::to_string(ai));
+                // Disambiguate duplicate names by suffixing the animation index.
+                for (const auto& existing : clips) {
+                    if (existing.Name == clip.Name) {
+                        clip.Name += "_" + std::to_string(ai);
+                        break;
+                    }
+                }
+
+                std::vector<JointAnimationTrack> tracks_by_joint(skeleton.JointCount());
+                for (int j = 0; j < skeleton.JointCount(); ++j)
+                    tracks_by_joint[j].JointIndex = j;
+
+                bool any_track = false;
+                for (cgltf_size ci = 0; ci < anim.channels_count; ++ci) {
+                    const cgltf_animation_channel& chan = anim.channels[ci];
+                    if (!chan.target_node || !chan.sampler) continue;
+                    int joint = node_to_joint(chan.target_node);
+                    if (joint < 0) continue; // channel targets non-joint node
+                    if (chan.target_path == cgltf_animation_path_type_weights) continue; // morphs unsupported
+
+                    const cgltf_animation_sampler& samp = *chan.sampler;
+                    if (!samp.input || !samp.output) continue;
+
+                    JointChannel jc;
+                    jc.Interp = cgltf_interp_to_engine(samp.interpolation);
+                    const cgltf_size key_count = samp.input->count;
+                    jc.Times.resize(key_count);
+                    for (cgltf_size k = 0; k < key_count; ++k)
+                        cgltf_accessor_read_float(samp.input, k, &jc.Times[k], 1);
+
+                    // CubicSpline: output has 3*key_count entries (in_tangent,
+                    // value, out_tangent). We keep only the value slice; tangents
+                    // are dropped for slice 2 (renders as polyline-with-corners
+                    // through the keyframes, visually fine for most rigs).
+                    const cgltf_size stride = (samp.interpolation == cgltf_interpolation_type_cubic_spline) ? 3 : 1;
+                    const cgltf_size value_offset = (stride == 3) ? 1 : 0;
+
+                    // Update duration BEFORE the std::move below — read from
+                    // the cgltf accessor directly so we don't touch jc.Times
+                    // post-move.
+                    if (samp.input->count > 0) {
+                        float last_t = 0.0f;
+                        cgltf_accessor_read_float(samp.input, samp.input->count - 1, &last_t, 1);
+                        if (last_t > clip.Duration) clip.Duration = last_t;
+                    }
+
+                    if (chan.target_path == cgltf_animation_path_type_rotation) {
+                        jc.ValuesQuat.resize(key_count);
+                        for (cgltf_size k = 0; k < key_count; ++k) {
+                            float xyzw[4];
+                            cgltf_accessor_read_float(samp.output, k * stride + value_offset, xyzw, 4);
+                            // glTF stores rotation quats as XYZW; glm::quat is WXYZ.
+                            jc.ValuesQuat[k] = glm::quat(xyzw[3], xyzw[0], xyzw[1], xyzw[2]);
+                        }
+                        tracks_by_joint[joint].Rotation = std::move(jc);
+                    } else if (chan.target_path == cgltf_animation_path_type_translation ||
+                               chan.target_path == cgltf_animation_path_type_scale) {
+                        jc.ValuesVec3.resize(key_count);
+                        for (cgltf_size k = 0; k < key_count; ++k) {
+                            cgltf_accessor_read_float(samp.output, k * stride + value_offset,
+                                                      &jc.ValuesVec3[k].x, 3);
+                        }
+                        if (chan.target_path == cgltf_animation_path_type_translation)
+                            tracks_by_joint[joint].Translation = std::move(jc);
+                        else
+                            tracks_by_joint[joint].Scale = std::move(jc);
+                    }
+                    any_track = true;
+                }
+
+                if (!any_track) continue;
+
+                // Drop tracks whose joint has no animated channel.
+                for (auto& t : tracks_by_joint) {
+                    if (t.Translation.Empty() && t.Rotation.Empty() && t.Scale.Empty()) continue;
+                    clip.Tracks.push_back(std::move(t));
+                }
+
+                if (!clip.Tracks.empty()) clips.push_back(std::move(clip));
+            }
+
+            for (const auto& clip : clips) {
+                LOOM_CORE_TRACE("MeshAsset: '{}' clip '{}' duration={:.3f}s tracks={}",
+                                path, clip.Name, clip.Duration, clip.Tracks.size());
+            }
+        }
+
         cgltf_free(data);
 
         if (vertices.empty() || indices.empty()) {
@@ -487,13 +599,15 @@ namespace Loom {
         asset->mIndexCount  = (uint32_t)indices.size();
         asset->mMaterial    = material;
         if (any_skin) asset->mSkeleton = std::move(skeleton);
+        asset->mClips       = std::move(clips);
 
-        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={}, skin={})",
+        LOOM_CORE_TRACE("MeshAsset: loaded '{}' ({} vertices, {} indices, normals={}, uvs={}, material={}, skin={}, clips={})",
                         path, asset->mVertexCount, asset->mIndexCount,
                         any_normals ? "yes" : "NO (defaulted to +Z)",
                         any_uvs     ? "yes" : "NO (tangents generated from geometry only; normal map will be flat)",
                         material.HasMaterial ? "yes" : "none",
-                        asset->IsSkinned() ? std::to_string(asset->mSkeleton.JointCount()) + " joints" : "static");
+                        asset->IsSkinned() ? std::to_string(asset->mSkeleton.JointCount()) + " joints" : "static",
+                        asset->mClips.size());
         if (!any_uvs)
             LOOM_CORE_WARN("MeshAsset: '{}' has no TEXCOORD_0 attribute. Albedo texture sampling will be flat. "
                            "Re-export the model with UVs (Blender: 'UV -> Smart UV Project' or 'Cube Projection' before glTF export).", path);
@@ -689,6 +803,7 @@ namespace Loom {
         mIndexCount  = fresh->mIndexCount;
         mMaterial    = std::move(fresh->mMaterial);
         mSkeleton    = std::move(fresh->mSkeleton);
+        mClips       = std::move(fresh->mClips);
         LOOM_CORE_INFO("MeshAsset: hot-reloaded '{}'", mPath);
     }
 
