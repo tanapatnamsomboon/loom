@@ -1,8 +1,8 @@
 Scene: material_gallery
 EditorCamera:
-  Position: [7.3821015, 1.8036003, 2.3666484]
-  Pitch: 0.645002
-  Yaw: -0.16007121
+  Position: [7.2657275, 1.9647748, 3.2398396]
+  Pitch: 0.47400194
+  Yaw: -0.32807282
 SkyboxPath: common/environments/kloppenheim_puresky.hdr
 Entities:
   - Entity: 686106169779647617
@@ -105,7 +105,7 @@ Entities:
       Tag: Dielectric_2
     TransformComponent:
       Translation: [0, 0.5, 0]
-      Rotation: [0, 0, 0]
+      Rotation: [0, -0, 0]
       Scale: [1, 1, 1]
     MeshRendererComponent:
       MeshPath: common/models/sphere.glb
@@ -205,7 +205,7 @@ Entities:
       NormalTexturePath: ""
     SkeletalAnimationComponent:
       CurrentClip: animation_0
-      Time: 1.1939398
+      Time: 1.2066182
       Speed: 1
       Loop: true
       IsPlaying: true

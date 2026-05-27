@@ -75,15 +75,28 @@ namespace Weaver {
     void ViewportPanel::HandleViewportResize() {
         ComputeGameViewRect();
 
-        mContext.ActiveScene->OnViewportResize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
+        // DPI: ImGui reports sizes in logical pixels. On a 125% / 150% scaled
+        // Windows display the physical framebuffer is bigger, so rendering at
+        // logical size then letting ImGui's backend stretch the result to
+        // physical pixels produces a bilinear softening that FXAA compounds.
+        // Size the offscreen FBOs in physical pixels; ImGui::Image still takes
+        // logical pixels and the backend's internal scaling lines us up 1:1.
+        const ImVec2 dpi  = ImGui::GetIO().DisplayFramebufferScale;
+        const float  fb_w = mGameViewSize.x * dpi.x;
+        const float  fb_h = mGameViewSize.y * dpi.y;
+
+        mContext.ActiveScene->OnViewportResize((uint32_t)fb_w, (uint32_t)fb_h);
 
         Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
-        if (mGameViewSize.x > 0.0f && mGameViewSize.y > 0.0f &&
-            (spec.Width != mGameViewSize.x || spec.Height != mGameViewSize.y)) {
-            mFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
-            mLDRFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
-            mFinalFramebuffer->Resize((uint32_t)mGameViewSize.x, (uint32_t)mGameViewSize.y);
-            mContext.EditorCamera.SetViewportSize(mGameViewSize.x, mGameViewSize.y);
+        if (fb_w > 0.0f && fb_h > 0.0f &&
+            (spec.Width != (uint32_t)fb_w || spec.Height != (uint32_t)fb_h)) {
+            mFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
+            mLDRFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
+            mFinalFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
+            // Editor camera aspect uses the ratio only; passing physical sizes
+            // is fine and keeps any internal pixel-based logic consistent with
+            // the FBOs above.
+            mContext.EditorCamera.SetViewportSize(fb_w, fb_h);
         }
     }
 
@@ -183,10 +196,15 @@ namespace Weaver {
         my -= mContext.ViewportBounds[0].y + mGameViewOffset.y;
         my = mGameViewSize.y - my;
 
-        int mouse_x = (int)mx;
-        int mouse_y = (int)my;
+        // ImGui mouse pos is in logical pixels; the picking FBO is in physical
+        // pixels (see HandleViewportResize). Scale mouse coords before sampling.
+        const ImVec2 dpi   = ImGui::GetIO().DisplayFramebufferScale;
+        const float  fb_w  = mGameViewSize.x * dpi.x;
+        const float  fb_h  = mGameViewSize.y * dpi.y;
+        const int    mouse_x = (int)(mx * dpi.x);
+        const int    mouse_y = (int)(my * dpi.y);
 
-        if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)mGameViewSize.x && mouse_y < (int)mGameViewSize.y) {
+        if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)fb_w && mouse_y < (int)fb_h) {
             int pixel = mFramebuffer->ReadPixel(1, mouse_x, mouse_y);
             mContext.HoveredEntity = (pixel == -1)
                 ? Loom::Entity()
