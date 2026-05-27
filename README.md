@@ -43,9 +43,11 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 ### Renderer
 
 - **Renderer2D** — batched quads, textures, color tint, tiling factor, lines, circles, signed-distance text (stb_truetype glyph atlas), tilemap rendering
-- **Renderer3D** — mesh facade with one draw call per submission; physically-based shading via Cook-Torrance microfacet BRDF (GGX + Smith + Schlick) for direct lighting + full Karis split-sum IBL (HDR equirect → cubemap skybox, diffuse irradiance, GGX-importance-sampled prefilter, BRDF LUT); ACES tonemap + sRGB pipeline; up to 4 directional + 16 point lights; meaningful `Roughness` / `Metallic` material sliders
+- **Renderer3D** — mesh facade with one draw call per submission; physically-based shading via Cook-Torrance microfacet BRDF (GGX + Smith + Schlick) for direct lighting + full Karis split-sum IBL (HDR equirect → cubemap skybox, diffuse irradiance, GGX-importance-sampled prefilter, BRDF LUT); up to 4 directional + 16 point lights; meaningful `Roughness` / `Metallic` material sliders; auto-branches between static and skinned shader variants per mesh
+- **Skeletal animation** — glTF skin import (joints, inverse-bind matrices, `JOINTS_0` / `WEIGHTS_0`); 4-bone linear-blend GPU skinning via a 128-slot Bones UBO; per-joint TRS keyframe sampler (LERP / STEP / SLERP for rotation) drives a `SkeletalAnimationComponent` that previews live in the editor and plays through to runtime; skinned shadow shader so animated meshes cast correctly-shaped shadows
+- **Unified post-processing pipeline** — HDR RGBA16F scene → bloom (Jimenez 2014 dual-filter, threshold + intensity knobs) → ACES tonemap + sRGB encode → FXAA (Console variant, toggleable for pixel-art 2D); single composite path so 2D and 3D content share one display curve
 - **HDR skybox & IBL** — assign a `.hdr` environment per scene; engine builds the env cubemap + diffuse irradiance + roughness-prefiltered specular cubemap on first load. Editor layers a default HDR fallback so PBR materials are never pitch-black during level construction; Play mode honors the scene's exact env (empty env = solid clear + zero ambient, by design)
-- **Shadow mapping** — directional cascaded shadow maps (4 cascades, practical split scheme, 3×3 PCF softening, slope-scale bias, per-cascade sphere-fit + texel-snap stabilization)
+- **Shadow mapping** — directional cascaded shadow maps (4 cascades at 4096², practical split scheme, 5×5 PCF softening, slope-scale bias, per-cascade sphere-fit + texel-snap stabilization)
 - **Particles** — CPU-simulated emitters (point/box/circle shape, world or local space) with lifetime / velocity / gravity ranges and color/size curves; live preview in the editor
 - **Sprite animation** — multi-clip `AnimationComponent` (per-clip frames, frame duration, loop); visual spritesheet picker (click cells to add frames); per-frame events dispatched to Lua as `OnAnimationEvent(name)`
 - **TextureSpecification** — per-texture filter mode (nearest / linear), wrap mode (repeat / clamp), mipmap generation
@@ -54,7 +56,7 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 ### ECS & Scene
 
 - **EnTT** entity-component system; game objects are lightweight handles over a registry
-- Built-in components: `Transform`, `Tag`, `Camera`, `SpriteRenderer`, `MeshRenderer`, `NativeScript`, `LuaScript`, `Rigidbody2D` / `BoxCollider2D` / `CircleCollider2D`, `Rigidbody3D` / `BoxCollider3D` / `SphereCollider3D` / `CapsuleCollider3D`, `DirectionalLight`, `PointLight`, `Animation`, `AudioSource`, `Tilemap`, `Particle`, `Text`
+- Built-in components: `Transform`, `Tag`, `Camera`, `SpriteRenderer`, `MeshRenderer`, `NativeScript`, `LuaScript`, `Rigidbody2D` / `BoxCollider2D` / `CircleCollider2D`, `Rigidbody3D` / `BoxCollider3D` / `SphereCollider3D` / `CapsuleCollider3D`, `DirectionalLight`, `PointLight`, `Animation` (2D sprite frames), `SkeletalAnimation` (3D rigs), `AudioSource`, `Tilemap`, `Particle`, `Text`
 - **Entity hierarchy** — `RelationshipComponent`; world transform computed from local transforms up the parent chain
 - **YAML scene serialization** — `.loom` scene files; asset paths stored project-relative for portability; editor camera state persisted per scene
 - **Prefab system** — save any entity as `.lprefab`; drag-and-drop instantiation from the content browser; `entity:Instantiate(path)` from Lua
@@ -115,7 +117,7 @@ Each field appears as a live editor widget. Values are saved to the scene file a
 
 ## Current Status
 
-Phases 1 through 5 are **complete**. The engine is 2D + 3D feature-complete with cascaded shadow maps, full PBR + IBL shading, a working standalone runtime, and a polished editor. Active work is **Phase 6 — Graphics API Expansion** (Vulkan + DirectX 12 backends).
+Phases 1 through 5, 7, and 8 are **complete**. The engine is 2D + 3D feature-complete with cascaded shadow maps, full PBR + IBL shading, unified HDR post-processing, 3D skeletal animation, a working standalone runtime, and a polished editor. Phase 6 (multi-backend graphics) and Phase 9 (project-level graphics settings) are planned.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -124,8 +126,11 @@ Phases 1 through 5 are **complete**. The engine is 2D + 3D feature-complete with
 | Phase 2 | WeaverRuntime standalone executable | ✅ Complete |
 | Phase 3 | Editor & Tools Polish — undo/redo (Command Pattern), text/HUD rendering, tilemap (paint tool + per-tile collision), particle system, custom gizmos, animation polish (multi-clip + events + visual picker) | ✅ Complete |
 | Phase 4 | 3D Foundation — GLTF mesh loading (cgltf), `Renderer3D`, Blinn-Phong lighting (directional + point), Jolt 3D physics with Box/Sphere/Capsule colliders + collision events | ✅ Complete |
-| Phase 5 | Advanced Rendering — directional cascaded shadow maps; PBR shading (Cook-Torrance direct + Karis split-sum IBL, ACES tonemap, sRGB pipeline); HDR skybox / per-scene env | ✅ Complete |
+| Phase 5 | Advanced Rendering — directional cascaded shadow maps; PBR shading (Cook-Torrance direct + Karis split-sum IBL); HDR skybox / per-scene env; glTF material import including embedded textures | ✅ Complete |
 | Phase 6 | Graphics API Expansion — Vulkan and DirectX 12 backends | 🔲 Planned |
+| Phase 7 | Post-Processing & Rendering Polish — unified HDR pipeline, Bloom, FXAA | ✅ Complete |
+| Phase 8 | 3D Skeletal Animation — glTF skin import, 4-bone GPU skinning, clip playback, skinned shadows | ✅ Complete |
+| Phase 9 | Project Graphics Settings — quality knobs (shadow resolution, post-process toggles) into `.loomproj` for per-game baked defaults | 🔲 Planned |
 
 ---
 
