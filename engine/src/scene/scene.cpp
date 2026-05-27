@@ -748,7 +748,17 @@ namespace Loom {
                 }
                 if (!mrc.Mesh) continue;
                 glm::mat4 world = scene->GetWorldTransform({ e, scene });
-                Renderer3D::SubmitShadow(mrc.Mesh, world);
+
+                const glm::mat4* sampled_bones = nullptr;
+                int              sampled_count = 0;
+                if (registry.all_of<SkeletalAnimationComponent>(e)) {
+                    const auto& anim = registry.get<SkeletalAnimationComponent>(e);
+                    if (!anim.SampledLocals.empty()) {
+                        sampled_bones = anim.SampledLocals.data();
+                        sampled_count = (int)anim.SampledLocals.size();
+                    }
+                }
+                Renderer3D::SubmitShadow(mrc.Mesh, world, sampled_bones, sampled_count);
             }
             Renderer3D::EndShadowPass();
         }

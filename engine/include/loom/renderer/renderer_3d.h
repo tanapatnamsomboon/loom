@@ -117,8 +117,13 @@ namespace Loom {
         // is fine — Submit falls back to no shadows.
         static void SetCascadeSplits(const float splits[kCascadeCount]); // world distances along view direction
         static void BeginShadowPass(int cascade_index, const glm::mat4& light_view_projection);
+        // sampled_local_transforms (skinned meshes only): same semantics as
+        // Submit's parameter. Null + count=0 renders the bind-pose silhouette;
+        // pass an animator's sampled bones to cast a correctly-shaped shadow.
         static void SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
-                                 const glm::mat4& transform);
+                                 const glm::mat4& transform,
+                                 const glm::mat4* sampled_local_transforms = nullptr,
+                                 int   sampled_count = 0);
         static void EndShadowPass();
     };
 

@@ -14,8 +14,9 @@ namespace Loom {
 
     struct Renderer3DStorage {
         std::shared_ptr<Shader>    MeshShader;
-        std::shared_ptr<Shader>    MeshSkinnedShader; // used when MeshAsset::IsSkinned()
+        std::shared_ptr<Shader>    MeshSkinnedShader;   // used when MeshAsset::IsSkinned()
         std::shared_ptr<Shader>    ShadowShader;
+        std::shared_ptr<Shader>    ShadowSkinnedShader; // skinned variant of ShadowShader
         std::shared_ptr<Texture2D> WhiteTexture;
         // 1x1 (128,128,255,255) — decodes to tangent-space (0,0,1) so TBN
         // returns the geometry normal unchanged when no map is bound.
@@ -193,6 +194,9 @@ namespace Loom {
         std::string shadow_path = Project::GetEngineAssetFileSystemPath("shaders/shadow_depth").generic_string();
         sData.ShadowShader      = AssetManager::GetShader(shadow_path);
 
+        std::string shadow_skinned_path = Project::GetEngineAssetFileSystemPath("shaders/shadow_depth_skinned").generic_string();
+        sData.ShadowSkinnedShader       = AssetManager::GetShader(shadow_skinned_path);
+
         sData.WhiteTexture = Texture2D::Create(1, 1);
         uint32_t white     = 0xFFFFFFFF;
         sData.WhiteTexture->SetData(&white, sizeof(uint32_t));
@@ -285,6 +289,7 @@ namespace Loom {
         sData.MeshShader.reset();
         sData.MeshSkinnedShader.reset();
         sData.ShadowShader.reset();
+        sData.ShadowSkinnedShader.reset();
         sData.WhiteTexture.reset();
         sData.FlatNormalTexture.reset();
         sData.CameraUniformBuffer.reset();
@@ -387,16 +392,59 @@ namespace Loom {
         sData.ShadowFramebuffers[cascade_index]->Bind();
         glClear(GL_DEPTH_BUFFER_BIT);
 
+        // Upload uLightVP to BOTH shader variants up front. SubmitShadow picks
+        // one per mesh; we save the per-mesh shader switch from also having to
+        // re-upload the cascade VP.
         sData.ShadowShader->Bind();
         sData.ShadowShader->UploadUniformMat4("uLightVP", light_view_projection);
+        if (sData.ShadowSkinnedShader) {
+            sData.ShadowSkinnedShader->Bind();
+            sData.ShadowSkinnedShader->UploadUniformMat4("uLightVP", light_view_projection);
+        }
     }
 
     void Renderer3D::SubmitShadow(const std::shared_ptr<MeshAsset>& mesh,
-                                  const glm::mat4& transform) {
+                                  const glm::mat4& transform,
+                                  const glm::mat4* sampled_local_transforms,
+                                  int   sampled_count) {
         if (!mesh || !mesh->GetVertexArray()) return;
         if (sData.ActiveCascade < 0)          return; // BeginShadowPass not called
 
-        sData.ShadowShader->UploadUniformMat4("uModel", transform);
+        const bool skinned = mesh->IsSkinned() && sData.ShadowSkinnedShader;
+        Shader* shader = skinned ? sData.ShadowSkinnedShader.get()
+                                 : sData.ShadowShader.get();
+        shader->Bind();
+
+        // Mirror the main pass's bone-matrix walk so the shadow silhouette
+        // matches the lit mesh exactly. Bind pose path collapses to identity;
+        // sampled clip path produces the animated silhouette.
+        if (skinned) {
+            const Skeleton& skel = mesh->GetSkeleton();
+            const int n          = std::min(skel.JointCount(), Skeleton::kMaxJoints);
+
+            auto local_for = [&](int i) -> const glm::mat4& {
+                if (sampled_local_transforms && i < sampled_count)
+                    return sampled_local_transforms[i];
+                return skel.Joints[i].LocalBind;
+            };
+
+            glm::mat4 joint_world  [Skeleton::kMaxJoints];
+            glm::mat4 skin_matrices[Skeleton::kMaxJoints];
+            for (int i = 0; i < n; ++i) {
+                const SkeletonJoint& j = skel.Joints[i];
+                if (j.Parent < 0 || j.Parent >= i)
+                    joint_world[i] = skel.RootWorld * local_for(i);
+                else
+                    joint_world[i] = joint_world[j.Parent] * local_for(i);
+                skin_matrices[i] = joint_world[i] * j.InverseBind;
+            }
+            for (int i = n; i < Skeleton::kMaxJoints; ++i)
+                skin_matrices[i] = glm::mat4(1.0f);
+
+            sData.BonesUniformBuffer->SetData(skin_matrices, sizeof(skin_matrices));
+        }
+
+        shader->UploadUniformMat4("uModel", transform);
 
         const auto& vao = mesh->GetVertexArray();
         vao->Bind();

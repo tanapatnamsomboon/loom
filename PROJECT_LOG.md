@@ -362,10 +362,23 @@ Keep this section current. Mark completed items with `[x]`, update priorities as
 
 *`AnimationComponent` is 2D sprite-frame animation only; 3D character games need skinned meshes driven by a skeleton.*
 
-- [ ] **glTF skin import** — joints, inverse-bind matrices, `JOINTS_0` / `WEIGHTS_0` vertex attributes (cgltf already parses these).
-- [ ] **GPU skinning** — joint-matrix palette uploaded per draw; a skinned variant of `mesh.vert`.
-- [ ] **Skeletal animation clips** — per-joint TRS keyframe sampler with interpolation; a `SkeletalAnimationComponent` (or an extension of the existing animation component).
+- [x] **glTF skin import** *(2026-05-26)* — joints, inverse-bind matrices, `JOINTS_0` / `WEIGHTS_0` vertex attributes parsed via cgltf onto a per-`MeshAsset` `Skeleton` (parent indices, IBM, bind-pose local TRS, `RootWorld` for non-joint ancestor chain).
+- [x] **GPU skinning** *(2026-05-26)* — 4-bone LBS in `mesh_skinned.vert` via a 128-slot Bones UBO at binding=1; `Renderer3D::Submit` walks the skeleton top-down per draw and uploads `joint_world * IBM` skin matrices. Separate skin VBO at attribute slots 4/5 keeps static meshes unchanged.
+- [x] **Skeletal animation clips** *(2026-05-27)* — per-joint TRS keyframe sampler (LERP/STEP, SLERP for quats, CubicSpline degraded to LERP via value-component subset). `SkeletalAnimationComponent` carries playback state + sampled-locals scratch; scene drives it in both Edit and Play modes; inspector exposes a clip dropdown + Play/Loop/Speed/Time scrubber.
+- [ ] **Skinned shadow shader** — `shadow_depth_skinned.vert` so animated meshes cast correctly-shaped shadows (currently frozen at bind-pose silhouette during playback).
 - [ ] *(stretch)* animation blending / state machine.
+
+---
+
+## Phase 9 — Project Graphics Settings
+
+*Currently `kShadowMapSize` (and a handful of other quality knobs) live as C++ `constexpr` in `Renderer3D`. The Game Developer can't bake a quality target into their project without recompiling the engine, and there's no place to plumb a Player-runtime "Low / Med / High" menu later. Triggered 2026-05-27 after the editor-side shadow bump from 2048 to 4096 + 5x5 PCF — the right home for those values is project-level, not an engine constant.*
+
+- [ ] **`Graphics` section in `Project::Config`** — shadow map size, shadow max distance, cascade split lambda, FXAA enabled, bloom enabled/threshold/intensity. Serialized via `ProjectSerializer`.
+- [ ] **`Renderer3D::Init` reads active Project** — shadow framebuffer size + render-pipeline toggles come from the active project at startup; framebuffers re-create on project switch.
+- [ ] **Project Settings editor panel** — Weaver inspector for the Graphics section so the Game Developer adjusts quality without hand-editing `.loomproj` YAML.
+- [ ] *(later)* **Player runtime quality menu** — shipped game exposes a settings UI; selection overrides project defaults at startup and persists in a per-machine save.
+- [ ] *(later)* **Editor-local override** — when a Game Developer wants the editor viewport to preview a different quality than the shipped game's baked defaults. Lower priority; only build when a concrete use-case shows up.
 
 ---
 
