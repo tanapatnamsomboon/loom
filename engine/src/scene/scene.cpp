@@ -603,19 +603,20 @@ namespace Loom {
     }
 
     // Max world-space distance from the camera that is covered by the cascaded
-    // shadow maps. Cascades partition [cam_near, kShadowMaxDistance] so the
-    // foreground stays crisp while distant geometry still receives shadow.
-    static constexpr float kShadowMaxDistance = 200.0f;
+    // shadow maps now lives on the active project (see GraphicsConfig); read
+    // it back via Renderer3D::GetShadowMaxDistance() each frame so a project
+    // switch picks up immediately.
+    //
     // Lambda blends uniform vs. logarithmic cascade splits: 0 = uniform (equal
     // world distance per cascade), 1 = logarithmic (geometric ratio). 0.5 is
     // the practical default — close cascades stay small for foreground detail
-    // while far cascades cover a lot of range.
+    // while far cascades cover a lot of range. Still engine-constant.
     static constexpr float kCascadeSplitLambda = 0.5f;
 
     // Returns the 8 world-space corners of the camera frustum slice defined by
     // [near_dist, far_dist] in **world-space distance** along the view direction.
     // Designed up-front to support cascade splits later (Slice D) — a single
-    // cascade just passes [near, kShadowMaxDistance].
+    // cascade just passes [near, shadow_max_distance].
     static std::array<glm::vec3, 8> GetCameraFrustumCornersWS(const glm::mat4& cam_view,
                                                               const glm::mat4& cam_proj,
                                                               float near_dist,
@@ -672,7 +673,7 @@ namespace Loom {
         glm::vec3 light_x_world = glm::normalize(glm::cross(up, light_z_world));
         glm::vec3 light_y_world = glm::cross(light_z_world, light_x_world);
 
-        float texel_size = 2.0f * radius / (float)Renderer3D::kShadowMapSize;
+        float texel_size = 2.0f * radius / (float)Renderer3D::GetShadowMapSize();
         float cx = glm::dot(center, light_x_world);
         float cy = glm::dot(center, light_y_world);
         float cz = glm::dot(center, light_z_world);
@@ -724,7 +725,8 @@ namespace Loom {
 
         // Compute per-cascade ranges (far distances) and matching VPs.
         float splits[Renderer3D::kCascadeCount];
-        ComputeCascadeSplits(cam_near, kShadowMaxDistance, kCascadeSplitLambda, splits);
+        ComputeCascadeSplits(cam_near, Renderer3D::GetShadowMaxDistance(),
+                             kCascadeSplitLambda, splits);
         Renderer3D::SetCascadeSplits(splits);
 
         // Mesh entities are walked once per cascade. Lazy-loading the mesh here

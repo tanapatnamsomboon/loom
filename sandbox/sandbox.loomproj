@@ -2,4 +2,10 @@ Project:
   Version: 1
   Name: sandbox
   AssetDirectory: assets
-  StartScene: "scenes/01_2d_sandbox.loom"
+  StartScene: scenes/platformer_2d.loom
+  WindowTitle: ""
+  WindowWidth: 1280
+  WindowHeight: 720
+  Graphics:
+    ShadowMapSize: 1024
+    ShadowMaxDistance: 50

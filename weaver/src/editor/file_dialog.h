@@ -29,8 +29,27 @@ namespace Weaver::FileDialog {
     void PickFolder(const std::string& key, const std::string& title, Callback on_pick,
                     const std::string& start_dir = "");
 
+    // ── Modal-scoped variants ─────────────────────────────────────────────
+    // When opening a file dialog from inside an ImGui modal (e.g. the New
+    // Project Wizard's Browse... button), use these. They register the dialog
+    // as "modal-scoped" — the outer Render() skips it; RenderModalScope()
+    // must be called from INSIDE the parent modal's Begin/End block so the
+    // file dialog nests correctly in ImGui's popup stack. Skipping that call
+    // closes the parent modal because the nested-popup chain breaks.
+    void OpenInModal(const std::string& key, const std::string& title, const char* filters,
+                     Callback on_pick, const std::string& start_dir = "");
+    void SaveInModal(const std::string& key, const std::string& title, const char* filters,
+                     const std::string& default_filename, Callback on_pick,
+                     const std::string& start_dir = "");
+    void PickFolderInModal(const std::string& key, const std::string& title, Callback on_pick,
+                           const std::string& start_dir = "");
+
+    // Outer-scope render (renders only non-modal-scoped dialogs).
     // Call once per frame after panels render, while inside the ImGui frame.
     void Render();
+    // Modal-scope render (renders only modal-scoped dialogs).
+    // Call inside any modal's Begin/End block before EndPopup.
+    void RenderModalScope();
 
     // Returns the path relative to the active project's asset directory if `absolute` is inside it
     // (forward-slash form), otherwise returns the absolute path in generic form.

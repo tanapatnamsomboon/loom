@@ -24,6 +24,11 @@ namespace Loom {
         out << YAML::Key << "WindowTitle"    << YAML::Value << config.WindowTitle;
         out << YAML::Key << "WindowWidth"    << YAML::Value << config.WindowWidth;
         out << YAML::Key << "WindowHeight"   << YAML::Value << config.WindowHeight;
+        out << YAML::Key << "Graphics" << YAML::Value;
+        out << YAML::BeginMap;
+        out << YAML::Key << "ShadowMapSize"     << YAML::Value << config.Graphics.ShadowMapSize;
+        out << YAML::Key << "ShadowMaxDistance" << YAML::Value << config.Graphics.ShadowMaxDistance;
+        out << YAML::EndMap;
         out << YAML::EndMap;
         out << YAML::EndMap;
 
@@ -35,6 +40,9 @@ namespace Loom {
         }
 
         fout << out.c_str();
+        // Keep the project's recorded file path in sync with the last-written
+        // location so SaveAs naturally retargets subsequent Saves.
+        mProject->SetProjectFilePath(path);
         return true;
     }
 
@@ -105,7 +113,16 @@ namespace Loom {
         config.WindowWidth  = project_node["WindowWidth"]  ? project_node["WindowWidth"].as<int>()  : 1280;
         config.WindowHeight = project_node["WindowHeight"] ? project_node["WindowHeight"].as<int>() : 720;
 
+        // Optional: graphics block — missing keys keep the GraphicsConfig defaults.
+        if (auto gfx = project_node["Graphics"]) {
+            if (gfx["ShadowMapSize"])
+                config.Graphics.ShadowMapSize     = gfx["ShadowMapSize"].as<uint32_t>();
+            if (gfx["ShadowMaxDistance"])
+                config.Graphics.ShadowMaxDistance = gfx["ShadowMaxDistance"].as<float>();
+        }
+
         mProject->SetProjectDirectory(path.parent_path());
+        mProject->SetProjectFilePath(path);
         return true;
     }
 

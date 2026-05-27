@@ -85,6 +85,12 @@ namespace Loom {
         bool                         ShadowsActive   = false; // set on any cascade; cleared at EndScene
         int                          PrevFBO         = 0;     // restored at last EndShadowPass
         int                          PrevViewport[4] = { 0, 0, 0, 0 };
+
+        // Per-project quality knobs. Initialized to the kDefault* values at
+        // Renderer3D::Init; the active project (when present) overrides them
+        // via Set*ShadowMap* on load.
+        uint32_t ShadowMapSize     = Renderer3D::kDefaultShadowMapSize;
+        float    ShadowMaxDistance = Renderer3D::kDefaultShadowMaxDistance;
     };
 
     static Renderer3DStorage sData;
@@ -185,6 +191,15 @@ namespace Loom {
     } // anonymous namespace
 
     void Renderer3D::Init() {
+        // Pull initial quality knobs from the active project (WeaverRuntime
+        // loads the project before constructing Application; editor opens
+        // projects after Init runs and pushes via Set* below).
+        if (auto active = Project::GetActive()) {
+            const auto& gfx = active->GetConfig().Graphics;
+            if (gfx.ShadowMapSize     > 0)    sData.ShadowMapSize     = gfx.ShadowMapSize;
+            if (gfx.ShadowMaxDistance > 0.0f) sData.ShadowMaxDistance = gfx.ShadowMaxDistance;
+        }
+
         std::string mesh_path   = Project::GetEngineAssetFileSystemPath("shaders/mesh").generic_string();
         sData.MeshShader        = AssetManager::GetShader(mesh_path);
 
@@ -210,8 +225,8 @@ namespace Loom {
         sData.BonesUniformBuffer  = UniformBuffer::Create(sizeof(glm::mat4) * Skeleton::kMaxJoints, 1);
 
         FramebufferSpecification shadow_spec;
-        shadow_spec.Width       = kShadowMapSize;
-        shadow_spec.Height      = kShadowMapSize;
+        shadow_spec.Width       = sData.ShadowMapSize;
+        shadow_spec.Height      = sData.ShadowMapSize;
         shadow_spec.Attachments = { FramebufferTextureFormat::DEPTH32F };
         for (int i = 0; i < kCascadeCount; ++i) {
             sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
@@ -283,6 +298,9 @@ namespace Loom {
         sData.FXAAShader = AssetManager::GetShader(fxaa_path);
         sData.FXAAShader->Bind();
         sData.FXAAShader->UploadUniformInt("uSource", 0);
+
+        LOOM_CORE_TRACE("Renderer3D: initialized - shadow map {}x{} per cascade ({} cascades), max distance {}",
+                        sData.ShadowMapSize, sData.ShadowMapSize, kCascadeCount, sData.ShadowMaxDistance);
     }
 
     void Renderer3D::Shutdown() {
@@ -461,6 +479,30 @@ namespace Loom {
         }
         sData.ActiveCascade = -1;
     }
+
+    void Renderer3D::SetShadowMapSize(uint32_t size) {
+        if (size == 0)                       return;
+        if (size == sData.ShadowMapSize)     return;
+
+        sData.ShadowMapSize = size;
+
+        FramebufferSpecification shadow_spec;
+        shadow_spec.Width       = size;
+        shadow_spec.Height      = size;
+        shadow_spec.Attachments = { FramebufferTextureFormat::DEPTH32F };
+        for (int i = 0; i < kCascadeCount; ++i) {
+            sData.ShadowFramebuffers[i] = Framebuffer::Create(shadow_spec);
+        }
+        LOOM_CORE_TRACE("Renderer3D: shadow map size = {}x{} per cascade ({} cascades)",
+                        size, size, kCascadeCount);
+    }
+
+    uint32_t Renderer3D::GetShadowMapSize() { return sData.ShadowMapSize; }
+
+    void  Renderer3D::SetShadowMaxDistance(float distance) {
+        if (distance > 0.0f) sData.ShadowMaxDistance = distance;
+    }
+    float Renderer3D::GetShadowMaxDistance() { return sData.ShadowMaxDistance; }
 
     void Renderer3D::SetLights(const DirectionalLight* dir_lights, int dir_count,
                                const PointLight*       point_lights, int point_count) {

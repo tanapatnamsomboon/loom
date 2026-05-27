@@ -17,8 +17,10 @@ namespace Loom {
         static constexpr int      kMaxPointLights       = 16;
         // 4096 x 4 cascades x DEPTH32F = ~256 MB shadow VRAM. Heavy, but
         // the editor camera tends to roam far enough that the distant
-        // cascades show visible texel pixelation at 2048.
-        static constexpr uint32_t kShadowMapSize        = 4096;
+        // cascades show visible texel pixelation at 2048. Used as the
+        // fall-back when no project has overridden GraphicsConfig.
+        static constexpr uint32_t kDefaultShadowMapSize     = 4096;
+        static constexpr float    kDefaultShadowMaxDistance = 200.0f;
         // Changing this requires editing mesh.frag (branches are hand-unrolled).
         static constexpr int      kCascadeCount         = 4;
 
@@ -117,6 +119,14 @@ namespace Loom {
         // is fine — Submit falls back to no shadows.
         static void SetCascadeSplits(const float splits[kCascadeCount]); // world distances along view direction
         static void BeginShadowPass(int cascade_index, const glm::mat4& light_view_projection);
+
+        // Project-driven quality knobs. Apply per project (typically right after
+        // the project loads). SetShadowMapSize re-creates the cascade FBOs only
+        // when the size actually changed. Get* returns the current live value.
+        static void     SetShadowMapSize(uint32_t size);
+        static uint32_t GetShadowMapSize();
+        static void     SetShadowMaxDistance(float distance);
+        static float    GetShadowMaxDistance();
         // sampled_local_transforms (skinned meshes only): same semantics as
         // Submit's parameter. Null + count=0 renders the bind-pose silhouette;
         // pass an animator's sampled bones to cast a correctly-shaped shadow.

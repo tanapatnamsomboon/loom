@@ -5,8 +5,16 @@
 #include <loom/core/log.h>
 #include <loom/project/project.h>
 #include <loom/project/project_serializer.h>
+#include <loom/renderer/renderer_3d.h>
 #include <algorithm>
 #include <filesystem>
+
+namespace {
+    void ApplyGraphicsToRenderer(const Loom::GraphicsConfig& gfx) {
+        Loom::Renderer3D::SetShadowMapSize(gfx.ShadowMapSize);
+        Loom::Renderer3D::SetShadowMaxDistance(gfx.ShadowMaxDistance);
+    }
+} // namespace
 
 namespace Weaver {
 
@@ -55,6 +63,7 @@ namespace Weaver {
         AddToRecent(filepath);
         Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + project->GetConfig().Name);
         mContentBrowser.Init();
+        ApplyGraphicsToRenderer(project->GetConfig().Graphics);
 
         std::filesystem::path start_scene = Loom::Project::GetAssetFileSystemPath(project->GetConfig().StartScene);
         if (!project->GetConfig().StartScene.empty() && std::filesystem::exists(start_scene))
@@ -154,7 +163,7 @@ namespace Weaver {
                 ImGui::InputText("##StartScene", mSettingsStartScene, sizeof(mSettingsStartScene));
                 ImGui::SameLine();
                 if (ImGui::Button("...##BrowseStartScene", { browse_w, 0.0f })) {
-                    FileDialog::Open("BrowseStartScene", "Select Start Scene", ".loom",
+                    FileDialog::OpenInModal("BrowseStartScene", "Select Start Scene", ".loom",
                         [this](const std::string& picked) {
                             std::string rel = FileDialog::MakeAssetRelative(picked);
                             strncpy(mSettingsStartScene, rel.c_str(), sizeof(mSettingsStartScene) - 1);
@@ -187,12 +196,29 @@ namespace Weaver {
                     cfg.WindowWidth    = mSettingsWindowWidth;
                     cfg.WindowHeight   = mSettingsWindowHeight;
                     Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + cfg.Name);
+
+                    // Persist back to the original .loomproj. Filename is
+                    // intentionally NOT renamed when Project Name changes —
+                    // use File → Save Project As to relocate / rename.
+                    const auto& proj_file = project->GetProjectFilePath();
+                    if (!proj_file.empty()) {
+                        Loom::ProjectSerializer ser(project);
+                        if (ser.Serialize(proj_file.string()))
+                            LOOM_CORE_INFO("Project Settings: saved to {}", proj_file.string());
+                        else
+                            LOOM_CORE_ERROR("Project Settings: failed to save to {}", proj_file.string());
+                    } else {
+                        LOOM_CORE_WARN("Project Settings: no project file path tracked — applied in-memory only.");
+                    }
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Cancel", ImVec2(120, 0)))
                     ImGui::CloseCurrentPopup();
             }
+            // File dialogs opened from this modal must render inside it so
+            // ImGui's popup-stack nesting keeps the Settings modal alive.
+            FileDialog::RenderModalScope();
             ImGui::EndPopup();
         }
 
@@ -232,8 +258,22 @@ namespace Weaver {
                 start = active->GetProjectDirectory().parent_path().generic_string();
             else if (!mPrefs.RecentProjects.empty())
                 start = std::filesystem::path(mPrefs.RecentProjects.front()).parent_path().generic_string();
-            FileDialog::PickFolder("WizardProjectLocation", "Choose Project Location",
+            // InModal variant: rendered inside this modal's scope (see
+            // FileDialog::RenderModalScope below) so the nested popup doesn't
+            // break the wizard's modal stack.
+            FileDialog::PickFolderInModal("WizardProjectLocation", "Choose Project Location",
                 [this](const std::string& folder) { mProjectPath = folder; }, start);
+        }
+
+        // Show the user the exact .loomproj path that will be created so they
+        // can verify the location + name before clicking Create.
+        if (!mProjectPath.empty() && strlen(mProjectName) > 0) {
+            std::filesystem::path preview = std::filesystem::path((const char8_t*)mProjectPath.c_str())
+                                          / std::filesystem::path((const char8_t*)mProjectName)
+                                          / (std::string(mProjectName) + ".loomproj");
+            ImGui::TextDisabled("Will create: %s", preview.generic_string().c_str());
+        } else {
+            ImGui::TextDisabled("Will create: (set name and location)");
         }
 
         ImGui::Spacing();
@@ -263,6 +303,7 @@ namespace Weaver {
             Loom::Project::SetActive(new_project);
             Loom::Application::Get().GetWindow().SetTitle("Weaver Editor - " + std::string(mProjectName));
             mContentBrowser.Init();
+            ApplyGraphicsToRenderer(new_project->GetConfig().Graphics);
             mSceneManager.NewScene();
 
             AddToRecent(proj_file.string());
@@ -277,6 +318,10 @@ namespace Weaver {
         if (ImGui::Button("Cancel", ImVec2(120, 0)))
             ImGui::CloseCurrentPopup();
 
+        // File dialogs opened from this wizard (the Browse button) render here
+        // so they nest inside the wizard's popup scope. Without this, the
+        // file dialog opens at outer scope and ImGui closes the wizard.
+        FileDialog::RenderModalScope();
         ImGui::EndPopup();
     }
 

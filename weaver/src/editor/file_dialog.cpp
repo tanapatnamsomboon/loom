@@ -10,7 +10,11 @@
 namespace Weaver::FileDialog {
 
     namespace {
-        std::unordered_map<std::string, Callback> sActive;
+        struct ActiveDialog {
+            Callback Cb;
+            bool     ModalScoped = false; // rendered by RenderModalScope() only
+        };
+        std::unordered_map<std::string, ActiveDialog> sActive;
 
         constexpr ImVec2 kMinSize = { 920, 540 };
 
@@ -117,71 +121,118 @@ namespace Weaver::FileDialog {
         SetupSystemPlaces();
     }
 
+    namespace {
+        void OpenImpl(const std::string& key, const std::string& title, const char* filters,
+                      Callback on_pick, const std::string& start_dir, bool modal_scoped) {
+            RefreshProjectPlaces();
+            IGFD::FileDialogConfig config;
+            config.path  = ResolveStartDir(start_dir);
+            config.flags = ImGuiFileDialogFlags_Modal;
+            ImGuiFileDialog::Instance()->OpenDialog(key, title, filters, config);
+            sActive[key] = { std::move(on_pick), modal_scoped };
+        }
+
+        void SaveImpl(const std::string& key, const std::string& title, const char* filters,
+                      const std::string& default_filename, Callback on_pick,
+                      const std::string& start_dir, bool modal_scoped) {
+            RefreshProjectPlaces();
+            IGFD::FileDialogConfig config;
+            config.path     = ResolveStartDir(start_dir);
+            config.fileName = default_filename;
+            config.flags    = ImGuiFileDialogFlags_ConfirmOverwrite | ImGuiFileDialogFlags_Modal;
+            ImGuiFileDialog::Instance()->OpenDialog(key, title, filters, config);
+            sActive[key] = { std::move(on_pick), modal_scoped };
+        }
+
+        void PickFolderImpl(const std::string& key, const std::string& title, Callback on_pick,
+                            const std::string& start_dir, bool modal_scoped) {
+            RefreshProjectPlaces();
+            IGFD::FileDialogConfig config;
+            config.path  = ResolveStartDir(start_dir);
+            config.flags = ImGuiFileDialogFlags_Modal;
+            // nullptr filters puts ImGuiFileDialog into folder-pick mode.
+            ImGuiFileDialog::Instance()->OpenDialog(key, title, nullptr, config);
+            sActive[key] = { std::move(on_pick), modal_scoped };
+        }
+
+        // Renders every active dialog whose ModalScoped flag matches `want_modal_scoped`.
+        // ImGuiFileDialog's Display() calls BeginPopupModal; modal-scoped entries
+        // must be displayed inside their parent modal's Begin/End block to nest.
+        void RenderFiltered(bool want_modal_scoped) {
+            if (sActive.empty())
+                return;
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,    8.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,     8.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,     6.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,     4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding,      3.0f);
+
+            for (auto it = sActive.begin(); it != sActive.end(); ) {
+                if (it->second.ModalScoped != want_modal_scoped) { ++it; continue; }
+                const std::string& key = it->first;
+                if (ImGuiFileDialog::Instance()->Display(key, ImGuiWindowFlags_NoCollapse, kMinSize)) {
+                    if (ImGuiFileDialog::Instance()->IsOk()) {
+                        // GetFilePathName() is empty in folder-pick mode when
+                        // the user clicks OK without single-selecting an item
+                        // (the natural flow: navigate into the target folder
+                        // and confirm). Fall back to the current navigation
+                        // path so folder picks always yield a usable result.
+                        std::string path = ImGuiFileDialog::Instance()->GetFilePathName();
+                        if (path.empty())
+                            path = ImGuiFileDialog::Instance()->GetCurrentPath();
+                        Callback cb = std::move(it->second.Cb);
+                        ImGuiFileDialog::Instance()->Close();
+                        it = sActive.erase(it);
+                        cb(path); // invoke after erase so a callback may safely re-open the same key
+                        continue;
+                    }
+                    ImGuiFileDialog::Instance()->Close();
+                    it = sActive.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            ImGui::PopStyleVar(6);
+        }
+    } // namespace
+
     void Open(const std::string& key, const std::string& title, const char* filters,
               Callback on_pick, const std::string& start_dir) {
-        RefreshProjectPlaces();
-        IGFD::FileDialogConfig config;
-        config.path  = ResolveStartDir(start_dir);
-        config.flags = ImGuiFileDialogFlags_Modal;
-        ImGuiFileDialog::Instance()->OpenDialog(key, title, filters, config);
-        sActive[key] = std::move(on_pick);
+        OpenImpl(key, title, filters, std::move(on_pick), start_dir, /*modal_scoped*/ false);
     }
 
     void Save(const std::string& key, const std::string& title, const char* filters,
               const std::string& default_filename, Callback on_pick,
               const std::string& start_dir) {
-        RefreshProjectPlaces();
-        IGFD::FileDialogConfig config;
-        config.path     = ResolveStartDir(start_dir);
-        config.fileName = default_filename;
-        config.flags    = ImGuiFileDialogFlags_ConfirmOverwrite | ImGuiFileDialogFlags_Modal;
-        ImGuiFileDialog::Instance()->OpenDialog(key, title, filters, config);
-        sActive[key] = std::move(on_pick);
+        SaveImpl(key, title, filters, default_filename, std::move(on_pick), start_dir, /*modal_scoped*/ false);
     }
 
     void PickFolder(const std::string& key, const std::string& title, Callback on_pick,
                     const std::string& start_dir) {
-        RefreshProjectPlaces();
-        IGFD::FileDialogConfig config;
-        config.path  = ResolveStartDir(start_dir);
-        config.flags = ImGuiFileDialogFlags_Modal;
-        // nullptr filters puts ImGuiFileDialog into folder-pick mode.
-        ImGuiFileDialog::Instance()->OpenDialog(key, title, nullptr, config);
-        sActive[key] = std::move(on_pick);
+        PickFolderImpl(key, title, std::move(on_pick), start_dir, /*modal_scoped*/ false);
     }
 
-    void Render() {
-        if (sActive.empty())
-            return;
-
-        // Push rounding around Display() so the dialog's inner Begin/End picks it up.
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,    8.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding,     8.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,     6.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,     4.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 4.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding,      3.0f);
-
-        for (auto it = sActive.begin(); it != sActive.end(); ) {
-            const std::string& key = it->first;
-            if (ImGuiFileDialog::Instance()->Display(key, ImGuiWindowFlags_NoCollapse, kMinSize)) {
-                if (ImGuiFileDialog::Instance()->IsOk()) {
-                    std::string path = ImGuiFileDialog::Instance()->GetFilePathName();
-                    Callback cb = std::move(it->second);
-                    ImGuiFileDialog::Instance()->Close();
-                    it = sActive.erase(it);
-                    cb(path); // invoke after erase so a callback may safely re-open the same key
-                    continue;
-                }
-                ImGuiFileDialog::Instance()->Close();
-                it = sActive.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        ImGui::PopStyleVar(6);
+    void OpenInModal(const std::string& key, const std::string& title, const char* filters,
+                     Callback on_pick, const std::string& start_dir) {
+        OpenImpl(key, title, filters, std::move(on_pick), start_dir, /*modal_scoped*/ true);
     }
+
+    void SaveInModal(const std::string& key, const std::string& title, const char* filters,
+                     const std::string& default_filename, Callback on_pick,
+                     const std::string& start_dir) {
+        SaveImpl(key, title, filters, default_filename, std::move(on_pick), start_dir, /*modal_scoped*/ true);
+    }
+
+    void PickFolderInModal(const std::string& key, const std::string& title, Callback on_pick,
+                           const std::string& start_dir) {
+        PickFolderImpl(key, title, std::move(on_pick), start_dir, /*modal_scoped*/ true);
+    }
+
+    void Render()            { RenderFiltered(/*want_modal_scoped*/ false); }
+    void RenderModalScope()  { RenderFiltered(/*want_modal_scoped*/ true); }
 
     std::string MakeAssetRelative(const std::filesystem::path& absolute) {
         if (!Loom::Project::GetActive())
