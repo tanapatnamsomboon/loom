@@ -145,16 +145,19 @@ float SampleShadowCascade(sampler2D shadow_map, vec4 light_space_pos,
 
     float bias = max(0.002 * (1.0 - dot(N, L)), 0.0003);
 
+    // 5x5 PCF kernel = 25 samples per cascade. Edge transition spans 5 texels,
+    // visibly softer than the previous 3x3 (3-texel) gradient without crossing
+    // into "obviously blurry" territory.
     vec2  texel_size = 1.0 / vec2(textureSize(shadow_map, 0));
     float visibility = 0.0;
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
+    for (int x = -2; x <= 2; ++x) {
+        for (int y = -2; y <= 2; ++y) {
             vec2  offset       = vec2(x, y) * texel_size;
             float depth_in_map = texture(shadow_map, proj.xy + offset).r;
             visibility += (proj.z - bias) > depth_in_map ? 0.0 : 1.0;
         }
     }
-    return visibility / 9.0;
+    return visibility / 25.0;
 }
 
 // Picks the appropriate cascade based on view-space depth and PCF-samples it.

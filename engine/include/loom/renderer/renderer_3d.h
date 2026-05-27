@@ -15,9 +15,11 @@ namespace Loom {
     public:
         static constexpr int      kMaxDirectionalLights = 4;
         static constexpr int      kMaxPointLights       = 16;
-        // 2048 x 4 cascades x DEPTH32F = ~64 MB shadow VRAM.
-        static constexpr uint32_t kShadowMapSize        = 2048;
-        // Changing this requires editing mesh.frag — branches are hand-unrolled.
+        // 4096 x 4 cascades x DEPTH32F = ~256 MB shadow VRAM. Heavy, but
+        // the editor camera tends to roam far enough that the distant
+        // cascades show visible texel pixelation at 2048.
+        static constexpr uint32_t kShadowMapSize        = 4096;
+        // Changing this requires editing mesh.frag (branches are hand-unrolled).
         static constexpr int      kCascadeCount         = 4;
 
         struct DirectionalLight {
