@@ -5,7 +5,7 @@
 #include <loom/core/timestep.h>
 #include <loom/math/math.h>
 #include <loom/renderer/buffer.h>
-#include <loom/renderer/framebuffer.h>
+#include <loom/renderer/render_pipeline.h>
 #include <loom/renderer/shader.h>
 #include <loom/renderer/vertex_array.h>
 #include <loom/scene/components.h>
@@ -61,11 +61,9 @@ namespace Weaver {
         std::function<void(const std::filesystem::path&)> mSceneOpenCallback;
         std::function<void(const std::filesystem::path&)> mPrefabInstantiateCallback;
 
-        // Pipeline: HDR scene (RGBA16F + RED_INTEGER picking + DEPTH) → tonemap →
+        // HDR scene (RGBA16F + RED_INTEGER picking + DEPTH) → tonemap →
         // LDR (RGBA8) → FXAA → Final (RGBA8) shown by ImGui::Image.
-        std::shared_ptr<Loom::Framebuffer>  mFramebuffer;
-        std::shared_ptr<Loom::Framebuffer>  mLDRFramebuffer;
-        std::shared_ptr<Loom::Framebuffer>  mFinalFramebuffer;
+        Loom::RenderPipeline                mPipeline{ { /*IncludePickingAttachment*/ true } };
 
         std::shared_ptr<Loom::VertexArray>  mGridVAO;
         std::shared_ptr<Loom::VertexBuffer> mGridVBO;

@@ -23,24 +23,7 @@ namespace Weaver {
     // Construction
     // ────────────────────────────────────────────────────────────────────────
     ViewportPanel::ViewportPanel(EditorContext& ctx)
-        : mContext(ctx) {
-        Loom::FramebufferSpecification hdr_spec;
-        hdr_spec.Attachments = {
-            Loom::FramebufferTextureFormat::RGBA16F,
-            Loom::FramebufferTextureFormat::RED_INTEGER,
-            Loom::FramebufferTextureFormat::DEPTH24STENCIL8
-        };
-        hdr_spec.Width  = 1280;
-        hdr_spec.Height = 720;
-        mFramebuffer = Loom::Framebuffer::Create(hdr_spec);
-
-        Loom::FramebufferSpecification ldr_spec;
-        ldr_spec.Attachments = { Loom::FramebufferTextureFormat::RGBA8 };
-        ldr_spec.Width  = 1280;
-        ldr_spec.Height = 720;
-        mLDRFramebuffer   = Loom::Framebuffer::Create(ldr_spec);
-        mFinalFramebuffer = Loom::Framebuffer::Create(ldr_spec);
-    }
+        : mContext(ctx) {}
 
     void ViewportPanel::Init() {
         std::string grid_path = Loom::Project::GetEngineAssetFileSystemPath("shaders/grid").generic_string();
@@ -65,11 +48,7 @@ namespace Weaver {
 
     void ViewportPanel::BeginFrame() {
         HandleViewportResize();
-
-        mFramebuffer->Bind();
-        Loom::RenderCommand::SetClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        Loom::RenderCommand::Clear();
-        mFramebuffer->ClearAttachment(1, -1);
+        mPipeline.BeginScene();
     }
 
     void ViewportPanel::HandleViewportResize() {
@@ -87,15 +66,12 @@ namespace Weaver {
 
         mContext.ActiveScene->OnViewportResize((uint32_t)fb_w, (uint32_t)fb_h);
 
-        Loom::FramebufferSpecification spec = mFramebuffer->GetSpecification();
         if (fb_w > 0.0f && fb_h > 0.0f &&
-            (spec.Width != (uint32_t)fb_w || spec.Height != (uint32_t)fb_h)) {
-            mFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
-            mLDRFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
-            mFinalFramebuffer->Resize((uint32_t)fb_w, (uint32_t)fb_h);
+            (mPipeline.GetWidth() != (uint32_t)fb_w || mPipeline.GetHeight() != (uint32_t)fb_h)) {
+            mPipeline.Resize((uint32_t)fb_w, (uint32_t)fb_h);
             // Editor camera aspect uses the ratio only; passing physical sizes
             // is fine and keeps any internal pixel-based logic consistent with
-            // the FBOs above.
+            // the pipeline above.
             mContext.EditorCamera.SetViewportSize(fb_w, fb_h);
         }
     }
@@ -205,7 +181,7 @@ namespace Weaver {
         const int    mouse_y = (int)(my * dpi.y);
 
         if (mouse_x >= 0 && mouse_y >= 0 && mouse_x < (int)fb_w && mouse_y < (int)fb_h) {
-            int pixel = mFramebuffer->ReadPixel(1, mouse_x, mouse_y);
+            int pixel = mPipeline.ReadPickingPixel(mouse_x, mouse_y);
             mContext.HoveredEntity = (pixel == -1)
                 ? Loom::Entity()
                 : Loom::Entity((entt::entity)pixel, mContext.ActiveScene.get());
@@ -215,27 +191,7 @@ namespace Weaver {
     }
 
     void ViewportPanel::EndFrame() {
-        mFramebuffer->Unbind();
-
-        const auto& spec = mFramebuffer->GetSpecification();
-        Loom::Renderer3D::BloomPass(mFramebuffer->GetColorAttachmentRendererID(0),
-                                    spec.Width, spec.Height);
-
-        mLDRFramebuffer->Bind();
-        Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        Loom::RenderCommand::Clear();
-        Loom::Renderer3D::Tonemap(mFramebuffer->GetColorAttachmentRendererID(0));
-        mLDRFramebuffer->Unbind();
-
-        if (Loom::Renderer3D::IsFXAAEnabled()) {
-            mFinalFramebuffer->Bind();
-            Loom::RenderCommand::SetClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-            Loom::RenderCommand::Clear();
-            const auto& final_spec = mFinalFramebuffer->GetSpecification();
-            Loom::Renderer3D::FXAAPass(mLDRFramebuffer->GetColorAttachmentRendererID(0),
-                                       final_spec.Width, final_spec.Height);
-            mFinalFramebuffer->Unbind();
-        }
+        mPipeline.EndScene();
     }
 
     void ViewportPanel::OnImGuiRender() {
@@ -266,9 +222,7 @@ namespace Weaver {
         UpdateViewportBounds();
         UpdateViewportSize();
 
-        uint32_t tex_id = Loom::Renderer3D::IsFXAAEnabled()
-            ? mFinalFramebuffer->GetColorAttachmentRendererID(0)
-            : mLDRFramebuffer->GetColorAttachmentRendererID(0);
+        uint32_t tex_id = mPipeline.GetFinalColorTextureID();
 
         ImVec2 image_pos = ImVec2{ mContext.ViewportBounds[0].x + mGameViewOffset.x,
                                    mContext.ViewportBounds[0].y + mGameViewOffset.y };

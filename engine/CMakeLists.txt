@@ -25,6 +25,7 @@ set(ENGINE_SOURCES
   src/renderer/mesh_asset.cpp
   src/renderer/render_command.cpp
   src/renderer/orthographic_camera.cpp
+  src/renderer/render_pipeline.cpp
   src/renderer/renderer_2d.cpp
   src/renderer/renderer_3d.cpp
   src/renderer/renderer_api.cpp
