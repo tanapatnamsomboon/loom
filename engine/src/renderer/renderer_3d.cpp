@@ -655,9 +655,12 @@ namespace Loom {
         glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
-    void Renderer3D::SetBloomEnabled(bool enabled)     { sData.BloomEnabled   = enabled; }
-    void Renderer3D::SetBloomThreshold(float v)        { sData.BloomThreshold = v; }
-    void Renderer3D::SetBloomIntensity(float v)        { sData.BloomIntensity = v; }
+    void  Renderer3D::SetBloomEnabled(bool enabled)     { sData.BloomEnabled   = enabled; }
+    bool  Renderer3D::IsBloomEnabled()                  { return sData.BloomEnabled; }
+    void  Renderer3D::SetBloomThreshold(float v)        { sData.BloomThreshold = v; }
+    float Renderer3D::GetBloomThreshold()               { return sData.BloomThreshold; }
+    void  Renderer3D::SetBloomIntensity(float v)        { sData.BloomIntensity = v; }
+    float Renderer3D::GetBloomIntensity()               { return sData.BloomIntensity; }
 
     void Renderer3D::FXAAPass(uint32_t source_color_texture, uint32_t width, uint32_t height) {
         sData.FXAAShader->Bind();

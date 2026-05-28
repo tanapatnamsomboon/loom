@@ -147,6 +147,21 @@ namespace Weaver {
                 Loom::Renderer3D::SetFXAAEnabled(fxaa);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Fast Approximate Anti-Aliasing.\nLeave on for 3D scenes; turn off for pixel-art 2D scenes\n(FXAA destabilizes on perfectly-aligned pixel grids).");
+
+            bool bloom = Loom::Renderer3D::IsBloomEnabled();
+            if (ImGui::Checkbox("Bloom", &bloom))
+                Loom::Renderer3D::SetBloomEnabled(bloom);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("HDR bloom (Jimenez 2014 dual-filter).\nOnly HDR pixels above the threshold contribute.");
+
+            if (bloom) {
+                float threshold = Loom::Renderer3D::GetBloomThreshold();
+                if (ImGui::DragFloat("Threshold", &threshold, 0.05f, 0.0f, 20.0f, "%.2f"))
+                    Loom::Renderer3D::SetBloomThreshold(threshold);
+                float intensity = Loom::Renderer3D::GetBloomIntensity();
+                if (ImGui::DragFloat("Intensity", &intensity, 0.005f, 0.0f, 1.0f, "%.3f"))
+                    Loom::Renderer3D::SetBloomIntensity(intensity);
+            }
         }
 
         ImGui::Spacing();

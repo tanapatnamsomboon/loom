@@ -69,9 +69,12 @@ namespace Loom {
         // the next Tonemap() call. Lazy-resizes the mip chain when size changes.
         static void BloomPass(uint32_t hdr_color_texture_id,
                               uint32_t scene_width, uint32_t scene_height);
-        static void SetBloomEnabled(bool enabled);
-        static void SetBloomThreshold(float threshold);
-        static void SetBloomIntensity(float intensity);
+        static void  SetBloomEnabled(bool enabled);
+        static bool  IsBloomEnabled();
+        static void  SetBloomThreshold(float threshold);
+        static float GetBloomThreshold();
+        static void  SetBloomIntensity(float intensity);
+        static float GetBloomIntensity();
 
         // FXAA on the tonemapped sRGB source (must run AFTER tonemap —
         // luma thresholds are tuned for display space).

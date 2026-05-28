@@ -128,9 +128,12 @@ vec3 EvaluatePBRLight(vec3 N, vec3 V, vec3 L, vec3 radiance,
 
 // PCF-sampled shadow visibility from one cascade. Returns 1.0 (lit) when the
 // fragment falls outside the cascade's frustum so the caller can fall through
-// to the next cascade.
+// to the next cascade. bias_scale compensates for the cascade's world-units-
+// per-texel growth (cascade 0 = 1, cascade 1 = 2, etc.); without it, far
+// cascades produce visibly different shadow brightness at boundaries.
 float SampleShadowCascade(sampler2D shadow_map, vec4 light_space_pos,
-                          vec3 N, vec3 L, out bool inside_frustum) {
+                          vec3 N, vec3 L, float bias_scale,
+                          out bool inside_frustum) {
     vec3 proj = light_space_pos.xyz / light_space_pos.w;
     proj = proj * 0.5 + 0.5;
     inside_frustum = (proj.x >= 0.0 && proj.x <= 1.0 &&
@@ -138,7 +141,7 @@ float SampleShadowCascade(sampler2D shadow_map, vec4 light_space_pos,
                       proj.z >= 0.0 && proj.z <= 1.0);
     if (!inside_frustum) return 1.0;
 
-    float bias = max(0.002 * (1.0 - dot(N, L)), 0.0003);
+    float bias = max(0.002 * (1.0 - dot(N, L)), 0.0003) * bias_scale;
 
     // 5x5 PCF kernel = 25 samples per cascade. Edge transition spans 5 texels,
     // visibly softer than the previous 3x3 (3-texel) gradient without crossing
@@ -158,6 +161,15 @@ float SampleShadowCascade(sampler2D shadow_map, vec4 light_space_pos,
 // Picks the appropriate cascade based on view-space depth and PCF-samples it.
 // GLSL forbids dynamic indexing of sampler arrays, hence the hand-unrolled
 // branches (CASCADE_COUNT matched against Renderer3D::kCascadeCount).
+//
+// Cascade-boundary blending: in the outer kBlendFrac of each cascade we also
+// sample the next cascade and lerp by blend alpha. This hides the otherwise-
+// visible "shooting-target" rings centered on the camera that result from
+// the texel-size + bias step at each cascade boundary. Cost: one extra cascade
+// fetch (25 more PCF taps) per fragment, but only inside the thin boundary
+// band — most fragments take the cheap single-cascade path.
+const float kBlendFrac = 0.15;
+
 float SampleShadow(vec3 N, vec3 L) {
     if (uShadowsEnabled == 0) return 1.0;
 
@@ -166,24 +178,57 @@ float SampleShadow(vec3 N, vec3 L) {
     // distance from camera is a fine proxy for cascade pick.
     float view_depth = distance(vWorldPos, uViewPos);
 
-    bool  inside;
-    float v;
+    bool  inside_a, inside_b;
+    float v_a, v_b;
 
     if (view_depth < uCascadeSplits[0]) {
-        v = SampleShadowCascade(uShadowMap0, vLightSpacePos0, N, L, inside);
-        if (inside) return v;
+        v_a = SampleShadowCascade(uShadowMap0, vLightSpacePos0, N, L, 1.0, inside_a);
+        if (!inside_a) v_a = 1.0;
+
+        float blend_zone = uCascadeSplits[0] * kBlendFrac;
+        float blend = clamp((view_depth - (uCascadeSplits[0] - blend_zone)) / blend_zone, 0.0, 1.0);
+        if (blend > 0.0) {
+            v_b = SampleShadowCascade(uShadowMap1, vLightSpacePos1, N, L, 2.0, inside_b);
+            if (!inside_b) v_b = 1.0;
+            v_a = mix(v_a, v_b, blend);
+        }
+        return v_a;
     }
     if (view_depth < uCascadeSplits[1]) {
-        v = SampleShadowCascade(uShadowMap1, vLightSpacePos1, N, L, inside);
-        if (inside) return v;
+        v_a = SampleShadowCascade(uShadowMap1, vLightSpacePos1, N, L, 2.0, inside_a);
+        if (!inside_a) v_a = 1.0;
+
+        float blend_zone = (uCascadeSplits[1] - uCascadeSplits[0]) * kBlendFrac;
+        float blend = clamp((view_depth - (uCascadeSplits[1] - blend_zone)) / blend_zone, 0.0, 1.0);
+        if (blend > 0.0) {
+            v_b = SampleShadowCascade(uShadowMap2, vLightSpacePos2, N, L, 4.0, inside_b);
+            if (!inside_b) v_b = 1.0;
+            v_a = mix(v_a, v_b, blend);
+        }
+        return v_a;
     }
     if (view_depth < uCascadeSplits[2]) {
-        v = SampleShadowCascade(uShadowMap2, vLightSpacePos2, N, L, inside);
-        if (inside) return v;
+        v_a = SampleShadowCascade(uShadowMap2, vLightSpacePos2, N, L, 4.0, inside_a);
+        if (!inside_a) v_a = 1.0;
+
+        float blend_zone = (uCascadeSplits[2] - uCascadeSplits[1]) * kBlendFrac;
+        float blend = clamp((view_depth - (uCascadeSplits[2] - blend_zone)) / blend_zone, 0.0, 1.0);
+        if (blend > 0.0) {
+            v_b = SampleShadowCascade(uShadowMap3, vLightSpacePos3, N, L, 8.0, inside_b);
+            if (!inside_b) v_b = 1.0;
+            v_a = mix(v_a, v_b, blend);
+        }
+        return v_a;
     }
     if (view_depth < uCascadeSplits[3]) {
-        v = SampleShadowCascade(uShadowMap3, vLightSpacePos3, N, L, inside);
-        if (inside) return v;
+        // Last cascade: blend toward the "fully lit" fallback so geometry past
+        // kShadowMaxDistance doesn't pop from shadowed to bright in one pixel.
+        v_a = SampleShadowCascade(uShadowMap3, vLightSpacePos3, N, L, 8.0, inside_a);
+        if (!inside_a) v_a = 1.0;
+
+        float blend_zone = (uCascadeSplits[3] - uCascadeSplits[2]) * kBlendFrac;
+        float blend = clamp((view_depth - (uCascadeSplits[3] - blend_zone)) / blend_zone, 0.0, 1.0);
+        return mix(v_a, 1.0, blend);
     }
     return 1.0; // beyond the last cascade -> fully lit
 }
